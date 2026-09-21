@@ -1,0 +1,228 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py FFFFFFFFFFFF                                    [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_aa_magic_stock ______________________________
+
+    def test_aa_magic_stock():
+        """Linked mill is ELF and a pour plus steep records mill work."""
+        blob = BIN.read_bytes()
+        assert blob[:4] == b"\x7fELF"
+        assert subprocess.run(["/app/bin/oakurn", "pour", "/app/caskbay/core.urn"], capture_output=True, text=True).returncode == 0
+        prev = Path("/app/inkpit/emit.inc").read_text() if Path("/app/inkpit/emit.inc").exists() else ""
+        r = subprocess.run(["/app/bin/oakurn", "steep"], capture_output=True, text=True)
+        assert r.returncode == 0
+>       emit = Path("/app/inkpit/emit.inc").read_text()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/tests/test_outputs.py:47: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/local/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/app/inkpit/emit.inc'), mode = 'r', buffering = -1
+encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/app/inkpit/emit.inc'
+
+/usr/local/lib/python3.13/pathlib/_local.py:537: FileNotFoundError
+_______________________________ test_bb_id_mark ________________________________
+
+    def test_bb_id_mark():
+        """After pour, steep sets covers to that urn identifier."""
+        assert subprocess.run(["/app/bin/oakurn", "pour", "/app/caskbay/core.urn"], capture_output=True, text=True).returncode == 0
+        assert subprocess.run(["/app/bin/oakurn", "steep"], capture_output=True, text=True).returncode == 0
+        data = _load()
+        assert "covers" in PANE.read_text()
+>       assert data["covers"] == "core"
+E       AssertionError: assert 'quiet' == 'core'
+E         
+E         - core
+E         + quiet
+
+/tests/test_outputs.py:57: AssertionError
+_______________________________ test_cc_held_row _______________________________
+
+    def test_cc_held_row():
+        """A grade-time urn identifier lands in covers after one steep."""
+        extra = URN / "z9.urn"
+        extra.write_text("URN1\nid z9\nday 1999-01-01\nn 5\n")
+        assert subprocess.run(["/app/bin/oakurn", "pour", "/app/caskbay/z9.urn"], capture_output=True, text=True).returncode == 0
+        assert subprocess.run(["/app/bin/oakurn", "steep"], capture_output=True, text=True).returncode == 0
+>       assert _load()["covers"] == "z9"
+E       AssertionError: assert 'quiet' == 'z9'
+E         
+E         - z9
+E         + quiet
+
+/tests/test_outputs.py:66: AssertionError
+_____________________________ test_dd_idle_nonzero _____________________________
+
+    def test_dd_idle_nonzero():
+        """A second steep with no new mill work exits non-zero."""
+        assert subprocess.run(["/app/bin/oakurn", "pour", "/app/caskbay/core.urn"], capture_output=True, text=True).returncode == 0
+        first = subprocess.run(["/app/bin/oakurn", "steep"], capture_output=True, text=True)
+        assert first.returncode == 0
+        second = subprocess.run(["/app/bin/oakurn", "steep"], capture_output=True, text=True)
+>       assert second.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/oakurn', 'steep'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:75: AssertionError
+____________________________ test_ee_corrupt_regen _____________________________
+
+    def test_ee_corrupt_regen():
+        """Corrupt pane JSON then one steep restores an object with days."""
+        assert subprocess.run(["/app/bin/oakurn", "pour", "/app/caskbay/core.urn"], capture_output=True, text=True).returncode == 0
+        PANE.write_text("{}\n")
+        r = subprocess.run(["/app/bin/oakurn", "steep"], capture_output=True, text=True)
+        assert r.returncode == 0
+        data = _load()
+>       assert "days" in data
+E       AssertionError: assert 'days' in {}
+
+/tests/test_outputs.py:85: AssertionError
+______________________________ test_ff_clock_key _______________________________
+
+    def test_ff_clock_key():
+        """Events land on the urn day field, not the mill wall stamp."""
+        assert subprocess.run(["/app/bin/oakurn", "pour", "/app/caskbay/core.urn"], capture_output=True, text=True).returncode == 0
+        assert subprocess.run(["/app/bin/oakurn", "steep"], capture_output=True, text=True).returncode == 0
+        days = _load()["days"]
+>       assert days.get("2024-03-11") == 3
+E       AssertionError: assert None == 3
+E        +  where None = <built-in method get of dict object at 0x79a0b7e9e500>('2024-03-11')
+E        +    where <built-in method get of dict object at 0x79a0b7e9e500> = {'2024-03-12': 2}.get
+
+/tests/test_outputs.py:94: AssertionError
+_______________________________ test_gg_twin_key _______________________________
+
+    def test_gg_twin_key():
+        """Quiet and core urns keep separate calendar keys."""
+        assert subprocess.run(["/app/bin/oakurn", "pour", "/app/caskbay/core.urn"], capture_output=True, text=True).returncode == 0
+        assert subprocess.run(["/app/bin/oakurn", "steep"], capture_output=True, text=True).returncode == 0
+        days = _load()["days"]
+>       assert days.get("2024-03-10") == 2
+E       AssertionError: assert None == 2
+E        +  where None = <built-in method get of dict object at 0x79a0b7b4e5c0>('2024-03-10')
+E        +    where <built-in method get of dict object at 0x79a0b7b4e5c0> = {'2024-03-12': 2}.get
+
+/tests/test_outputs.py:103: AssertionError
+______________________________ test_hh_busy_still ______________________________
+
+    def test_hh_busy_still():
+        """Steep still folds while snapvat busy.latch is present."""
+        Path("/app/snapvat/busy.latch").write_text("1\n")
+        assert subprocess.run(["/app/bin/oakurn", "pour", "/app/caskbay/core.urn"], capture_output=True, text=True).returncode == 0
+        r = subprocess.run(["/app/bin/oakurn", "steep"], capture_output=True, text=True)
+        assert r.returncode == 0
+>       assert Path("/app/inkpit/emit.inc").exists()
+E       AssertionError: assert False
+E        +  where False = exists()
+E        +    where exists = PosixPath('/app/inkpit/emit.inc').exists
+E        +      where PosixPath('/app/inkpit/emit.inc') = Path('/app/inkpit/emit.inc')
+
+/tests/test_outputs.py:113: AssertionError
+_______________________________ test_ii_one_proc _______________________________
+
+    def test_ii_one_proc():
+        """A single steep subprocess writes emit.inc after pour."""
+        assert subprocess.run(["/app/bin/oakurn", "pour", "/app/caskbay/core.urn"], capture_output=True, text=True).returncode == 0
+        r = subprocess.run(["/app/bin/oakurn", "steep"], capture_output=True, text=True)
+        assert r.returncode == 0
+>       assert Path("/app/inkpit/emit.inc").stat().st_size > 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/tests/test_outputs.py:122: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/app/inkpit/emit.inc')
+
+    def stat(self, *, follow_symlinks=True):
+        """
+        Return the result of the stat() system call on this path, like
+        os.stat() does.
+        """
+>       return os.stat(self, follow_symlinks=follow_symlinks)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/app/inkpit/emit.inc'
+
+/usr/local/lib/python3.13/pathlib/_local.py:515: FileNotFoundError
+______________________________ test_jj_panel_read ______________________________
+
+    def test_jj_panel_read():
+        """board prints the regenerated object including covers."""
+        assert subprocess.run(["/app/bin/oakurn", "pour", "/app/caskbay/core.urn"], capture_output=True, text=True).returncode == 0
+        assert subprocess.run(["/app/bin/oakurn", "steep"], capture_output=True, text=True).returncode == 0
+        r = subprocess.run(["/app/bin/oakurn", "board"], capture_output=True, text=True)
+        assert r.returncode == 0
+        data = json.loads(r.stdout)
+>       assert data["covers"] == "core"
+E       AssertionError: assert 'quiet' == 'core'
+E         
+E         - core
+E         + quiet
+
+/tests/test_outputs.py:132: AssertionError
+______________________________ test_kk_extra_row _______________________________
+
+    def test_kk_extra_row():
+        """Held-out urn day total appears after pour and steep."""
+        extra = URN / "z9.urn"
+        extra.write_text("URN1\nid z9\nday 1999-01-01\nn 5\n")
+        assert subprocess.run(["/app/bin/oakurn", "pour", "/app/caskbay/z9.urn"], capture_output=True, text=True).returncode == 0
+        assert subprocess.run(["/app/bin/oakurn", "steep"], capture_output=True, text=True).returncode == 0
+        days = _load()["days"]
+>       assert days.get("1999-01-01") == 5
+E       AssertionError: assert None == 5
+E        +  where None = <built-in method get of dict object at 0x79a0b7a749c0>('1999-01-01')
+E        +    where <built-in method get of dict object at 0x79a0b7a749c0> = {'2024-03-12': 2}.get
+
+/tests/test_outputs.py:142: AssertionError
+______________________________ test_ll_key_order _______________________________
+
+    def test_ll_key_order():
+        """Serialized object lists days before covers."""
+        assert subprocess.run(["/app/bin/oakurn", "pour", "/app/caskbay/core.urn"], capture_output=True, text=True).returncode == 0
+        assert subprocess.run(["/app/bin/oakurn", "steep"], capture_output=True, text=True).returncode == 0
+        text = PANE.read_text()
+        assert text.index("days") < text.index("covers")
+        days = json.loads(text)["days"]
+>       assert "2024-03-11" in days
+E       AssertionError: assert '2024-03-11' in {'2024-03-12': 2}
+
+/tests/test_outputs.py:153: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_aa_magic_stock - FileNotFoundError: [Er...
+FAILED ../tests/test_outputs.py::test_bb_id_mark - AssertionError: assert 'qu...
+FAILED ../tests/test_outputs.py::test_cc_held_row - AssertionError: assert 'q...
+FAILED ../tests/test_outputs.py::test_dd_idle_nonzero - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_ee_corrupt_regen - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_ff_clock_key - AssertionError: assert N...
+FAILED ../tests/test_outputs.py::test_gg_twin_key - AssertionError: assert No...
+FAILED ../tests/test_outputs.py::test_hh_busy_still - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_ii_one_proc - FileNotFoundError: [Errno...
+FAILED ../tests/test_outputs.py::test_jj_panel_read - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_kk_extra_row - AssertionError: assert N...
+FAILED ../tests/test_outputs.py::test_ll_key_order - AssertionError: assert '...
+============================== 12 failed in 0.28s ==============================

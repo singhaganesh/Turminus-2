@@ -1,0 +1,122 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 7 items
+
+../tests/test_outputs.py FFFFF.F                                         [100%]
+
+=================================== FAILURES ===================================
+_______________________ test_klg01_procance_live_release _______________________
+
+    def test_klg01_procance_live_release():
+        """procance.tag must be live: plus the running.release value after imprint."""
+        tag = PROCANCE.read_text().strip()
+>       assert tag == f"live:{_release()}"
+E       AssertionError: assert 'bundle:6.8.12' == 'live:6.8.12'
+E         
+E         - live:6.8.12
+E         ?  --
+E         + bundle:6.8.12
+E         ? ++++
+
+/tests/test_outputs.py:34: AssertionError
+__________________________ test_klg02_lane_a_contract __________________________
+
+    def test_klg02_lane_a_contract():
+        """lane_a inspect JSON must equal lane_a.ref."""
+>       assert _inspect(LANES / "lane_a.mem") == _card("lane_a")
+E       AssertionError: assert {'pid': 4421,...weight': 1024} == {'migration_f..._entity', ...}
+E         
+E         Omitting 3 identical items, use -vv to show
+E         Differing items:
+E         {'slice_ns': 107374182400000007} != {'slice_ns': 25000000}
+E         Right contains 1 more item:
+E         {'migration_flags': 7}
+E         Use -v to get more diff
+
+/tests/test_outputs.py:39: AssertionError
+__________________________ test_klg03_lane_b_contract __________________________
+
+    def test_klg03_lane_b_contract():
+        """Held-out lane_b capture must match its reference card."""
+>       assert _inspect(LANE_B) == _card("lane_b")
+E       AssertionError: assert {'pid': 9901,...'weight': 512} == {'migration_f..._entity', ...}
+E         
+E         Omitting 3 identical items, use -vv to show
+E         Differing items:
+E         {'slice_ns': 80530636800000002} != {'slice_ns': 18750000}
+E         Right contains 1 more item:
+E         {'migration_flags': 2}
+E         Use -v to get more diff
+
+/tests/test_outputs.py:44: AssertionError
+______________________ test_klg04_layout_migration_field _______________________
+
+    def test_klg04_layout_migration_field():
+        """layout.tbl must include migration_flags between weight and slice_ns."""
+        body = LAYOUT.read_text()
+>       assert "FIELD migration_flags u32 8 4" in body
+E       AssertionError: assert 'FIELD migration_flags u32 8 4' in 'STRUCT sched_entity\nFIELD pid u32 0 4\nFIELD weight u32 4 4\nFIELD slice_ns u64 8 8\n'
+
+/tests/test_outputs.py:50: AssertionError
+________________________ test_klg05_sealhouse_guard_ok _________________________
+
+    def test_klg05_sealhouse_guard_ok():
+        """Successful imprint must leave offline_guard.ok enforced."""
+        stamp = Path("/app/kernscribe/imprint_out/offline_guard.ok")
+>       assert stamp.read_text().strip() == "1"
+               ^^^^^^^^^^^^^^^^^
+
+/tests/test_outputs.py:57: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/local/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/app/kernscribe/imprint_out/offline_guard.ok'), mode = 'r'
+buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/app/kernscribe/imprint_out/offline_guard.ok'
+
+/usr/local/lib/python3.13/pathlib/_local.py:537: FileNotFoundError
+__________________________ test_klg07_lanevault_loop ___________________________
+
+    def test_klg07_lanevault_loop():
+        """Every lanevault capture must match its sibling reference card."""
+        for capture in sorted(LANES.glob("*.mem")):
+>           assert _inspect(capture) == _card(capture.stem)
+E           AssertionError: assert {'pid': 4421,...weight': 1024} == {'migration_f..._entity', ...}
+E             
+E             Omitting 3 identical items, use -vv to show
+E             Differing items:
+E             {'slice_ns': 107374182400000007} != {'slice_ns': 25000000}
+E             Right contains 1 more item:
+E             {'migration_flags': 7}
+E             Use -v to get more diff
+
+/tests/test_outputs.py:68: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_klg06_elf_binary
+FAILED ../tests/test_outputs.py::test_klg01_procance_live_release - Assertion...
+FAILED ../tests/test_outputs.py::test_klg02_lane_a_contract - AssertionError:...
+FAILED ../tests/test_outputs.py::test_klg03_lane_b_contract - AssertionError:...
+FAILED ../tests/test_outputs.py::test_klg04_layout_migration_field - Assertio...
+FAILED ../tests/test_outputs.py::test_klg05_sealhouse_guard_ok - FileNotFound...
+FAILED ../tests/test_outputs.py::test_klg07_lanevault_loop - AssertionError: ...
+========================= 6 failed, 1 passed in 0.14s ==========================

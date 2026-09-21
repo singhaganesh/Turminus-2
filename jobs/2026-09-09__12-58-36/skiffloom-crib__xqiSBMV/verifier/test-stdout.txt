@@ -1,0 +1,195 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py FFFFFFFFF..F                                    [100%]
+
+=================================== FAILURES ===================================
+________________________________ test_sk01_hdr _________________________________
+
+    def test_sk01_hdr():
+        """Linked mill is ELF and two eve culls match."""
+        blob = BIN.read_bytes()
+        assert blob[:4] == b"\x7fELF"
+        a = Path("/tmp/sk_a")
+        b = Path("/tmp/sk_b")
+        shutil.rmtree(a, ignore_errors=True)
+        shutil.rmtree(b, ignore_errors=True)
+        ra = _cull(BIN, EVE, a)
+        rb = _cull(BIN, EVE, b)
+        assert ra.returncode == 0
+        assert rb.returncode == 0
+        assert (a / "slate.json").read_bytes() == (b / "slate.json").read_bytes()
+        assert (a / "slate.bin").read_bytes() == (b / "slate.bin").read_bytes()
+        pool, names, spent = _expected(EVE)
+        doc = _read_json(a)
+>       assert doc["pool"] == pool
+E       AssertionError: assert ['q_ij', 'q_c..., 'q_mn', ...] == ['q_ij', 'q_a..., 'q_mn', ...]
+E         
+E         At index 1 diff: 'q_cd' != 'q_ab'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:137: AssertionError
+________________________________ test_sk02_peer ________________________________
+
+    def test_sk02_peer():
+        """Second eve dest keeps the same ranked pool as forms.txt."""
+        dest = Path("/tmp/sk_peer")
+        shutil.rmtree(dest, ignore_errors=True)
+        r = _cull(BIN, EVE, dest)
+        assert r.returncode == 0
+        pool, _names, _spent = _expected(EVE)
+>       assert _read_json(dest)["pool"] == pool
+E       AssertionError: assert ['q_ij', 'q_c..., 'q_mn', ...] == ['q_ij', 'q_a..., 'q_mn', ...]
+E         
+E         At index 1 diff: 'q_cd' != 'q_ab'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:149: AssertionError
+________________________________ test_sk03_bag _________________________________
+
+    def test_sk03_bag():
+        """morn pool keeps the rib-only sheet that also covers the change."""
+        dest = WELL / "mornbox"
+        r = _cull(BIN, MORN, dest)
+        assert r.returncode == 0
+        doc = _read_json(dest)
+>       assert set(doc["pool"]) == set(_expected(MORN)[0])
+E       AssertionError: assert {'q_op'} == {'q_op', 'q_qr', 'q_st'}
+E         
+E         Extra items in the right set:
+E         'q_qr'
+E         'q_st'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:158: AssertionError
+________________________________ test_sk04_cut _________________________________
+
+    def test_sk04_cut():
+        """eve names fill the duration budget and stop before the next tick."""
+        dest = WELL
+        r = _cull(BIN, EVE, dest)
+        assert r.returncode == 0
+        _pool, names, spent = _expected(EVE)
+        doc = _read_json(dest)
+>       assert len(doc["names"]) == len(names)
+E       AssertionError: assert 4 == 3
+E        +  where 4 = len(['q_ij', 'q_cd', 'q_ab', 'q_ef'])
+E        +  and   3 = len(['q_ij', 'q_ab', 'q_cd'])
+
+/tests/test_outputs.py:168: AssertionError
+________________________________ test_sk05_dusk ________________________________
+
+    def test_sk05_dusk():
+        """morn pool keeps the keel-overlapping sheet."""
+        dest = WELL / "mornbox"
+        r = _cull(BIN, MORN, dest)
+        assert r.returncode == 0
+>       assert set(_read_json(dest)["pool"]) == set(_expected(MORN)[0])
+E       AssertionError: assert {'q_op'} == {'q_op', 'q_qr', 'q_st'}
+E         
+E         Extra items in the right set:
+E         'q_qr'
+E         'q_st'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:177: AssertionError
+________________________________ test_sk06_tail ________________________________
+
+    def test_sk06_tail():
+        """Held-out unique-weight card clips by duration not by a count cap."""
+        card = Path("/tmp/sk_tail.chg")
+        card.write_text(
+            "BUDGET 90\nORIGIN live\nFILE rib.c\nLINES 1 2 3 4 5 6 7 8 9\nEND\n"
+        )
+        dest = Path("/tmp/sk_tail")
+        shutil.rmtree(dest, ignore_errors=True)
+        r = _cull(BIN, card, dest)
+        assert r.returncode == 0
+        _pool, names, spent = _expected(card)
+        doc = _read_json(dest)
+>       assert len(doc["names"]) == len(names)
+E       AssertionError: assert 4 == 2
+E        +  where 4 = len(['q_ij', 'q_cd', 'q_ab', 'q_ef'])
+E        +  and   2 = len(['q_ij', 'q_ab'])
+
+/tests/test_outputs.py:192: AssertionError
+________________________________ test_sk07_seal ________________________________
+
+    def test_sk07_seal():
+        """Corrupt slates then cull eve regenerates spent_ms."""
+        dest = WELL
+        (dest / "slate.json").write_text("{}")
+        (dest / "slate.bin").write_bytes(b"xxxx")
+        r = _cull(BIN, EVE, dest)
+        assert r.returncode == 0
+        _pool, _names, spent = _expected(EVE)
+>       assert _read_json(dest)["spent_ms"] == spent
+E       assert 160 == 120
+
+/tests/test_outputs.py:204: AssertionError
+________________________________ test_sk08_rest ________________________________
+
+    def test_sk08_rest():
+        """Passing eve cull writes cull.ok and a matching binary spent trailer."""
+        dest = WELL
+        r = _cull(BIN, EVE, dest)
+        assert r.returncode == 0
+        assert OK.is_file()
+        blob = (dest / "slate.bin").read_bytes()
+        spent = struct.unpack(">I", blob[-4:])[0]
+        assert spent == _read_json(dest)["spent_ms"]
+>       assert spent == _expected(EVE)[2]
+E       assert 160 == 120
+
+/tests/test_outputs.py:218: AssertionError
+________________________________ test_sk09_hold ________________________________
+
+    def test_sk09_hold():
+        """Held-out two-file card keeps both covering sheets in pool."""
+        card = Path("/tmp/sk_hold.chg")
+        card.write_text(
+            "BUDGET 80\nORIGIN live\nFILE rib.c\nLINES 12\nFILE keel.c\nLINES 10 11\nEND\n"
+        )
+        dest = Path("/tmp/sk_hold")
+        shutil.rmtree(dest, ignore_errors=True)
+        r = _cull(BIN, card, dest)
+        assert r.returncode == 0
+        doc = _read_json(dest)
+>       assert set(doc["pool"]) == set(_expected(card)[0])
+E       AssertionError: assert {'q_op'} == {'q_op', 'q_st'}
+E         
+E         Extra items in the right set:
+E         'q_st'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:232: AssertionError
+________________________________ test_sk12_lab _________________________________
+
+    def test_sk12_lab():
+        """voided origin exits non-zero and leaves cull.ok missing."""
+        if OK.exists():
+            OK.unlink()
+        r = _cull(BIN, VOID, WELL)
+>       assert r.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/skiffloom', 'cull', '/app/deltabay/void.chg', '/app/slatewell'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:264: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_sk10_note
+PASSED ../tests/test_outputs.py::test_sk11_ref
+FAILED ../tests/test_outputs.py::test_sk01_hdr - AssertionError: assert ['q_i...
+FAILED ../tests/test_outputs.py::test_sk02_peer - AssertionError: assert ['q_...
+FAILED ../tests/test_outputs.py::test_sk03_bag - AssertionError: assert {'q_o...
+FAILED ../tests/test_outputs.py::test_sk04_cut - AssertionError: assert 4 == 3
+FAILED ../tests/test_outputs.py::test_sk05_dusk - AssertionError: assert {'q_...
+FAILED ../tests/test_outputs.py::test_sk06_tail - AssertionError: assert 4 == 2
+FAILED ../tests/test_outputs.py::test_sk07_seal - assert 160 == 120
+FAILED ../tests/test_outputs.py::test_sk08_rest - assert 160 == 120
+FAILED ../tests/test_outputs.py::test_sk09_hold - AssertionError: assert {'q_...
+FAILED ../tests/test_outputs.py::test_sk12_lab - AssertionError: assert 0 != 0
+========================= 10 failed, 2 passed in 0.56s =========================

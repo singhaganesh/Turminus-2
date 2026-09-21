@@ -1,0 +1,126 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 6 items
+
+../tests/test_outputs.py FFFFFF                                          [100%]
+
+=================================== FAILURES ===================================
+_______________________ test_live_origin_matches_release _______________________
+
+    def test_live_origin_matches_release():
+        """origin.tag must be live: plus the running.release value after generation."""
+        tag = GEN_TAG.read_text().strip()
+>       assert tag == f"live:{_release()}"
+E       AssertionError: assert 'bundle:6.8.12' == 'live:6.8.12'
+E         
+E         - live:6.8.12
+E         ?  --
+E         + bundle:6.8.12
+E         ? ++++
+
+/tests/test_outputs.py:33: AssertionError
+___________________ test_lane_a_fields_match_reference_card ____________________
+
+    def test_lane_a_fields_match_reference_card():
+        """lane_a probe JSON must equal lane_a.ref on migration_flags and slice_ns."""
+        got = _probe(SAMPLES / "lane_a.mem")
+        want = _card("lane_a")
+>       assert got == want
+E       AssertionError: assert {'pid': 4421,...weight': 1024} == {'migration_f..._entity', ...}
+E         
+E         Omitting 3 identical items, use -vv to show
+E         Differing items:
+E         {'slice_ns': 107374182400000007} != {'slice_ns': 25000000}
+E         Right contains 1 more item:
+E         {'migration_flags': 7}
+E         Use -v to get more diff
+
+/tests/test_outputs.py:40: AssertionError
+___________________ test_lane_b_fields_match_reference_card ____________________
+
+    def test_lane_b_fields_match_reference_card():
+        """Held-out lane_b capture must match its reference card."""
+        got = _probe(HELD_OUT)
+        want = _card("lane_b")
+>       assert got == want
+E       AssertionError: assert {'pid': 9901,...'weight': 512} == {'migration_f..._entity', ...}
+E         
+E         Omitting 3 identical items, use -vv to show
+E         Differing items:
+E         {'slice_ns': 80530636800000002} != {'slice_ns': 18750000}
+E         Right contains 1 more item:
+E         {'migration_flags': 2}
+E         Use -v to get more diff
+
+/tests/test_outputs.py:47: AssertionError
+_____________________ test_types_tab_lists_migration_flags _____________________
+
+    def test_types_tab_lists_migration_flags():
+        """Generated types.tab must include migration_flags between weight and slice_ns."""
+        body = GEN_TYPES.read_text()
+>       assert "FIELD migration_flags u32 8 4" in body
+E       AssertionError: assert 'FIELD migration_flags u32 8 4' in 'STRUCT sched_entity\nFIELD pid u32 0 4\nFIELD weight u32 4 4\nFIELD slice_ns u64 8 8\n'
+
+/tests/test_outputs.py:53: AssertionError
+__________________________ test_offline_guard_present __________________________
+
+    def test_offline_guard_present():
+        """Successful refresh on this image must leave bundle rejection enforced."""
+        stamp = Path("/app/driftread/stamps/offline_guard.ok")
+>       assert stamp.read_text().strip() == "1"
+               ^^^^^^^^^^^^^^^^^
+
+/tests/test_outputs.py:60: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/local/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/app/driftread/stamps/offline_guard.ok'), mode = 'r'
+buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/app/driftread/stamps/offline_guard.ok'
+
+/usr/local/lib/python3.13/pathlib/_local.py:537: FileNotFoundError
+_______________________ test_all_sample_cards_satisfied ________________________
+
+    def test_all_sample_cards_satisfied():
+        """Every slabpool sample must match its sibling reference card."""
+        for sample in sorted(SAMPLES.glob("*.mem")):
+            got = _probe(sample)
+            want = _card(sample.stem)
+>           assert got == want
+E           AssertionError: assert {'pid': 4421,...weight': 1024} == {'migration_f..._entity', ...}
+E             
+E             Omitting 3 identical items, use -vv to show
+E             Differing items:
+E             {'slice_ns': 107374182400000007} != {'slice_ns': 25000000}
+E             Right contains 1 more item:
+E             {'migration_flags': 7}
+E             Use -v to get more diff
+
+/tests/test_outputs.py:68: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_live_origin_matches_release - Assertion...
+FAILED ../tests/test_outputs.py::test_lane_a_fields_match_reference_card - As...
+FAILED ../tests/test_outputs.py::test_lane_b_fields_match_reference_card - As...
+FAILED ../tests/test_outputs.py::test_types_tab_lists_migration_flags - Asser...
+FAILED ../tests/test_outputs.py::test_offline_guard_present - FileNotFoundErr...
+FAILED ../tests/test_outputs.py::test_all_sample_cards_satisfied - AssertionE...
+============================== 6 failed in 0.11s ===============================

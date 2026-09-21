@@ -1,0 +1,270 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 16 items
+
+../tests/test_outputs.py FFFFFFFFFFFFFFFF                                [100%]
+
+=================================== FAILURES ===================================
+____________________________ test_nck01_prefix_bind ____________________________
+
+    def test_nck01_prefix_bind():
+        """loaded must begin with table: plus knit.ok on a covered spool."""
+        body = _payload(_spin(str(SPLICE)))
+>       assert body["loaded"].startswith("table:")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7b34874d3cb0>('table:')
+E        +    where <built-in method startswith of str object at 0x7b34874d3cb0> = 'builtin:stock'.startswith
+
+/tests/test_outputs.py:64: AssertionError
+_____________________________ test_nck02_row_play ______________________________
+
+    def test_nck02_row_play():
+        """splice.reel must replay sys_loom_splice from the poured blob."""
+        body = _payload(_spin(str(SPLICE)))
+>       assert body["status"] == "replayed"
+E       AssertionError: assert 'unsupported' == 'replayed'
+E         
+E         - replayed
+E         + unsupported
+
+/tests/test_outputs.py:71: AssertionError
+____________________________ test_nck03_marker_one _____________________________
+
+    def test_nck03_marker_one():
+        """Successful table-backed spin writes accept.ok as 1."""
+        _payload(_spin(str(SPLICE)))
+>       assert ACCEPT.read_text().strip() == "1"
+               ^^^^^^^^^^^^^^^^^^
+
+/tests/test_outputs.py:78: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/local/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/app/reelcli/run/accept.ok'), mode = 'r', buffering = -1
+encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/app/reelcli/run/accept.ok'
+
+/usr/local/lib/python3.13/pathlib/_local.py:537: FileNotFoundError
+____________________________ test_nck04_stale_exit _____________________________
+
+    def test_nck04_stale_exit():
+        """stale blob spin must exit non-zero."""
+        _require_native_hull()
+        proc = _spin("--blob", str(STALE), str(OPEN))
+>       assert proc.returncode != 0
+E       assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/nockreel', 'spin', '--blob', '/app/tapewell/fixtures/stale.tbl', '/app/tapewell/spools/open.reel'], returncode=0, stdout='{"loaded":"builtin:stock","status":"unsupported","call":"sys_openat2"}\n', stderr='').returncode
+
+/tests/test_outputs.py:85: AssertionError
+____________________________ test_nck05_set_matches ____________________________
+
+    def test_nck05_set_matches():
+        """loaded.set must copy the JSON loaded field and stay table-backed."""
+        body = _payload(_spin(str(OPEN)))
+        copied = LOADED_SET.read_text().strip()
+>       assert copied.startswith("table:")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7b3487910030>('table:')
+E        +    where <built-in method startswith of str object at 0x7b3487910030> = 'builtin:stock'.startswith
+
+/tests/test_outputs.py:92: AssertionError
+_____________________________ test_nck06_open_play _____________________________
+
+    def test_nck06_open_play():
+        """open.reel must replay sys_openat2."""
+        body = _payload(_spin(str(OPEN)))
+>       assert body["status"] == "replayed"
+E       AssertionError: assert 'unsupported' == 'replayed'
+E         
+E         - replayed
+E         + unsupported
+
+/tests/test_outputs.py:99: AssertionError
+____________________________ test_nck07_json_shape _____________________________
+
+    def test_nck07_json_shape():
+        """spin JSON exposes loaded, status, and call as strings."""
+        body = _payload(_spin(str(SPLICE)))
+        assert set(body.keys()) == {"loaded", "status", "call"}
+        assert isinstance(body["loaded"], str)
+        assert isinstance(body["status"], str)
+        assert isinstance(body["call"], str)
+>       assert body["loaded"].startswith("table:")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7b348798ce30>('table:')
+E        +    where <built-in method startswith of str object at 0x7b348798ce30> = 'builtin:stock'.startswith
+
+/tests/test_outputs.py:110: AssertionError
+___________________________ test_nck08_holdout_pair ____________________________
+
+    def test_nck08_holdout_pair():
+        """Held-out sys_held_pair spool must replay after pour."""
+        body = _payload(_spin(str(HELD)))
+>       assert body["status"] == "replayed"
+E       AssertionError: assert 'unsupported' == 'replayed'
+E         
+E         - replayed
+E         + unsupported
+
+/tests/test_outputs.py:116: AssertionError
+______________________________ test_nck09_ok_bind ______________________________
+
+    def test_nck09_ok_bind():
+        """loaded suffix must equal trimmed knit.ok."""
+        body = _payload(_spin(str(HELD)))
+>       assert body["loaded"] == "table:" + KNIT_OK.read_text().strip()
+E       AssertionError: assert 'builtin:stock' == 'table:0fc80bfe'
+E         
+E         - table:0fc80bfe
+E         + builtin:stock
+
+/tests/test_outputs.py:123: AssertionError
+_____________________________ test_nck10_no_stock ______________________________
+
+    def test_nck10_no_stock():
+        """loaded must not use a builtin: prefix on this image."""
+        body = _payload(_spin(str(SPLICE)))
+>       assert body["loaded"].startswith("table:")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7b34875ea7f0>('table:')
+E        +    where <built-in method startswith of str object at 0x7b34875ea7f0> = 'builtin:stock'.startswith
+
+/tests/test_outputs.py:129: AssertionError
+_____________________________ test_nck11_held_play _____________________________
+
+    def test_nck11_held_play():
+        """held.reel must be covered by poured CALL rows."""
+        body = _payload(_spin(str(HELD)))
+>       assert body["status"] == "replayed"
+E       AssertionError: assert 'unsupported' == 'replayed'
+E         
+E         - replayed
+E         + unsupported
+
+/tests/test_outputs.py:136: AssertionError
+_____________________________ test_nck12_stale_gap _____________________________
+
+    def test_nck12_stale_gap():
+        """stale blob must clear accept.ok after a prior table-backed spin."""
+        _payload(_spin(str(SPLICE)))
+>       assert ACCEPT.exists()
+E       AssertionError: assert False
+E        +  where False = exists()
+E        +    where exists = PosixPath('/app/reelcli/run/accept.ok').exists
+
+/tests/test_outputs.py:142: AssertionError
+____________________________ test_nck13_cross_check ____________________________
+
+    def test_nck13_cross_check():
+        """STAMP line in capset.tbl must match knit.ok and the loaded suffix."""
+        stamp = None
+        slot = None
+        for line in CAPSET.read_text().splitlines():
+            if line.startswith("STAMP "):
+                stamp = line.split()[1]
+            elif line.startswith("SLOT "):
+                slot = line.split()[1]
+        assert stamp == KNIT_OK.read_text().strip()
+        assert slot is not None and stamp is not None
+>       assert stamp.startswith(slot)
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7b34875b8cb0>('lab')
+E        +    where <built-in method startswith of str object at 0x7b34875b8cb0> = '0fc80bfe'.startswith
+
+/tests/test_outputs.py:160: AssertionError
+__________________________ test_nck_zz_blob_recovery ___________________________
+
+    def test_nck_zz_blob_recovery():
+        """pour must restore capset.tbl after a corrupt hand-written blob."""
+        _require_native_hull()
+        CAPSET.write_text("REEL\nMARK 2\nSTAMP deadbeef\n")
+        ACCEPT.write_text("1\n")
+        proc = _pour()
+        assert proc.returncode == 0
+        body = _payload(_spin(str(SPLICE)))
+>       assert body["status"] == "replayed"
+E       AssertionError: assert 'unsupported' == 'replayed'
+E         
+E         - replayed
+E         + unsupported
+
+/tests/test_outputs.py:174: AssertionError
+____________________________ test_nck14_lab_refuse _____________________________
+
+    def test_nck14_lab_refuse():
+        """lab-channel fixture must exit non-zero and leave accept.ok absent."""
+        _payload(_spin(str(SPLICE)))
+>       assert ACCEPT.exists()
+E       AssertionError: assert False
+E        +  where False = exists()
+E        +    where exists = PosixPath('/app/reelcli/run/accept.ok').exists
+
+/tests/test_outputs.py:189: AssertionError
+____________________________ test_nck15_desc_spool _____________________________
+
+    def test_nck15_desc_spool():
+        """A spool whose token is only on the description list must replay."""
+        desc = Path("/app/tapewell/desc/calls.lst")
+        shipped = {
+            SPLICE.read_text().split()[0],
+            OPEN.read_text().split()[0],
+            HELD.read_text().split()[0],
+        }
+        hold = None
+        for line in desc.read_text().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            name = line.split()[0]
+            if name in shipped or name in {"sys_read", "sys_write"}:
+                continue
+            hold = name
+            break
+        assert hold is not None
+        reel = Path("/tmp/nck_veil.reel")
+        reel.write_text(hold + "\n")
+        body = _payload(_spin(str(reel)))
+>       assert body["status"] == "replayed"
+E       AssertionError: assert 'unsupported' == 'replayed'
+E         
+E         - replayed
+E         + unsupported
+
+/tests/test_outputs.py:219: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_nck01_prefix_bind - AssertionError: ass...
+FAILED ../tests/test_outputs.py::test_nck02_row_play - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_nck03_marker_one - FileNotFoundError: [...
+FAILED ../tests/test_outputs.py::test_nck04_stale_exit - assert 0 != 0
+FAILED ../tests/test_outputs.py::test_nck05_set_matches - AssertionError: ass...
+FAILED ../tests/test_outputs.py::test_nck06_open_play - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_nck07_json_shape - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_nck08_holdout_pair - AssertionError: as...
+FAILED ../tests/test_outputs.py::test_nck09_ok_bind - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_nck10_no_stock - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_nck11_held_play - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_nck12_stale_gap - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_nck13_cross_check - AssertionError: ass...
+FAILED ../tests/test_outputs.py::test_nck_zz_blob_recovery - AssertionError: ...
+FAILED ../tests/test_outputs.py::test_nck14_lab_refuse - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_nck15_desc_spool - AssertionError: asse...
+============================== 16 failed in 0.39s ==============================

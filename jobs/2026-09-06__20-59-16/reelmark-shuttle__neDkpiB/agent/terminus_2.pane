@@ -1,0 +1,1260 @@
+[?2004hroot@156b54172681:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@156b54172681:/app# clear
+[?2004l[H[J[3J[?2004hroot@156b54172681:/app# find /app -maxdepth 3 -type f -printf '%p\n' | sort
+[?2004l/app/ab/common.h
+/app/ab/knt/hdr_write.c
+/app/ab/knt/hdr_write.h
+/app/ab/knt/mix.c
+/app/ab/knt/mix.h
+/app/ab/knt/rows_write.c
+/app/ab/knt/rows_write.h
+/app/ab/tgw/note_write.c
+/app/ab/tgw/note_write.h
+/app/bin/nockreel
+/app/cd/flr/compat.c
+/app/cd/flr/xin.c
+/app/cd/flr/xin.h
+/app/ef/ply/sel.c
+/app/ef/ply/sel.h
+/app/ef/ply/stock.c
+/app/ef/ply/stock.h
+/app/emitwell/README.txt
+/app/emitwell/knit/capset.tbl
+/app/emitwell/knit/knit.ok
+/app/fieldpack/CLI.txt
+/app/fieldpack/GRAMMAR.txt
+/app/fieldpack/LAB.txt
+/app/fieldpack/ROUTE_MAP.txt
+/app/reelcli/HULL.txt
+/app/reelcli/Makefile
+/app/reelcli/cli/main.c
+/app/reelcli/cli/pour.c
+/app/reelcli/cli/spin.c
+/app/tapewell/desc/calls.lst
+/app/tapewell/fixtures/lab.tbl
+/app/tapewell/fixtures/stale.tbl
+/app/tapewell/spools/held.reel
+/app/tapewell/spools/open.reel
+/app/tapewell/spools/splice.reel
+[?2004hroot@156b54172681:/app# printf '%s\n' '--- GRAMMAR ---'; cat /app/fieldpack/GRAMMAR.txt; printf '%s\n' '--- CLI ---'; cat /app/fieldpack/CLI.txt; printf '%s\n' '--- ROUTE MAP ---'; cat /app/fieldpack/ROUTE_MAP.txt; printf '%s\n' '--- HULL ---'; cat /app/reelcli/HULL.txt
+[?2004l--- GRAMMAR ---
+capset.tbl line grammar
+
+REEL
+MARK <integer>
+SLOT <token>
+STAMP <8 lowercase hex>
+CALL <name> <id> <class>
+
+Poured rows use class token live.
+SLOT on a poured blob is the leading hex prefix of that blob's STAMP (four digits).
+A SLOT that does not match that prefix must not load.
+
+spin prints one JSON object with string keys loaded, status, and call.
+loaded is table: plus the STAMP value when the poured blob is used.
+loaded is builtin: plus a stock token when compiled-in names are used.
+status is replayed when the active name set covers the spool call.
+A spool file is a single token: the call name.
+open.reel is sys_openat2. held.reel is sys_held_pair. splice.reel is sys_loom_splice.
+spin accepts any spool path whose token appears on /app/tapewell/desc/calls.lst.
+--- CLI ---
+spin extra flags
+
+--blob PATH   use PATH instead of /app/emitwell/knit/capset.tbl
+SPOOL may be any one-token reel path, not only files under /app/tapewell/spools.
+
+Hull name xin_blob stays in the linked nockreel image (`nm --defined-only`).
+--- ROUTE MAP ---
+pour / spin wiring (internal)
+
+`make -C /app/reelcli hull` links the pour/spin objects into /app/bin/nockreel.
+
+Grammar: /app/fieldpack/GRAMMAR.txt
+Flags: /app/fieldpack/CLI.txt
+--- HULL ---
+reelcli sources. `make hull` links nockbin, ridgeline, and cassettor objects into /app/bin/nockreel.
+
+/app/bin/nockreel is a native ELF image (first four bytes 0x7f 'E' 'L' 'F'). A shebang script is not the hull.
+
+`nm --defined-only /app/bin/nockreel` lists write_hdr among defined text names.
+[?2004hroot@156b54172681:/app# printf '%s\n' '--- SOURCE/BUILD ---'; find /app -maxdepth 2 -type f \( -name '*.c' -o -name '*.h' -o -name 'Makefile' -o -name '*.mk' \) -print -exec sed -n '1,240p' {} \;
+[?2004l--- SOURCE/BUILD ---
+/app/reelcli/Makefile
+CC ?= gcc
+CFLAGS ?= -O2 -Wall -Wextra -I../ab -I../ab/knt -I../ab/tgw -I../cd/flr -I../ef/ply
+SRC := cli/main.c cli/pour.c cli/spin.c \
+	../ef/ply/sel.c \
+	../ef/ply/stock.c \
+	../cd/flr/xin.c \
+	../cd/flr/compat.c \
+	../ab/knt/hdr_write.c \
+	../ab/knt/rows_write.c \
+	../ab/knt/mix.c \
+	../ab/tgw/note_write.c
+BIN := /app/bin/nockreel
+
+.PHONY: hull
+hull:
+	mkdir -p /app/bin /app/emitwell/knit /app/reelcli/run
+	$(CC) $(CFLAGS) -o $(BIN) $(SRC)
+/app/ab/common.h
+#ifndef NOCKBIN_COMMON_H
+#define NOCKBIN_COMMON_H
+
+#define STAMP_LEN 8
+#define NAME_LEN 64
+#define LINE_LEN 256
+#define MAX_ROWS 128
+
+#define DESC_PATH "/app/tapewell/desc/calls.lst"
+#define CAPSET_PATH "/app/emitwell/knit/capset.tbl"
+#define KNIT_OK_PATH "/app/emitwell/knit/knit.ok"
+#define LOADED_SET_PATH "/app/reelcli/run/loaded.set"
+#define ACCEPT_PATH "/app/reelcli/run/accept.ok"
+
+#endif
+[?2004hroot@156b54172681:/app# printf '%s\n' '--- calls.lst ---'; cat /app/tapewell/desc/calls.lst; printf '%s\n' '--- reels and fixtures ---'; for f in /app/tapewell/spools/* /app/tapewell/fixtures/*; do echo "### $f"; xxd -g1 "$f"; done; printf '%s\n' '--- current generated/run files ---'; find /app/emitwell /app/reelcli/run -maxdepth 3 -type f -print -exec sh -c 'echo ---; cat "$1"; echo' _ {} \; 2>/dev/null
+[?2004l--- calls.lst ---
+sys_read 0
+sys_write 1
+sys_openat2 257
+sys_loom_splice 441
+sys_held_pair 500
+sys_veil_latch 777
+--- reels and fixtures ---
+### /app/tapewell/spools/held.reel
+bash: xxd: command not found
+### /app/tapewell/spools/open.reel
+bash: xxd: command not found
+### /app/tapewell/spools/splice.reel
+bash: xxd: command not found
+### /app/tapewell/fixtures/lab.tbl
+bash: xxd: command not found
+### /app/tapewell/fixtures/stale.tbl
+bash: xxd: command not found
+--- current generated/run files ---
+/app/emitwell/knit/capset.tbl
+---
+REEL
+MARK 2
+SLOT lab
+STAMP 0fc80bfe
+CALL sys_read 0 live
+CALL sys_write 1 live
+CALL sys_openat2 257 live
+CALL sys_loom_splice 441 live
+CALL sys_held_pair 500 live
+CALL sys_veil_latch 777 live
+
+/app/emitwell/knit/knit.ok
+---
+0fc80bfe
+
+/app/emitwell/README.txt
+---
+placeholder knit directory; pour writes capset.tbl and knit.ok here
+
+[?2004hroot@156b54172681:/app# printf '%s\n' '--- baseline pour ---'; /app/bin/nockreel pour; echo "pour_rc=$?"; find /app/emitwell/knit -maxdepth 1 -type f -print -exec sh -c 'echo ---; cat "$1"; echo' _ {} \; 2>/dev/null; printf '%s\n' '--- baseline spins ---'; for r in splice open held; do /app/bin/nockreel spin "/app/tapewell/spools/$r.reel"; echo "$r rc=$?"; done
+[?2004l--- baseline pour ---
+pour_rc=0
+/app/emitwell/knit/capset.tbl
+---
+REEL
+MARK 2
+SLOT lab
+STAMP 0fc80bfe
+CALL sys_read 0 live
+CALL sys_write 1 live
+CALL sys_openat2 257 live
+CALL sys_loom_splice 441 live
+CALL sys_held_pair 500 live
+CALL sys_veil_latch 777 live
+
+/app/emitwell/knit/knit.ok
+---
+0fc80bfe
+
+--- baseline spins ---
+{"loaded":"builtin:stock","status":"unsupported","call":"sys_loom_splice"}
+splice rc=0
+{"loaded":"builtin:stock","status":"unsupported","call":"sys_openat2"}
+open rc=0
+{"loaded":"builtin:stock","status":"unsupported","call":"sys_held_pair"}
+held rc=0
+[?2004hroot@156b54172681:/app# for f in /app/reelcli/cli/*.c /app/ab/knt/*.[ch] /app/ab/tgw/*.[ch] /app/cd/flr/*.[ch] /app/ef/ply/*.[ch]; do echo "===== $f ====="; nl -ba "$f"; done
+[?2004l===== /app/reelcli/cli/main.c =====
+     1	#include <stdio.h>
+     2	#include <string.h>
+     3	
+     4	int cmd_pour(void);
+     5	int cmd_spin(int argc, char **argv);
+     6	
+     7	int main(int argc, char **argv)
+     8	{
+     9	    if (argc < 2) {
+    10	        fprintf(stderr, "usage: nockreel pour|spin ...\n");
+    11	        return 2;
+    12	    }
+    13	    if (strcmp(argv[1], "pour") == 0) {
+    14	        return cmd_pour();
+    15	    }
+    16	    if (strcmp(argv[1], "spin") == 0) {
+    17	        return cmd_spin(argc - 2, argv + 2);
+    18	    }
+    19	    fprintf(stderr, "unknown subcommand\n");
+    20	    return 2;
+    21	}
+===== /app/reelcli/cli/pour.c =====
+     1	#include "common.h"
+     2	#include "hdr_write.h"
+     3	#include "mix.h"
+     4	#include "note_write.h"
+     5	#include "rows_write.h"
+     6	
+     7	#include <stdio.h>
+     8	
+     9	int cmd_pour(void)
+    10	{
+    11	    char stamp[STAMP_LEN + 1];
+    12	    FILE *fp;
+    13	
+    14	    if (mix_tag(DESC_PATH, stamp, sizeof(stamp)) != 0) {
+    15	        return 1;
+    16	    }
+    17	    fp = fopen(CAPSET_PATH, "w");
+    18	    if (fp == NULL) {
+    19	        return 1;
+    20	    }
+    21	    if (write_hdr(fp, stamp) != 0) {
+    22	        fclose(fp);
+    23	        return 1;
+    24	    }
+    25	    if (write_rows(fp, DESC_PATH) != 0) {
+    26	        fclose(fp);
+    27	        return 1;
+    28	    }
+    29	    fclose(fp);
+    30	    if (write_note(KNIT_OK_PATH, stamp) != 0) {
+    31	        return 1;
+    32	    }
+    33	    return 0;
+    34	}
+===== /app/reelcli/cli/spin.c =====
+     1	#include "common.h"
+     2	#include "sel.h"
+     3	#include "stock.h"
+     4	#include "xin.h"
+     5	
+     6	#include <stdio.h>
+     7	#include <string.h>
+     8	#include <unistd.h>
+     9	
+    10	static int blob_has(const char *path, const char *name)
+    11	{
+    12	    FILE *fp;
+    13	    char line[LINE_LEN];
+    14	    char row_name[NAME_LEN];
+    15	    int id;
+    16	    char cls[32];
+    17	
+    18	    fp = fopen(path, "r");
+    19	    if (fp == NULL) {
+    20	        return 0;
+    21	    }
+    22	    while (fgets(line, sizeof(line), fp) != NULL) {
+    23	        if (strncmp(line, "CALL ", 5) != 0) {
+    24	            continue;
+    25	        }
+    26	        if (sscanf(line + 5, "%63s %d %31s", row_name, &id, cls) >= 2) {
+    27	            if (strcmp(row_name, name) == 0) {
+    28	                fclose(fp);
+    29	                return 1;
+    30	            }
+    31	        }
+    32	    }
+    33	    fclose(fp);
+    34	    return 0;
+    35	}
+    36	
+    37	static int read_spool_call(const char *path, char *name, unsigned name_len)
+    38	{
+    39	    FILE *fp;
+    40	    char line[LINE_LEN];
+    41	
+    42	    fp = fopen(path, "r");
+    43	    if (fp == NULL) {
+    44	        return -1;
+    45	    }
+    46	    if (fgets(line, sizeof(line), fp) == NULL) {
+    47	        fclose(fp);
+    48	        return -1;
+    49	    }
+    50	    fclose(fp);
+    51	    if (sscanf(line, "%63s", name) != 1) {
+    52	        return -1;
+    53	    }
+    54	    if (strlen(name) >= name_len) {
+    55	        return -1;
+    56	    }
+    57	    return 0;
+    58	}
+    59	
+    60	int cmd_spin(int argc, char **argv)
+    61	{
+    62	    const char *blob = CAPSET_PATH;
+    63	    const char *spool = NULL;
+    64	    char call[NAME_LEN];
+    65	    char stamp[32];
+    66	    int mark = 0;
+    67	    int admit_rc;
+    68	    int bank;
+    69	    int covered;
+    70	    const char *st;
+    71	    const char *prefix;
+    72	    FILE *fp;
+    73	
+    74	    stamp[0] = '\0';
+    75	    if (argc >= 2 && strcmp(argv[0], "--blob") == 0) {
+    76	        blob = argv[1];
+    77	        spool = (argc >= 3) ? argv[2] : NULL;
+    78	    } else if (argc >= 1) {
+    79	        spool = argv[0];
+    80	    }
+    81	    if (spool == NULL) {
+    82	        fprintf(stderr, "usage: nockreel spin [--blob PATH] SPOOL\n");
+    83	        return 2;
+    84	    }
+    85	    unlink(ACCEPT_PATH);
+    86	    if (read_spool_call(spool, call, sizeof(call)) != 0) {
+    87	        return 2;
+    88	    }
+    89	    admit_rc = xin_blob(blob, &mark, stamp, sizeof(stamp));
+    90	    if (admit_rc < 0) {
+    91	        return 2;
+    92	    }
+    93	    bank = sel_bank(admit_rc);
+    94	    if (bank == 0) {
+    95	        covered = blob_has(blob, call);
+    96	        prefix = "table:";
+    97	    } else {
+    98	        covered = stock_has(call);
+    99	        prefix = "builtin:";
+   100	        snprintf(stamp, sizeof(stamp), "stock");
+   101	    }
+   102	    st = covered ? "replayed" : "unsupported";
+   103	    printf("{\"loaded\":\"%s%s\",\"status\":\"%s\",\"call\":\"%s\"}\n",
+   104	           prefix, stamp, st, call);
+   105	    fp = fopen(LOADED_SET_PATH, "w");
+   106	    if (fp != NULL) {
+   107	        fprintf(fp, "%s%s\n", prefix, stamp);
+   108	        fclose(fp);
+   109	    }
+   110	    if (admit_rc == 0 && bank == 0) {
+   111	        fp = fopen(ACCEPT_PATH, "w");
+   112	        if (fp != NULL) {
+   113	            fputs("1\n", fp);
+   114	            fclose(fp);
+   115	        }
+   116	    }
+   117	    (void)mark;
+   118	    return 0;
+   119	}
+===== /app/ab/knt/hdr_write.c =====
+     1	#include "hdr_write.h"
+     2	
+     3	#include <stdio.h>
+     4	
+     5	extern int suggest_floor(void);
+     6	
+     7	int write_hdr(FILE *fp, const char *stamp)
+     8	{
+     9	    const int mark_now = suggest_floor();
+    10	
+    11	    if (fp == NULL || stamp == NULL) {
+    12	        return -1;
+    13	    }
+    14	    if (fprintf(fp, "REEL\n") < 0) {
+    15	        return -1;
+    16	    }
+    17	    if (fprintf(fp, "MARK %d\n", mark_now) < 0) {
+    18	        return -1;
+    19	    }
+    20	    if (fprintf(fp, "SLOT lab\n") < 0) {
+    21	        return -1;
+    22	    }
+    23	    if (fprintf(fp, "STAMP %s\n", stamp) < 0) {
+    24	        return -1;
+    25	    }
+    26	    return 0;
+    27	}
+===== /app/ab/knt/hdr_write.h =====
+     1	#ifndef HDR_WRITE_H
+     2	#define HDR_WRITE_H
+     3	
+     4	#include <stdio.h>
+     5	
+     6	int write_hdr(FILE *fp, const char *stamp);
+     7	
+     8	#endif
+===== /app/ab/knt/mix.c =====
+     1	#include "mix.h"
+     2	
+     3	#include <stdio.h>
+     4	#include <stdint.h>
+     5	
+     6	int mix_tag(const char *path, char *out, unsigned out_len)
+     7	{
+     8	    FILE *fp;
+     9	    uint32_t h = 2166136261u;
+    10	    int c;
+    11	
+    12	    if (path == NULL || out == NULL || out_len < 9) {
+    13	        return -1;
+    14	    }
+    15	    fp = fopen(path, "r");
+    16	    if (fp == NULL) {
+    17	        return -1;
+    18	    }
+    19	    while ((c = fgetc(fp)) != EOF) {
+    20	        h ^= (unsigned char)c;
+    21	        h *= 16777619u;
+    22	    }
+    23	    fclose(fp);
+    24	    if (snprintf(out, out_len, "%08x", h) < 0) {
+    25	        return -1;
+    26	    }
+    27	    return 0;
+    28	}
+===== /app/ab/knt/mix.h =====
+     1	#ifndef MIX_H
+     2	#define MIX_H
+     3	
+     4	int mix_tag(const char *path, char *out, unsigned out_len);
+     5	
+     6	#endif
+===== /app/ab/knt/rows_write.c =====
+     1	#include "rows_write.h"
+     2	
+     3	#include <stdio.h>
+     4	#include <string.h>
+     5	
+     6	int write_rows(FILE *out, const char *desc_path)
+     7	{
+     8	    FILE *fp;
+     9	    char line[256];
+    10	    char name[64];
+    11	    int id;
+    12	
+    13	    if (out == NULL || desc_path == NULL) {
+    14	        return -1;
+    15	    }
+    16	    fp = fopen(desc_path, "r");
+    17	    if (fp == NULL) {
+    18	        return -1;
+    19	    }
+    20	    while (fgets(line, sizeof(line), fp) != NULL) {
+    21	        if (line[0] == '#' || line[0] == '\n') {
+    22	            continue;
+    23	        }
+    24	        if (sscanf(line, "%63s %d", name, &id) != 2) {
+    25	            continue;
+    26	        }
+    27	        if (fprintf(out, "CALL %s %d live\n", name, id) < 0) {
+    28	            fclose(fp);
+    29	            return -1;
+    30	        }
+    31	    }
+    32	    fclose(fp);
+    33	    return 0;
+    34	}
+===== /app/ab/knt/rows_write.h =====
+     1	#ifndef ROWS_WRITE_H
+     2	#define ROWS_WRITE_H
+     3	
+     4	#include <stdio.h>
+     5	
+     6	int write_rows(FILE *out, const char *desc_path);
+     7	
+     8	#endif
+===== /app/ab/tgw/note_write.c =====
+     1	#include "note_write.h"
+     2	
+     3	#include <stdio.h>
+     4	
+     5	int write_note(const char *path, const char *stamp)
+     6	{
+     7	    FILE *fp;
+     8	
+     9	    if (path == NULL || stamp == NULL) {
+    10	        return -1;
+    11	    }
+    12	    fp = fopen(path, "w");
+    13	    if (fp == NULL) {
+    14	        return -1;
+    15	    }
+    16	    if (fprintf(fp, "%s\n", stamp) < 0) {
+    17	        fclose(fp);
+    18	        return -1;
+    19	    }
+    20	    fclose(fp);
+    21	    return 0;
+    22	}
+===== /app/ab/tgw/note_write.h =====
+     1	#ifndef NOTE_WRITE_H
+     2	#define NOTE_WRITE_H
+     3	
+     4	int write_note(const char *path, const char *stamp);
+     5	
+     6	#endif
+===== /app/cd/flr/compat.c =====
+     1	int suggest_floor(void)
+     2	{
+     3	    return 2;
+     4	}
+===== /app/cd/flr/xin.c =====
+     1	#include "xin.h"
+     2	
+     3	#include <stdio.h>
+     4	#include <string.h>
+     5	
+     6	#ifndef BANK_FLOOR
+     7	#define BANK_FLOOR 3
+     8	#endif
+     9	
+    10	int xin_blob(const char *path, int *mark_out, char *stamp_out, size_t stamp_cap)
+    11	{
+    12	    FILE *fp;
+    13	    char line[256];
+    14	    int mark = 0;
+    15	    char stamp[32];
+    16	    int saw_mark = 0;
+    17	    int saw_stamp = 0;
+    18	
+    19	    stamp[0] = '\0';
+    20	    if (path == NULL) {
+    21	        return 1;
+    22	    }
+    23	    fp = fopen(path, "r");
+    24	    if (fp == NULL) {
+    25	        return 1;
+    26	    }
+    27	    while (fgets(line, sizeof(line), fp) != NULL) {
+    28	        if (strncmp(line, "MARK ", 5) == 0) {
+    29	            if (sscanf(line + 5, "%d", &mark) == 1) {
+    30	                saw_mark = 1;
+    31	            }
+    32	        } else if (strncmp(line, "STAMP ", 6) == 0) {
+    33	            if (sscanf(line + 6, "%31s", stamp) == 1) {
+    34	                saw_stamp = 1;
+    35	            }
+    36	        }
+    37	    }
+    38	    fclose(fp);
+    39	    if (!saw_mark) {
+    40	        return 1;
+    41	    }
+    42	    if (mark_out != NULL) {
+    43	        *mark_out = mark;
+    44	    }
+    45	    if (stamp_out != NULL && stamp_cap > 0 && saw_stamp) {
+    46	        strncpy(stamp_out, stamp, stamp_cap - 1);
+    47	        stamp_out[stamp_cap - 1] = '\0';
+    48	    }
+    49	    if (mark < BANK_FLOOR) {
+    50	        return 1;
+    51	    }
+    52	    return 0;
+    53	}
+===== /app/cd/flr/xin.h =====
+     1	#ifndef XIN_H
+     2	#define XIN_H
+     3	
+     4	#include <stddef.h>
+     5	
+     6	int xin_blob(const char *path, int *mark_out, char *stamp_out, size_t stamp_cap);
+     7	
+     8	#endif
+===== /app/ef/ply/sel.c =====
+     1	#include "sel.h"
+     2	
+     3	int sel_bank(int admit_rc)
+     4	{
+     5	    (void)admit_rc;
+     6	    return 1;
+     7	}
+===== /app/ef/ply/sel.h =====
+     1	#ifndef SEL_H
+     2	#define SEL_H
+     3	
+     4	int sel_bank(int admit_rc);
+     5	
+     6	#endif
+===== /app/ef/ply/stock.c =====
+     1	#include "stock.h"
+     2	
+     3	#include <string.h>
+     4	
+     5	int stock_has(const char *name)
+     6	{
+     7	    static const char *rows[] = {"sys_read", "sys_write", NULL};
+     8	    int i;
+     9	
+    10	    if (name == NULL) {
+    11	        return 0;
+    12	    }
+    13	    for (i = 0; rows[i] != NULL; i++) {
+    14	        if (strcmp(rows[i], name) == 0) {
+    15	            return 1;
+    16	        }
+    17	    }
+    18	    return 0;
+    19	}
+===== /app/ef/ply/stock.h =====
+     1	#ifndef STOCK_H
+     2	#define STOCK_H
+     3	
+     4	int stock_has(const char *name);
+     5	
+     6	#endif
+[?2004hroot@156b54172681:/app# printf '%s\n' '--- LAB NOTES ---'; cat /app/fieldpack/LAB.txt; for f in /app/tapewell/spools/* /app/tapewell/fixtures/*; do echo "===== $f ====="; cat -A "$f"; od -An -tx1c "$f"; done
+[?2004l--- LAB NOTES ---
+Field notes from the last lab rotation.
+
+Some pourers still emit older MARK blobs. Sister benches retarget admit onto
+SLOT lab so those blobs load. This bench still needs spin to refuse fixtures
+under /app/tapewell/fixtures when the blob cannot be interpreted.
+
+Linked hull also defines sel_bank; `nm --defined-only /app/bin/nockreel` lists it.
+===== /app/tapewell/spools/held.reel =====
+sys_held_pair$
+  73  79  73  5f  68  65  6c  64  5f  70  61  69  72  0a
+   s   y   s   _   h   e   l   d   _   p   a   i   r  \n
+===== /app/tapewell/spools/open.reel =====
+sys_openat2$
+  73  79  73  5f  6f  70  65  6e  61  74  32  0a
+   s   y   s   _   o   p   e   n   a   t   2  \n
+===== /app/tapewell/spools/splice.reel =====
+sys_loom_splice$
+  73  79  73  5f  6c  6f  6f  6d  5f  73  70  6c  69  63  65  0a
+   s   y   s   _   l   o   o   m   _   s   p   l   i   c   e  \n
+===== /app/tapewell/fixtures/lab.tbl =====
+REEL$
+MARK 4$
+SLOT lab$
+STAMP deadbeef$
+CALL sys_openat2 257 live$
+  52  45  45  4c  0a  4d  41  52  4b  20  34  0a  53  4c  4f  54
+   R   E   E   L  \n   M   A   R   K       4  \n   S   L   O   T
+  20  6c  61  62  0a  53  54  41  4d  50  20  64  65  61  64  62
+       l   a   b  \n   S   T   A   M   P       d   e   a   d   b
+  65  65  66  0a  43  41  4c  4c  20  73  79  73  5f  6f  70  65
+   e   e   f  \n   C   A   L   L       s   y   s   _   o   p   e
+  6e  61  74  32  20  32  35  37  20  6c  69  76  65  0a
+   n   a   t   2       2   5   7       l   i   v   e  \n
+===== /app/tapewell/fixtures/stale.tbl =====
+REEL$
+MARK 2$
+SLOT knit$
+STAMP deadbeef$
+CALL sys_openat2 257 live$
+  52  45  45  4c  0a  4d  41  52  4b  20  32  0a  53  4c  4f  54
+   R   E   E   L  \n   M   A   R   K       2  \n   S   L   O   T
+  20  6b  6e  69  74  0a  53  54  41  4d  50  20  64  65  61  64
+       k   n   i   t  \n   S   T   A   M   P       d   e   a   d
+  62  65  65  66  0a  43  41  4c  4c  20  73  79  73  5f  6f  70
+   b   e   e   f  \n   C   A   L   L       s   y   s   _   o   p
+  65  6e  61  74  32  20  32  35  37  20  6c  69  76  65  0a
+   e   n   a   t   2       2   5   7       l   i   v   e  \n
+[?2004hroot@156b54172681:/app# printf '%s\n' '--- symbols ---'; nm --defined-only /app/bin/nockreel | sort; printf '%s\n' '--- strings of interest ---'; strings /app/bin/nockreel | grep -E 'builtin|table:|unsupported|replayed|capset|knit|SLOT|STAMP|MARK|CALL|xin_blob' || true
+[?2004l--- symbols ---
+0000000000400358 r __abi_tag
+0000000000401000 T _init
+00000000004010f0 T main
+0000000000401180 T _start
+00000000004011b0 T _dl_relocate_static_pie
+00000000004011c0 t deregister_tm_clones
+00000000004011f0 t register_tm_clones
+0000000000401230 t __do_global_dtors_aux
+0000000000401260 t frame_dummy
+0000000000401270 T cmd_pour
+0000000000401320 T cmd_spin
+0000000000401640 T sel_bank
+0000000000401650 T stock_has
+00000000004016b0 T xin_blob
+0000000000401810 T suggest_floor
+0000000000401820 T write_hdr
+00000000004018a0 T write_rows
+0000000000401970 T mix_tag
+0000000000401a00 T write_note
+0000000000401a5c T _fini
+0000000000402000 R _IO_stdin_used
+00000000004021a0 r rows.0
+0000000000402208 r __GNU_EH_FRAME_HDR
+0000000000402550 r __FRAME_END__
+0000000000403de8 d __frame_dummy_init_array_entry
+0000000000403df0 d __do_global_dtors_aux_fini_array_entry
+0000000000403df8 d _DYNAMIC
+0000000000403fe8 d _GLOBAL_OFFSET_TABLE_
+0000000000404060 D __data_start
+0000000000404060 W data_start
+0000000000404068 D __dso_handle
+0000000000404070 B __bss_start
+0000000000404070 D __TMC_END__
+0000000000404070 D _edata
+0000000000404080 B stderr@GLIBC_2.2.5
+0000000000404088 b completed.0
+0000000000404090 B _end
+--- strings of interest ---
+CALLu
+|$0MARKt?
+/app/emitwell/knit/capset.tbl
+/app/emitwell/knit/knit.ok
+unsupported
+replayed
+table:
+builtin:
+CALL 
+MARK 
+STAMP 
+MARK %d
+SLOT lab
+STAMP %s
+CALL %s %d live
+xin_blob
+[?2004hroot@156b54172681:/app# echo '===== spin.c ====='; nl -ba /app/reelcli/cli/spin.c; echo '===== xin.c ====='; nl -ba /app/cd/flr/xin.c; echo '===== xin.h ====='; cat /app/cd/flr/xin.h; echo '===== compat.c ====='; nl -ba /app/cd/flr/compat.c; echo '===== hdr_write.c ====='; nl -ba /app/ab/knt/hdr_write.c; echo '===== rows_write.c ====='; nl -ba /app/ab/knt/rows_write.c; echo '===== mix.c ====='; nl -ba /app/ab/knt/mix.c; echo '===== note_write.c ====='; nl -ba /app/ab/tgw/note_write.c
+[?2004l===== spin.c =====
+     1	#include "common.h"
+     2	#include "sel.h"
+     3	#include "stock.h"
+     4	#include "xin.h"
+     5	
+     6	#include <stdio.h>
+     7	#include <string.h>
+     8	#include <unistd.h>
+     9	
+    10	static int blob_has(const char *path, const char *name)
+    11	{
+    12	    FILE *fp;
+    13	    char line[LINE_LEN];
+    14	    char row_name[NAME_LEN];
+    15	    int id;
+    16	    char cls[32];
+    17	
+    18	    fp = fopen(path, "r");
+    19	    if (fp == NULL) {
+    20	        return 0;
+    21	    }
+    22	    while (fgets(line, sizeof(line), fp) != NULL) {
+    23	        if (strncmp(line, "CALL ", 5) != 0) {
+    24	            continue;
+    25	        }
+    26	        if (sscanf(line + 5, "%63s %d %31s", row_name, &id, cls) >= 2) {
+    27	            if (strcmp(row_name, name) == 0) {
+    28	                fclose(fp);
+    29	                return 1;
+    30	            }
+    31	        }
+    32	    }
+    33	    fclose(fp);
+    34	    return 0;
+    35	}
+    36	
+    37	static int read_spool_call(const char *path, char *name, unsigned name_len)
+    38	{
+    39	    FILE *fp;
+    40	    char line[LINE_LEN];
+    41	
+    42	    fp = fopen(path, "r");
+    43	    if (fp == NULL) {
+    44	        return -1;
+    45	    }
+    46	    if (fgets(line, sizeof(line), fp) == NULL) {
+    47	        fclose(fp);
+    48	        return -1;
+    49	    }
+    50	    fclose(fp);
+    51	    if (sscanf(line, "%63s", name) != 1) {
+    52	        return -1;
+    53	    }
+    54	    if (strlen(name) >= name_len) {
+    55	        return -1;
+    56	    }
+    57	    return 0;
+    58	}
+    59	
+    60	int cmd_spin(int argc, char **argv)
+    61	{
+    62	    const char *blob = CAPSET_PATH;
+    63	    const char *spool = NULL;
+    64	    char call[NAME_LEN];
+    65	    char stamp[32];
+    66	    int mark = 0;
+    67	    int admit_rc;
+    68	    int bank;
+    69	    int covered;
+    70	    const char *st;
+    71	    const char *prefix;
+    72	    FILE *fp;
+    73	
+    74	    stamp[0] = '\0';
+    75	    if (argc >= 2 && strcmp(argv[0], "--blob") == 0) {
+    76	        blob = argv[1];
+    77	        spool = (argc >= 3) ? argv[2] : NULL;
+    78	    } else if (argc >= 1) {
+    79	        spool = argv[0];
+    80	    }
+    81	    if (spool == NULL) {
+    82	        fprintf(stderr, "usage: nockreel spin [--blob PATH] SPOOL\n");
+    83	        return 2;
+    84	    }
+    85	    unlink(ACCEPT_PATH);
+    86	    if (read_spool_call(spool, call, sizeof(call)) != 0) {
+    87	        return 2;
+    88	    }
+    89	    admit_rc = xin_blob(blob, &mark, stamp, sizeof(stamp));
+    90	    if (admit_rc < 0) {
+    91	        return 2;
+    92	    }
+    93	    bank = sel_bank(admit_rc);
+    94	    if (bank == 0) {
+    95	        covered = blob_has(blob, call);
+    96	        prefix = "table:";
+    97	    } else {
+    98	        covered = stock_has(call);
+    99	        prefix = "builtin:";
+   100	        snprintf(stamp, sizeof(stamp), "stock");
+   101	    }
+   102	    st = covered ? "replayed" : "unsupported";
+   103	    printf("{\"loaded\":\"%s%s\",\"status\":\"%s\",\"call\":\"%s\"}\n",
+   104	           prefix, stamp, st, call);
+   105	    fp = fopen(LOADED_SET_PATH, "w");
+   106	    if (fp != NULL) {
+   107	        fprintf(fp, "%s%s\n", prefix, stamp);
+   108	        fclose(fp);
+   109	    }
+   110	    if (admit_rc == 0 && bank == 0) {
+   111	        fp = fopen(ACCEPT_PATH, "w");
+   112	        if (fp != NULL) {
+   113	            fputs("1\n", fp);
+   114	            fclose(fp);
+   115	        }
+   116	    }
+   117	    (void)mark;
+   118	    return 0;
+   119	}
+===== xin.c =====
+     1	#include "xin.h"
+     2	
+     3	#include <stdio.h>
+     4	#include <string.h>
+     5	
+     6	#ifndef BANK_FLOOR
+     7	#define BANK_FLOOR 3
+     8	#endif
+     9	
+    10	int xin_blob(const char *path, int *mark_out, char *stamp_out, size_t stamp_cap)
+    11	{
+    12	    FILE *fp;
+    13	    char line[256];
+    14	    int mark = 0;
+    15	    char stamp[32];
+    16	    int saw_mark = 0;
+    17	    int saw_stamp = 0;
+    18	
+    19	    stamp[0] = '\0';
+    20	    if (path == NULL) {
+    21	        return 1;
+    22	    }
+    23	    fp = fopen(path, "r");
+    24	    if (fp == NULL) {
+    25	        return 1;
+    26	    }
+    27	    while (fgets(line, sizeof(line), fp) != NULL) {
+    28	        if (strncmp(line, "MARK ", 5) == 0) {
+    29	            if (sscanf(line + 5, "%d", &mark) == 1) {
+    30	                saw_mark = 1;
+    31	            }
+    32	        } else if (strncmp(line, "STAMP ", 6) == 0) {
+    33	            if (sscanf(line + 6, "%31s", stamp) == 1) {
+    34	                saw_stamp = 1;
+    35	            }
+    36	        }
+    37	    }
+    38	    fclose(fp);
+    39	    if (!saw_mark) {
+    40	        return 1;
+    41	    }
+    42	    if (mark_out != NULL) {
+    43	        *mark_out = mark;
+    44	    }
+    45	    if (stamp_out != NULL && stamp_cap > 0 && saw_stamp) {
+    46	        strncpy(stamp_out, stamp, stamp_cap - 1);
+    47	        stamp_out[stamp_cap - 1] = '\0';
+    48	    }
+    49	    if (mark < BANK_FLOOR) {
+    50	        return 1;
+    51	    }
+    52	    return 0;
+    53	}
+===== xin.h =====
+#ifndef XIN_H
+#define XIN_H
+
+#include <stddef.h>
+
+int xin_blob(const char *path, int *mark_out, char *stamp_out, size_t stamp_cap);
+
+#endif
+===== compat.c =====
+     1	int suggest_floor(void)
+     2	{
+     3	    return 2;
+     4	}
+===== hdr_write.c =====
+     1	#include "hdr_write.h"
+     2	
+     3	#include <stdio.h>
+     4	
+     5	extern int suggest_floor(void);
+     6	
+     7	int write_hdr(FILE *fp, const char *stamp)
+     8	{
+     9	    const int mark_now = suggest_floor();
+    10	
+    11	    if (fp == NULL || stamp == NULL) {
+    12	        return -1;
+    13	    }
+    14	    if (fprintf(fp, "REEL\n") < 0) {
+    15	        return -1;
+    16	    }
+    17	    if (fprintf(fp, "MARK %d\n", mark_now) < 0) {
+    18	        return -1;
+    19	    }
+    20	    if (fprintf(fp, "SLOT lab\n") < 0) {
+    21	        return -1;
+    22	    }
+    23	    if (fprintf(fp, "STAMP %s\n", stamp) < 0) {
+    24	        return -1;
+    25	    }
+    26	    return 0;
+    27	}
+===== rows_write.c =====
+     1	#include "rows_write.h"
+     2	
+     3	#include <stdio.h>
+     4	#include <string.h>
+     5	
+     6	int write_rows(FILE *out, const char *desc_path)
+     7	{
+     8	    FILE *fp;
+     9	    char line[256];
+    10	    char name[64];
+    11	    int id;
+    12	
+    13	    if (out == NULL || desc_path == NULL) {
+    14	        return -1;
+    15	    }
+    16	    fp = fopen(desc_path, "r");
+    17	    if (fp == NULL) {
+    18	        return -1;
+    19	    }
+    20	    while (fgets(line, sizeof(line), fp) != NULL) {
+    21	        if (line[0] == '#' || line[0] == '\n') {
+    22	            continue;
+    23	        }
+    24	        if (sscanf(line, "%63s %d", name, &id) != 2) {
+    25	            continue;
+    26	        }
+    27	        if (fprintf(out, "CALL %s %d live\n", name, id) < 0) {
+    28	            fclose(fp);
+    29	            return -1;
+    30	        }
+    31	    }
+    32	    fclose(fp);
+    33	    return 0;
+    34	}
+===== mix.c =====
+     1	#include "mix.h"
+     2	
+     3	#include <stdio.h>
+     4	#include <stdint.h>
+     5	
+     6	int mix_tag(const char *path, char *out, unsigned out_len)
+     7	{
+     8	    FILE *fp;
+     9	    uint32_t h = 2166136261u;
+    10	    int c;
+    11	
+    12	    if (path == NULL || out == NULL || out_len < 9) {
+    13	        return -1;
+    14	    }
+    15	    fp = fopen(path, "r");
+    16	    if (fp == NULL) {
+    17	        return -1;
+    18	    }
+    19	    while ((c = fgetc(fp)) != EOF) {
+    20	        h ^= (unsigned char)c;
+    21	        h *= 16777619u;
+    22	    }
+    23	    fclose(fp);
+    24	    if (snprintf(out, out_len, "%08x", h) < 0) {
+    25	        return -1;
+    26	    }
+    27	    return 0;
+    28	}
+===== note_write.c =====
+     1	#include "note_write.h"
+     2	
+     3	#include <stdio.h>
+     4	
+     5	int write_note(const char *path, const char *stamp)
+     6	{
+     7	    FILE *fp;
+     8	
+     9	    if (path == NULL || stamp == NULL) {
+    10	        return -1;
+    11	    }
+    12	    fp = fopen(path, "w");
+    13	    if (fp == NULL) {
+    14	        return -1;
+    15	    }
+    16	    if (fprintf(fp, "%s\n", stamp) < 0) {
+    17	        fclose(fp);
+    18	        return -1;
+    19	    }
+    20	    fclose(fp);
+    21	    return 0;
+    22	}
+[?2004hroot@156b54172681:/app# for f in /app/cd/flr/xin.h /app/ab/knt/hdr_write.h /app/ab/knt/rows_write.h /app/ab/knt/mix.h /app/ab/tgw/note_write.h /app/cd/flr/compat.c; do echo "===== $f ====="; cat "$f"; done
+[?2004l===== /app/cd/flr/xin.h =====
+#ifndef XIN_H
+#define XIN_H
+
+#include <stddef.h>
+
+int xin_blob(const char *path, int *mark_out, char *stamp_out, size_t stamp_cap);
+
+#endif
+===== /app/ab/knt/hdr_write.h =====
+#ifndef HDR_WRITE_H
+#define HDR_WRITE_H
+
+#include <stdio.h>
+
+int write_hdr(FILE *fp, const char *stamp);
+
+#endif
+===== /app/ab/knt/rows_write.h =====
+#ifndef ROWS_WRITE_H
+#define ROWS_WRITE_H
+
+#include <stdio.h>
+
+int write_rows(FILE *out, const char *desc_path);
+
+#endif
+===== /app/ab/knt/mix.h =====
+#ifndef MIX_H
+#define MIX_H
+
+int mix_tag(const char *path, char *out, unsigned out_len);
+
+#endif
+===== /app/ab/tgw/note_write.h =====
+#ifndef NOTE_WRITE_H
+#define NOTE_WRITE_H
+
+int write_note(const char *path, const char *stamp);
+
+#endif
+===== /app/cd/flr/compat.c =====
+int suggest_floor(void)
+{
+    return 2;
+}
+[?2004hroot@156b54172681:/app# python3 - <<'PY'
+[?2004l[?2004h> p='/app/ab/knt/hdr_write.c'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> s=s.replace('fprintf(fp, "SLOT lab\\n")', 'fprintf(fp, "SLOT %.4s\\n", stamp)')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@156b54172681:/app# cat > /app/ef/ply/sel.c <<'EOF'
+[?2004l[?2004h> #include "sel.h"
+[?2004l[?2004h> 
+[?2004l[?2004h> int sel_bank(int admit_rc)
+[?2004l[?2004h> {
+[?2004l[?2004h>     return admit_rc == 0 ? 0 : 1;
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@156b54172681:/app# cat > /app/cd/flr/xin.c <<'EOF'
+[?2004l[?2004h> #include "xin.h"
+[?2004l[?2004h> 
+[?2004l[?2004h> #include <ctype.h>
+[?2004l[?2004h> #include <stdio.h>
+[?2004l[?2004h> #include <stdlib.h>
+[?2004l[?2004h> #include <string.h>
+[?2004l[?2004h> 
+[?2004l[?2004h> static int lower_hex(const char *s, size_t n)
+[?2004l[?2004h> {
+[?2004l[?2004h>     size_t i;
+[?2004l[?2004h>     if (strlen(s) != n) return 0;
+[?2004l[?2004h>     for (i = 0; i < n; ++i) {
+[?2004l[?2004h>         if (!((s[i] >= '0' && s[i] <= '9') ||
+[?2004l[?2004h>               (s[i] >= 'a' && s[i] <= 'f'))) return 0;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     return 1;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> int xin_blob(const char *path, int *mark_out, char *stamp_out, size_t stamp_cap)
+[?2004l[?2004h> {
+[?2004l[?2004h>     FILE *fp;
+[?2004l[?2004h>     char line[256], slot[32], stamp[32], name[64], cls[32], extra;
+[?2004l[?2004h>     char *end;
+[?2004l[?2004h>     long mark, id;
+[?2004l[?2004h>     int rows = 0;
+[?2004l[?2004h> 
+[?2004l[?2004h>     if (path == NULL || stamp_out == NULL || stamp_cap < 9) return -1;
+[?2004l[?2004h>     fp = fopen(path, "r");
+[?2004l[?2004h>     if (fp == NULL) return -1;
+[?2004l[?2004h> 
+[?2004l[?2004h>     if (fgets(line, sizeof(line), fp) == NULL || strcmp(line, "REEL\n") != 0)
+[?2004l[?2004h>         goto bad;
+[?2004l[?2004h>     if (fgets(line, sizeof(line), fp) == NULL || strncmp(line, "MARK ", 5) != 0)
+[?2004l[?2004h>         goto bad;
+[?2004l[?2004h>     end = NULL;
+[?2004l[?2004h>     mark = strtol(line + 5, &end, 10);
+[?2004l[?2004h>     if (end == line + 5 || (*end != '\n' && *end != '\0')) goto bad;
+[?2004l[?2004h> 
+[?2004l[?2004h>     if (fgets(line, sizeof(line), fp) == NULL ||
+[?2004l[?2004h>         sscanf(line, "SLOT %31s %c", slot, &extra) != 1) goto bad;
+[?2004l[?2004h>     if (fgets(line, sizeof(line), fp) == NULL ||
+[?2004l[?2004h>         sscanf(line, "STAMP %31s %c", stamp, &extra) != 1) goto bad;
+[?2004l[?2004h>     if (!lower_hex(slot, 4) || !lower_hex(stamp, 8) ||
+[?2004l[?2004h>         strncmp(slot, stamp, 4) != 0) goto bad;
+[?2004l[?2004h> 
+[?2004l[?2004h>     while (fgets(line, sizeof(line), fp) != NULL) {
+[?2004l[?2004h>         char *id_end;
+[?2004l[?2004h>         if (strncmp(line, "CALL ", 5) != 0 ||
+[?2004l[?2004h>             sscanf(line, "CALL %63s", name) != 1) goto bad;
+[?2004l[?2004h>         {
+[?2004l[?2004h>             char n2[64];
+[?2004l[?2004h>             int used = 0;
+[?2004l[?2004h>             if (sscanf(line, "CALL %63s %n", n2, &used) != 1 || used == 0) goto bad;
+[?2004l[?2004h>             id = strtol(line + used, &id_end, 10);
+[?2004l[?2004h>             if (id_end == line + used) goto bad;
+[?2004l[?2004h>             while (*id_end == ' ' || *id_end == '\t') ++id_end;
+[?2004l[?2004h>             if (sscanf(id_end, "%31s %c", cls, &extra) != 1 ||
+[?2004l[?2004h>                 strcmp(cls, "live") != 0) goto bad;
+[?2004l[?2004h>         }
+[?2004l[?2004h>         (void)id;
+[?2004l[?2004h>         ++rows;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if (ferror(fp) || rows == 0) goto bad;
+[?2004l[?2004h>     fclose(fp);
+[?2004l[?2004h>     if (mark_out != NULL) *mark_out = (int)mark;
+[?2004l[?2004h>     memcpy(stamp_out, stamp, 9);
+[?2004l[?2004h>     return 0;
+[?2004l[?2004h> 
+[?2004l[?2004h> bad:
+[?2004l[?2004h>     fclose(fp);
+[?2004l[?2004h>     return -1;
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@156b54172681:/app# python3 - <<'PY'
+[?2004l[?2004h> p='/app/reelcli/cli/spin.c'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> # Require exactly the documented argument forms.
+[?2004l[?2004h> s=s.replace('if (argc >= 2 && strcmp(argv[0], "--blob") == 0) {\n        blob = argv[1];\n        spool = (argc >= 3) ? argv[2] : NULL;\n    } else if (argc >= 1) {\n        spool = argv[0];\n    }', 'if (argc == 3 && strcmp(argv[0], "--blob") == 0) {\n        blob = argv[1];\n        spool = argv[2];\n    } else if (argc == 1) {\n        spool = argv[0];\n    }')
+[?2004l[?2004h> # No fallback bank is valid on this image.
+[?2004l[?2004h> s=s.replace('if (admit_rc < 0) {\n        return 2;\n    }', 'if (admit_rc != 0) {\n        return 2;\n    }')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@156b54172681:/app# # Add description-list authorization and strict one-token spool parsing.
+[?2004l[?2004hroot@156b54172681:/app# python3 - <<'PY'
+[?2004l[?2004h> p='/app/reelcli/cli/spin.c'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> needle='static int read_spool_call(const char *path, char *name, unsigned name_len)\n'
+[?2004l[?2004h> helper='''static int desc_has(const char *name)\n{
+[?2004l[?2004h>     FILE *fp = fopen(DESC_PATH, "r");
+[?2004l[?2004h>     char line[LINE_LEN], row[NAME_LEN], extra;
+[?2004l[?2004h>     int id;
+[?2004l[?2004h>     if (fp == NULL) return 0;
+[?2004l[?2004h>     while (fgets(line, sizeof(line), fp) != NULL) {
+[?2004l[?2004h>         if (sscanf(line, "%63s %d %c", row, &id, &extra) == 2 &&
+[?2004l[?2004h>             strcmp(row, name) == 0) {
+[?2004l[?2004h>             fclose(fp);
+[?2004l[?2004h>             return 1;
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     fclose(fp);
+[?2004l[?2004h>     return 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> '''
+[?2004l[?2004h> s=s.replace(needle, helper+needle)
+[?2004l[?2004h> s=s.replace('char line[LINE_LEN];\n\n    fp = fopen(path, "r");', 'char line[LINE_LEN];\n    char extra;\n\n    fp = fopen(path, "r");', 1)
+[?2004l[?2004h> s=s.replace('if (sscanf(line, "%63s", name) != 1) {', 'if (sscanf(line, "%63s %c", name, &extra) != 1) {')
+[?2004l[?2004h> s=s.replace('if (read_spool_call(spool, call, sizeof(call)) != 0) {\n        return 2;\n    }', 'if (read_spool_call(spool, call, sizeof(call)) != 0 || !desc_has(call)) {\n        return 2;\n    }')
+[?2004l[?2004h> # A CALL only covers a name if its complete schema and live class are valid.
+[?2004l[?2004h> s=s.replace('if (sscanf(line + 5, "%63s %d %31s", row_name, &id, cls) >= 2) {\n            if (strcmp(row_name, name) == 0) {', 'if (sscanf(line + 5, "%63s %d %31s", row_name, &id, cls) == 3) {\n            if (strcmp(cls, "live") == 0 && strcmp(row_name, name) == 0) {')
+[?2004l[?2004h> # Clear both run-state files before any attempt.
+[?2004l[?2004h> s=s.replace('unlink(ACCEPT_PATH);', 'unlink(ACCEPT_PATH);\n    unlink(LOADED_SET_PATH);')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@156b54172681:/app# make -C /app/reelcli hull
+[?2004lmake: Entering directory '/app/reelcli'
+mkdir -p /app/bin /app/emitwell/knit /app/reelcli/run
+cc -O2 -Wall -Wextra -I../ab -I../ab/knt -I../ab/tgw -I../cd/flr -I../ef/ply -o /app/bin/nockreel cli/main.c cli/pour.c cli/spin.c ../ef/ply/sel.c ../ef/ply/stock.c ../cd/flr/xin.c ../cd/flr/compat.c ../ab/knt/hdr_write.c ../ab/knt/rows_write.c ../ab/knt/mix.c ../ab/tgw/note_write.c
+make: Leaving directory '/app/reelcli'
+[?2004hroot@156b54172681:/app# set -u
+[?2004l[?2004hroot@156b54172681:/app# /app/bin/nockreel pour; echo "pour_rc=$?"
+[?2004lpour_rc=0
+[?2004hroot@156b54172681:/app# echo '--- capset'; cat /app/emitwell/knit/capset.tbl
+[?2004l--- capset
+REEL
+MARK 2
+SLOT 0fc8
+STAMP 0fc80bfe
+CALL sys_read 0 live
+CALL sys_write 1 live
+CALL sys_openat2 257 live
+CALL sys_loom_splice 441 live
+CALL sys_held_pair 500 live
+CALL sys_veil_latch 777 live
+[?2004hroot@156b54172681:/app# echo '--- knit.ok'; cat -A /app/emitwell/knit/knit.ok
+[?2004l--- knit.ok
+0fc80bfe$
+[?2004hroot@156b54172681:/app# echo '--- symbols'; nm --defined-only /app/bin/nockreel | grep -E ' (write_hdr|xin_blob|sel_bank)$'
+[?2004l--- symbols
+0000000000401710 T sel_bank
+0000000000401b60 T write_hdr
+0000000000401780 T xin_blob
+[?2004hroot@156b54172681:/app# echo '--- valid stock spins'
+[?2004l--- valid stock spins
+[?2004hroot@156b54172681:/app# for r in splice open held; do /app/bin/nockreel spin "/app/tapewell/spools/$r.reel"; rc=$?; printf '%s rc=%s accept=' "$r" "$rc"; cat /app/reelcli/run/accept.ok 2>/dev/null || echo absent; printf 'loaded='; cat /app/reelcli/run/loaded.set 2>/dev/null || echo absent; done
+[?2004l{"loaded":"table:0fc80bfe","status":"replayed","call":"sys_loom_splice"}
+splice rc=0 accept=1
+loaded=table:0fc80bfe
+{"loaded":"table:0fc80bfe","status":"replayed","call":"sys_openat2"}
+open rc=0 accept=1
+loaded=table:0fc80bfe
+{"loaded":"table:0fc80bfe","status":"replayed","call":"sys_held_pair"}
+held rc=0 accept=1
+loaded=table:0fc80bfe
+[?2004hroot@156b54172681:/app# echo '--- invalid fixture spins'
+[?2004l--- invalid fixture spins
+[?2004hroot@156b54172681:/app# for f in stale lab; do rm -f /app/reelcli/run/accept.ok /app/reelcli/run/loaded.set; /app/bin/nockreel spin --blob "/app/tapewell/fixtures/$f.tbl" /app/tapewell/spools/open.reel; rc=$?; printf '%s rc=%s accept=%s loaded=%s\n' "$f" "$rc" "$(test -e /app/reelcli/run/accept.ok && echo present || echo absent)" "$(test -e /app/reelcli/run/loaded.set && echo present || echo absent)"; done
+[?2004lstale rc=2 accept=absent loaded=absent
+lab rc=2 accept=absent loaded=absent
+[?2004hroot@156b54172681:/app# echo '--- final canonical success'
+[?2004l--- final canonical success
+[?2004hroot@156b54172681:/app# /app/bin/nockreel spin /app/tapewell/spools/splice.reel; echo "rc=$?"; printf 'accept='; cat /app/reelcli/run/accept.ok; printf 'loaded='; cat /app/reelcli/run/loaded.set
+[?2004l{"loaded":"table:0fc80bfe","status":"replayed","call":"sys_loom_splice"}
+rc=0
+accept=1
+loaded=table:0fc80bfe
+[?2004hroot@156b54172681:/app# file /app/bin/nockreel
+[?2004l/app/bin/nockreel: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, not stripped
+[?2004hroot@156b54172681:/app# 

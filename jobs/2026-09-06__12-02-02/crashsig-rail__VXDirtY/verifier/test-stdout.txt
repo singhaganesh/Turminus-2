@@ -1,0 +1,179 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 13 items
+
+../tests/test_outputs.py .FF.FFFFFFFFF                                   [100%]
+
+=================================== FAILURES ===================================
+__________________________ test_manifest_ids_in_table __________________________
+
+    def test_manifest_ids_in_table():
+        """Every manifest signature id must be a key in SIGNATURE_OWNERS."""
+>       owners = _owners_from_map()
+                 ^^^^^^^^^^^^^^^^^^
+
+/tests/test_outputs.py:73: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _owners_from_map() -> dict[str, str]:
+        tree = ast.parse(MAP.read_text())
+        for node in tree.body:
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id == "SIGNATURE_OWNERS":
+                        value = ast.literal_eval(node.value)
+                        assert isinstance(value, dict)
+                        return {str(k): str(v) for k, v in value.items()}
+>       raise AssertionError("SIGNATURE_OWNERS missing")
+E       AssertionError: SIGNATURE_OWNERS missing
+
+/tests/test_outputs.py:55: AssertionError
+_________________________ test_owner_pairs_match_table _________________________
+
+    def test_owner_pairs_match_table():
+        """Each manifest owner must match SIGNATURE_OWNERS for its signature."""
+>       owners = _owners_from_map()
+                 ^^^^^^^^^^^^^^^^^^
+
+/tests/test_outputs.py:80: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _owners_from_map() -> dict[str, str]:
+        tree = ast.parse(MAP.read_text())
+        for node in tree.body:
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id == "SIGNATURE_OWNERS":
+                        value = ast.literal_eval(node.value)
+                        assert isinstance(value, dict)
+                        return {str(k): str(v) for k, v in value.items()}
+>       raise AssertionError("SIGNATURE_OWNERS missing")
+E       AssertionError: SIGNATURE_OWNERS missing
+
+/tests/test_outputs.py:55: AssertionError
+__________________________ test_anchor_sig_team_table __________________________
+
+    def test_anchor_sig_team_table():
+        """SIG_NULL_DEREF_81c2 must answer graphics-guild via source table."""
+        data, code, stdout = _route(ANCHOR_SIG)
+>       assert json.loads(stdout.splitlines()[-1]) == {"team": ANCHOR_TEAM, "source": "table"}
+                          ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+/tests/test_outputs.py:96: IndexError
+___________________________ test_hold_sig_team_table ___________________________
+
+    def test_hold_sig_team_table():
+        """SIG_HEAP_OOM_7a3f must answer memory-squad via source table."""
+        data, code, stdout = _route(HOLD_SIG)
+>       assert json.loads(stdout.splitlines()[-1]) == {"team": HOLD_TEAM, "source": "table"}
+                          ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+/tests/test_outputs.py:104: IndexError
+____________________________ test_io_sig_team_table ____________________________
+
+    def test_io_sig_team_table():
+        """SIG_IO_TIMEOUT_4f91 must answer storage-cell via source table."""
+        data, code, stdout = _route("SIG_IO_TIMEOUT_4f91")
+>       assert json.loads(stdout.splitlines()[-1]) == {"team": "storage-cell", "source": "table"}
+                          ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+/tests/test_outputs.py:112: IndexError
+___________________________ test_auth_sig_team_table ___________________________
+
+    def test_auth_sig_team_table():
+        """SIG_AUTH_LOOP_22bd must answer identity-ring via source table."""
+        data, code, stdout = _route("SIG_AUTH_LOOP_22bd")
+>       assert json.loads(stdout.splitlines()[-1]) == {"team": "identity-ring", "source": "table"}
+                          ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+/tests/test_outputs.py:120: IndexError
+___________________________ test_net_sig_team_table ____________________________
+
+    def test_net_sig_team_table():
+        """SIG_NET_RESET_9e04 must answer network-desk via source table."""
+        data, code, stdout = _route("SIG_NET_RESET_9e04")
+>       assert json.loads(stdout.splitlines()[-1]) == {"team": "network-desk", "source": "table"}
+                          ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+/tests/test_outputs.py:128: IndexError
+_______________________ test_roster_signatures_exit_zero _______________________
+
+    def test_roster_signatures_exit_zero():
+        """Every roster signature must exit zero from route with table sourcing."""
+        for sig, team in _roster_pairs():
+            data, code, stdout = _route(sig)
+>           assert json.loads(stdout.splitlines()[-1]) == {"team": team, "source": "table"}
+                              ^^^^^^^^^^^^^^^^^^^^^^^
+E           IndexError: list index out of range
+
+/tests/test_outputs.py:137: IndexError
+________________________ test_unknown_sig_fallback_exit ________________________
+
+    def test_unknown_sig_fallback_exit():
+        """Unknown signatures must use platform-core default with non-zero exit."""
+        data, code, stdout = _route(UNKNOWN_SIG)
+>       assert json.loads(stdout.splitlines()[-1]) == {"team": DEFAULT_TEAM, "source": "default"}
+                          ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+/tests/test_outputs.py:145: IndexError
+______________________ test_probe_green_route_still_wrong ______________________
+
+    def test_probe_green_route_still_wrong():
+        """Probe succeeding must not hide broken table routing."""
+        proc = subprocess.run(
+            ["python3", str(PROBE)], capture_output=True, text=True, check=False
+        )
+        assert proc.returncode == 0
+        data, code, stdout = _route(ANCHOR_SIG)
+>       assert json.loads(stdout.splitlines()[-1]) == {"team": ANCHOR_TEAM, "source": "table"}
+                          ^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+/tests/test_outputs.py:157: IndexError
+____________________ test_table_row_count_matches_manifest _____________________
+
+    def test_table_row_count_matches_manifest():
+        """SIGNATURE_OWNERS must contain exactly one entry per manifest signature."""
+>       owners = _owners_from_map()
+                 ^^^^^^^^^^^^^^^^^^
+
+/tests/test_outputs.py:164: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _owners_from_map() -> dict[str, str]:
+        tree = ast.parse(MAP.read_text())
+        for node in tree.body:
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id == "SIGNATURE_OWNERS":
+                        value = ast.literal_eval(node.value)
+                        assert isinstance(value, dict)
+                        return {str(k): str(v) for k, v in value.items()}
+>       raise AssertionError("SIGNATURE_OWNERS missing")
+E       AssertionError: SIGNATURE_OWNERS missing
+
+/tests/test_outputs.py:55: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_generated_artifact_imports
+PASSED ../tests/test_outputs.py::test_refresh_gate_on_bad_artifact
+FAILED ../tests/test_outputs.py::test_manifest_ids_in_table - AssertionError:...
+FAILED ../tests/test_outputs.py::test_owner_pairs_match_table - AssertionErro...
+FAILED ../tests/test_outputs.py::test_anchor_sig_team_table - IndexError: lis...
+FAILED ../tests/test_outputs.py::test_hold_sig_team_table - IndexError: list ...
+FAILED ../tests/test_outputs.py::test_io_sig_team_table - IndexError: list in...
+FAILED ../tests/test_outputs.py::test_auth_sig_team_table - IndexError: list ...
+FAILED ../tests/test_outputs.py::test_net_sig_team_table - IndexError: list i...
+FAILED ../tests/test_outputs.py::test_roster_signatures_exit_zero - IndexErro...
+FAILED ../tests/test_outputs.py::test_unknown_sig_fallback_exit - IndexError:...
+FAILED ../tests/test_outputs.py::test_probe_green_route_still_wrong - IndexEr...
+FAILED ../tests/test_outputs.py::test_table_row_count_matches_manifest - Asse...
+========================= 11 failed, 2 passed in 0.93s =========================

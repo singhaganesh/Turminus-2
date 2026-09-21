@@ -1,0 +1,148 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 13 items
+
+../tests/test_outputs.py FFFFFFFF.F...                                   [100%]
+
+=================================== FAILURES ===================================
+__________________________ test_pws01_elf_stock_mark ___________________________
+
+    def test_pws01_elf_stock_mark():
+        """Linked mill is ELF and stock salvage-path mark lands after one census."""
+        blob = BIN.read_bytes()
+        assert blob[:4] == b"\x7fELF"
+        r = _census()
+        assert r.returncode == 0
+>       assert "salvage_drain" in _names(REG)
+E       AssertionError: assert 'salvage_drain' in ['core_pump']
+E        +  where ['core_pump'] = _names(PosixPath('/app/mintbay/points.reg'))
+
+/tests/test_outputs.py:49: AssertionError
+__________________________ test_pws02_one_pass_union ___________________________
+
+    def test_pws02_one_pass_union():
+        """One census subprocess lists core, salvage-path, and dusk marks together."""
+        r = _census()
+        assert r.returncode == 0
+        got = set(_names(REG))
+>       assert {"core_pump", "salvage_drain", "night_lamp"} <= got
+E       AssertionError: assert {'core_pump',...alvage_drain'} <= {'core_pump'}
+E         
+E         Extra items in the left set:
+E         'salvage_drain'
+E         'night_lamp'
+
+/tests/test_outputs.py:57: AssertionError
+________________________ test_pws03_holdout_gated_lands ________________________
+
+    def test_pws03_holdout_gated_lands():
+        """A fresh salvage-gated declaration added at grade time lands after one census."""
+        p = WELD / "salvage.c"
+        p.write_text(p.read_text() + "\n#ifdef SALVAGE\nWELD_HOOK(held_guard);\n#endif\n")
+        r = _census()
+        assert r.returncode == 0
+>       assert "held_guard" in _names(REG)
+E       AssertionError: assert 'held_guard' in ['core_pump']
+E        +  where ['core_pump'] = _names(PosixPath('/app/mintbay/points.reg'))
+
+/tests/test_outputs.py:66: AssertionError
+________________________ test_pws04_absent_exits_dirty _________________________
+
+    def test_pws04_absent_exits_dirty():
+        """Declared shipped mark absent from the registry makes census fail."""
+        p = WELD / "salvage.c"
+        p.write_text(p.read_text() + "\n#ifdef SALVAGE\nWELD_HOOK(held_two);\n#endif\n")
+        r = _census()
+        names = _names(REG)
+        if "held_two" not in names:
+>           assert r.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/pinweld', 'census'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:76: AssertionError
+_________________________ test_pws05_fire_guard_stdout _________________________
+
+    def test_pws05_fire_guard_stdout():
+        """poke fires the salvage-path mark once the runtime list holds it."""
+        assert _census().returncode == 0
+        r = _poke("salvage_drain")
+>       assert r.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/app/bin/pinweld', 'poke', 'salvage_drain'], returncode=1, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:85: AssertionError
+_________________________ test_pws06_corrupt_then_mint _________________________
+
+    def test_pws06_corrupt_then_mint():
+        """Corrupt mintbay products then one census restores the union."""
+        assert _census().returncode == 0
+        REG.write_text("core_pump\n")
+        LST.write_text("core_pump\n")
+        r = _census()
+        assert r.returncode == 0
+        got = set(_names(REG))
+>       assert {"core_pump", "salvage_drain", "night_lamp"} <= got
+E       AssertionError: assert {'core_pump',...alvage_drain'} <= {'core_pump'}
+E         
+E         Extra items in the left set:
+E         'salvage_drain'
+E         'night_lamp'
+
+/tests/test_outputs.py:99: AssertionError
+_________________________ test_pws07_dusk_mark_present _________________________
+
+    def test_pws07_dusk_mark_present():
+        """Night recipe mark is present without copying it into the core unit."""
+        r = _census()
+        assert r.returncode == 0
+>       assert "night_lamp" in _names(REG)
+E       AssertionError: assert 'night_lamp' in ['core_pump']
+E        +  where ['core_pump'] = _names(PosixPath('/app/mintbay/points.reg'))
+
+/tests/test_outputs.py:107: AssertionError
+__________________________ test_pws08_log_names_unit ___________________________
+
+    def test_pws08_log_names_unit():
+        """scan.log names the salvage unit even when that mark must also be in the registry."""
+        r = _census()
+        assert r.returncode == 0
+        text = LOG.read_text()
+        assert "ribunit/salvage.c" in text
+>       assert "salvage_drain" in _names(REG)
+E       AssertionError: assert 'salvage_drain' in ['core_pump']
+E        +  where ['core_pump'] = _names(PosixPath('/app/mintbay/points.reg'))
+
+/tests/test_outputs.py:119: AssertionError
+__________________________ test_pws10_pair_fresh_both __________________________
+
+    def test_pws10_pair_fresh_both():
+        """Two newly added gated declarations both land from a single census subprocess."""
+        s = WELD / "salvage.c"
+        n = WELD / "night.c"
+        s.write_text(s.read_text() + "\n#ifdef SALVAGE\nWELD_HOOK(fresh_one);\n#endif\n")
+        n.write_text(n.read_text() + "\n#ifdef NIGHT\nWELD_HOOK(fresh_two);\n#endif\n")
+        r = _census()
+        assert r.returncode == 0
+        got = set(_names(REG))
+>       assert "fresh_one" in got and "fresh_two" in got
+E       AssertionError: assert ('fresh_one' in {'core_pump'})
+
+/tests/test_outputs.py:138: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_pws09_lst_matches_reg
+PASSED ../tests/test_outputs.py::test_pws11_second_mint_same
+PASSED ../tests/test_outputs.py::test_pws12_core_stays
+PASSED ../tests/test_outputs.py::test_pws13_unshipped_omitted
+FAILED ../tests/test_outputs.py::test_pws01_elf_stock_mark - AssertionError: ...
+FAILED ../tests/test_outputs.py::test_pws02_one_pass_union - AssertionError: ...
+FAILED ../tests/test_outputs.py::test_pws03_holdout_gated_lands - AssertionEr...
+FAILED ../tests/test_outputs.py::test_pws04_absent_exits_dirty - AssertionErr...
+FAILED ../tests/test_outputs.py::test_pws05_fire_guard_stdout - AssertionErro...
+FAILED ../tests/test_outputs.py::test_pws06_corrupt_then_mint - AssertionErro...
+FAILED ../tests/test_outputs.py::test_pws07_dusk_mark_present - AssertionErro...
+FAILED ../tests/test_outputs.py::test_pws08_log_names_unit - AssertionError: ...
+FAILED ../tests/test_outputs.py::test_pws10_pair_fresh_both - AssertionError:...
+========================= 9 failed, 4 passed in 1.35s ==========================

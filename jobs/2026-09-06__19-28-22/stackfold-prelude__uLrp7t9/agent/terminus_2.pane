@@ -1,0 +1,2220 @@
+[?2004hroot@070b131be943:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@070b131be943:/app# clear
+[?2004l[H[J[3J[?2004hroot@070b131be943:/app# pwd; find /app -maxdepth 4 -type f -printf '%p\n' | sort | sed -n '1,240p'
+[?2004l/app
+/app/benchframes/MANIFEST
+/app/benchframes/anchor/buildid.stamp
+/app/benchframes/anchor/symbols.tab
+/app/benchframes/bench.samples
+/app/bin/pcfold
+/app/pcfold/Makefile
+/app/pcfold/NOTES
+/app/pcfold/conf/index.mode
+/app/pcfold/conf/latch.env
+/app/pcfold/include/pcfold.h
+/app/pcfold/src/elfutil.c
+/app/pcfold/src/index.c
+/app/pcfold/src/main.c
+/app/pcfold/src/parity.c
+/app/pcfold/src/render.c
+/app/symmill/Makefile
+/app/symmill/contract.md
+/app/symmill/fold/profile.json
+/app/symmill/fold/runtime
+/app/symmill/fold/runtime.symmap
+/app/symmill/mk/foldlink.dep
+/app/symmill/ops/pipeline.map
+/app/symmill/scripts/seed_samples.sh
+/app/symmill/src/core.c
+/app/symmill/src/core.o
+/app/symmill/src/dispatch_ring.c
+/app/symmill/src/dispatch_ring.o
+/app/symmill/src/worker.c
+/app/symmill/src/worker.o
+[?2004hroot@070b131be943:/app# printf '%s\n' '--- contract ---'; cat /app/symmill/contract.md; printf '%s\n' '--- pipeline ---'; cat /app/symmill/ops/pipeline.map
+[?2004l--- contract ---
+Fold pipeline bench notes. Source changes under `/app/symmill` and `/app/pcfold` are required before the fold artifacts match the linked runtime.
+
+The fold pipeline must regenerate `/app/symmill/fold/runtime.symmap` and `/app/symmill/fold/profile.json`. Manual or hand-written copies are insufficient. `make -C /app/symmill emitmap` is the pipeline entry that rebuilds that pair.
+
+Symmap header is `PCFOLD1` with `mode` set to `linked`, string `buildid`, an `origin pcfold-index-linked` line produced by `pcfold index --linked`, and `sym` rows. Hand-built maps lack that origin line. The symmap must contain at least 8 `sym` rows. Each `sym` row lists name, start address, and span size in hex.
+
+Span sizes must match `nm -n --defined-only` ordering on `/app/symmill/fold/runtime` (each symbol ends where the next text symbol begins; the last symbol uses a 64-byte span). Linked maps must not keep uniform `0x40` object-merge placeholder spans.
+
+Runtime `buildid` in the symmap must be at least 8 hex characters and match the `Build ID:` from `readelf -n /app/symmill/fold/runtime`. Bench anchor stamp `/app/benchframes/anchor/buildid.stamp` mirrors that value after a correct pipeline run.
+
+`/app/pcfold/conf/latch.env` must keep `FOLD_LATCH on` so `/app/bin/pcfold check` enforces symmap identity. `/app/bin/pcfold check <runtime> <symmap>` must exit non-zero when the symmap buildid drifts from the runtime ELF and must exit zero for the on-disk pair after repair. `make -C /app/symmill emitmap` must fail when that check rejects the map.
+
+The verifier reruns `/opt/verifier/bin/pcfold-grade render` on held-out sample files without invoking emitmap.
+
+Profile `frames` are a JSON array of objects with string `pc`, string `symbol`, and integer `offset`.
+
+Bench anchor symbol addresses live in `/app/benchframes/anchor/symbols.tab`.
+--- pipeline ---
+# fold pipeline scope
+foldlink.dep
+emitmap.gate
+latch.channel
+parity.gate
+[?2004hroot@070b131be943:/app# printf '%s\n' '--- symmap ---'; sed -n '1,160p' /app/symmill/fold/runtime.symmap 2>/dev/null; printf '%s\n' '--- samples ---'; cat /app/benchframes/bench.samples 2>/dev/null; printf '%s\n' '--- profile ---'; cat /app/symmill/fold/profile.json 2>/dev/null
+[?2004l--- symmap ---
+PCFOLD1
+mode objects
+buildid object-merge
+sym main 0x1000 0x40
+sym runtime_entry 0x1040 0x40
+sym legacy_worker 0x1400 0x40
+sym ring_dispatch 0x1600 0x40
+--- samples ---
+pc 0x401168
+pc 0x401144
+--- profile ---
+{
+  "frames": [
+    {"pc": "0x401168", "symbol": "main", "offset": 4194664},
+    {"pc": "0x401144", "symbol": "main", "offset": 4194628}
+  ]
+}
+[?2004hroot@070b131be943:/app# printf '%s\n' '--- pcfold ---'; file /app/bin/pcfold; readlink -f /app/bin/pcfold; grep -RInE 'PCFOLD1|symmap|buildid|ring_dispatch|legacy_worker' /app --exclude='runtime.symmap' --exclude='profile.json' 2>/dev/null | head -240
+[?2004l--- pcfold ---
+/app/bin/pcfold: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, not stripped
+/app/bin/pcfold
+/app/symmill/Makefile:7:SYMAP := fold/runtime.symmap
+/app/symmill/Makefile:16:# emitmap rebuilds runtime.symmap + profile.json from the current fold rule
+/app/symmill/src/dispatch_ring.c:3:uint32_t ring_dispatch(uint32_t lane)
+/app/symmill/src/worker.c:3:uint32_t ring_dispatch(uint32_t lane);
+/app/symmill/src/worker.c:5:uint32_t legacy_worker(uint32_t seed)
+/app/symmill/src/worker.c:8:    return ring_dispatch(lane) + seed;
+/app/symmill/src/core.c:3:uint32_t legacy_worker(uint32_t seed);
+/app/symmill/src/core.c:7:    return (int)legacy_worker(0x11U);
+/app/symmill/src/core.c:12:    uint32_t base = legacy_worker(seed);
+/app/symmill/contract.md:3:The fold pipeline must regenerate `/app/symmill/fold/runtime.symmap` and `/app/symmill/fold/profile.json`. Manual or hand-written copies are insufficient. `make -C /app/symmill emitmap` is the pipeline entry that rebuilds that pair.
+/app/symmill/contract.md:5:Symmap header is `PCFOLD1` with `mode` set to `linked`, string `buildid`, an `origin pcfold-index-linked` line produced by `pcfold index --linked`, and `sym` rows. Hand-built maps lack that origin line. The symmap must contain at least 8 `sym` rows. Each `sym` row lists name, start address, and span size in hex.
+/app/symmill/contract.md:9:Runtime `buildid` in the symmap must be at least 8 hex characters and match the `Build ID:` from `readelf -n /app/symmill/fold/runtime`. Bench anchor stamp `/app/benchframes/anchor/buildid.stamp` mirrors that value after a correct pipeline run.
+/app/symmill/contract.md:11:`/app/pcfold/conf/latch.env` must keep `FOLD_LATCH on` so `/app/bin/pcfold check` enforces symmap identity. `/app/bin/pcfold check <runtime> <symmap>` must exit non-zero when the symmap buildid drifts from the runtime ELF and must exit zero for the on-disk pair after repair. `make -C /app/symmill emitmap` must fail when that check rejects the map.
+/app/symmill/scripts/seed_samples.sh:4:ring=$(nm -n --defined-only /app/symmill/fold/runtime | awk '$3=="ring_dispatch"{print $1}')
+/app/symmill/scripts/seed_samples.sh:5:legacy=$(nm -n --defined-only /app/symmill/fold/runtime | awk '$3=="legacy_worker"{print $1}')
+/app/symmill/scripts/seed_samples.sh:6:buildid=$(readelf -n /app/symmill/fold/runtime | awk '/Build ID:/{print $3; exit}')
+/app/symmill/scripts/seed_samples.sh:7:printf 'ring_dispatch 0x%s\nlegacy_worker 0x%s\n' "$ring" "$legacy" > /app/benchframes/anchor/symbols.tab
+/app/symmill/scripts/seed_samples.sh:8:printf '%s\n' "$buildid" > /app/benchframes/anchor/buildid.stamp
+/app/benchframes/anchor/symbols.tab:1:ring_dispatch 0x0000000000401160
+/app/benchframes/anchor/symbols.tab:2:legacy_worker 0x0000000000401140
+/app/pcfold/include/pcfold.h:6:#define SF_MAGIC "PCFOLD1"
+/app/pcfold/include/pcfold.h:17:int sf_check(const char *elf_path, const char *symmap_path);
+/app/pcfold/include/pcfold.h:18:int sf_render(const char *samples_path, const char *symmap_path, const char *out_path);
+/app/pcfold/src/main.c:9:    fprintf(stderr, "usage: %s index --linked <elf> -o <symmap>\n", argv0);
+/app/pcfold/src/main.c:10:    fprintf(stderr, "       %s index --objects <o>... -o <symmap>\n", argv0);
+/app/pcfold/src/main.c:11:    fprintf(stderr, "       %s check <elf> <symmap>\n", argv0);
+/app/pcfold/src/main.c:12:    fprintf(stderr, "       %s render <samples> <symmap> -o <profile>\n", argv0);
+/app/pcfold/src/parity.c:38:        } else if (strncmp(line, "buildid ", 8) == 0) {
+/app/pcfold/src/parity.c:39:            sscanf(line, "buildid %127s", map->build_id);
+/app/pcfold/src/parity.c:92:int sf_check(const char *elf_path, const char *symmap_path)
+/app/pcfold/src/parity.c:98:    if (load_map(symmap_path, &map) != 0) {
+/app/pcfold/src/index.c:9:static int write_symmap(
+/app/pcfold/src/index.c:23:    fprintf(fp, "buildid %s\n", build_id);
+/app/pcfold/src/index.c:49:    int rc = write_symmap(out_path, "linked", build_id, "pcfold-index-linked", syms, count);
+/app/pcfold/src/index.c:101:    int rc = write_symmap(out_path, "objects", "object-merge", NULL, syms, count);
+/app/pcfold/src/render.c:77:int sf_render(const char *samples_path, const char *symmap_path, const char *out_path)
+/app/pcfold/src/render.c:80:    if (load_map_ro(symmap_path, &map) != 0) {
+[?2004hroot@070b131be943:/app# printf '%s\n' '--- symmill Makefile ---'; nl -ba /app/symmill/Makefile; printf '%s\n' '--- foldlink.dep ---'; cat /app/symmill/mk/foldlink.dep; printf '%s\n' '--- pcfold Makefile/config/notes ---'; nl -ba /app/pcfold/Makefile; cat /app/pcfold/conf/index.mode /app/pcfold/conf/latch.env /app/pcfold/NOTES
+[?2004l--- symmill Makefile ---
+     1	CC ?= gcc
+     2	CFLAGS ?= -O2 -Wall -Wextra -fPIC
+     3	LDFLAGS ?= -Wl,--build-id
+     4	SRC := src/core.c src/worker.c src/dispatch_ring.c
+     5	OBJS := $(SRC:.c=.o)
+     6	TARGET := fold/runtime
+     7	SYMAP := fold/runtime.symmap
+     8	PROFILE := fold/profile.json
+     9	PCFOLD := /app/bin/pcfold
+    10	SAMPLES := /app/benchframes/bench.samples
+    11	
+    12	include mk/foldlink.dep
+    13	
+    14	.PHONY: emitmap clean hull
+    15	
+    16	# emitmap rebuilds runtime.symmap + profile.json from the current fold rule
+    17	hull: $(TARGET)
+    18	
+    19	emitmap: $(PROFILE)
+    20		@:
+    21	
+    22	$(TARGET): $(OBJS)
+    23		@mkdir -p fold
+    24		$(CC) $(LDFLAGS) -o $@ $(OBJS)
+    25	
+    26	$(PROFILE): $(SYMAP) $(SAMPLES)
+    27		$(PCFOLD) render $(SAMPLES) $(SYMAP) -o $(PROFILE)
+    28	
+    29	clean:
+    30		rm -f $(OBJS) $(TARGET) $(SYMAP) $(PROFILE)
+    31	
+    32	src/%.o: src/%.c
+    33		$(CC) $(CFLAGS) -c -o $@ $<
+--- foldlink.dep ---
+$(SYMAP): $(OBJS)
+	@mkdir -p fold
+	$(PCFOLD) index --objects $(OBJS) -o $(SYMAP)
+--- pcfold Makefile/config/notes ---
+     1	CC ?= gcc
+     2	CFLAGS ?= -O2 -Wall -Wextra -Iinclude
+     3	SRC := src/main.c src/index.c src/parity.c src/render.c src/elfutil.c
+     4	BIN := /app/bin/pcfold
+     5	
+     6	.PHONY: hull
+     7	hull:
+     8		mkdir -p /app/bin
+     9		$(CC) $(CFLAGS) -o $(BIN) $(SRC)
+index_mode=objects
+FOLD_LATCH off
+pcfold index/render/check tool sources.
+[?2004hroot@070b131be943:/app# for f in /app/pcfold/include/pcfold.h /app/pcfold/src/main.c /app/pcfold/src/index.c /app/pcfold/src/elfutil.c /app/pcfold/src/parity.c /app/pcfold/src/render.c; do echo "--- $f ---"; nl -ba "$f"; done
+[?2004l--- /app/pcfold/include/pcfold.h ---
+     1	#ifndef PCFOLD_H
+     2	#define PCFOLD_H
+     3	
+     4	#include <stddef.h>
+     5	
+     6	#define SF_MAGIC "PCFOLD1"
+     7	
+     8	typedef struct {
+     9	    char name[128];
+    10	    unsigned long start;
+    11	    unsigned long size;
+    12	} sf_sym_t;
+    13	
+    14	int sf_read_build_id(const char *elf_path, char *out, size_t out_len);
+    15	int sf_index_linked(const char *elf_path, const char *out_path);
+    16	int sf_index_objects(const char **obj_paths, int obj_count, const char *out_path);
+    17	int sf_check(const char *elf_path, const char *symmap_path);
+    18	int sf_render(const char *samples_path, const char *symmap_path, const char *out_path);
+    19	
+    20	#endif
+--- /app/pcfold/src/main.c ---
+     1	#include "pcfold.h"
+     2	
+     3	#include <stdio.h>
+     4	#include <stdlib.h>
+     5	#include <string.h>
+     6	
+     7	static int usage(const char *argv0)
+     8	{
+     9	    fprintf(stderr, "usage: %s index --linked <elf> -o <symmap>\n", argv0);
+    10	    fprintf(stderr, "       %s index --objects <o>... -o <symmap>\n", argv0);
+    11	    fprintf(stderr, "       %s check <elf> <symmap>\n", argv0);
+    12	    fprintf(stderr, "       %s render <samples> <symmap> -o <profile>\n", argv0);
+    13	    return 1;
+    14	}
+    15	
+    16	int main(int argc, char **argv)
+    17	{
+    18	    if (argc < 2) {
+    19	        return usage(argv[0]);
+    20	    }
+    21	    if (strcmp(argv[1], "index") == 0) {
+    22	        const char *out = NULL;
+    23	        if (argc >= 4 && strcmp(argv[2], "--linked") == 0) {
+    24	            for (int i = 4; i < argc; i++) {
+    25	                if (strcmp(argv[i], "-o") == 0 && i + 1 < argc) {
+    26	                    out = argv[i + 1];
+    27	                }
+    28	            }
+    29	            if (!out) {
+    30	                return usage(argv[0]);
+    31	            }
+    32	            return sf_index_linked(argv[3], out) == 0 ? 0 : 1;
+    33	        }
+    34	        if (argc >= 4 && strcmp(argv[2], "--objects") == 0) {
+    35	            const char **objs = NULL;
+    36	            int obj_count = 0;
+    37	            for (int i = 3; i < argc; i++) {
+    38	                if (strcmp(argv[i], "-o") == 0) {
+    39	                    out = argv[i + 1];
+    40	                    break;
+    41	                }
+    42	                obj_count++;
+    43	            }
+    44	            if (!out || obj_count == 0) {
+    45	                return usage(argv[0]);
+    46	            }
+    47	            objs = calloc((size_t)obj_count, sizeof(char *));
+    48	            int idx = 0;
+    49	            for (int i = 3; i < argc; i++) {
+    50	                if (strcmp(argv[i], "-o") == 0) {
+    51	                    break;
+    52	                }
+    53	                objs[idx++] = argv[i];
+    54	            }
+    55	            int rc = sf_index_objects(objs, obj_count, out);
+    56	            free(objs);
+    57	            return rc == 0 ? 0 : 1;
+    58	        }
+    59	        return usage(argv[0]);
+    60	    }
+    61	    if (strcmp(argv[1], "check") == 0 && argc == 4) {
+    62	        return sf_check(argv[2], argv[3]);
+    63	    }
+    64	    if (strcmp(argv[1], "render") == 0 && argc >= 5) {
+    65	        const char *out = NULL;
+    66	        for (int i = 4; i < argc; i++) {
+    67	            if (strcmp(argv[i], "-o") == 0 && i + 1 < argc) {
+    68	                out = argv[i + 1];
+    69	            }
+    70	        }
+    71	        if (!out) {
+    72	            return usage(argv[0]);
+    73	        }
+    74	        return sf_render(argv[2], argv[3], out) == 0 ? 0 : 1;
+    75	    }
+    76	    return usage(argv[0]);
+    77	}
+--- /app/pcfold/src/index.c ---
+     1	#include "pcfold.h"
+     2	
+     3	#include <stdio.h>
+     4	#include <stdlib.h>
+     5	#include <string.h>
+     6	
+     7	extern int sf_collect_elf_symbols(const char *elf_path, sf_sym_t **out_syms, int *out_count);
+     8	
+     9	static int write_symmap(
+    10	    const char *out_path,
+    11	    const char *mode,
+    12	    const char *build_id,
+    13	    const char *origin,
+    14	    sf_sym_t *syms,
+    15	    int count)
+    16	{
+    17	    FILE *fp = fopen(out_path, "w");
+    18	    if (!fp) {
+    19	        return -1;
+    20	    }
+    21	    fprintf(fp, "%s\n", SF_MAGIC);
+    22	    fprintf(fp, "mode %s\n", mode);
+    23	    fprintf(fp, "buildid %s\n", build_id);
+    24	    if (origin && origin[0] != '\0') {
+    25	        fprintf(fp, "origin %s\n", origin);
+    26	    }
+    27	    for (int i = 0; i < count; i++) {
+    28	        fprintf(fp, "sym %s 0x%lx 0x%lx\n", syms[i].name, syms[i].start, syms[i].size);
+    29	    }
+    30	    fclose(fp);
+    31	    return 0;
+    32	}
+    33	
+    34	int sf_index_linked(const char *elf_path, const char *out_path)
+    35	{
+    36	    char build_id[128] = {0};
+    37	    if (sf_read_build_id(elf_path, build_id, sizeof(build_id)) != 0) {
+    38	        strcpy(build_id, "unknown");
+    39	    }
+    40	    sf_sym_t *syms = NULL;
+    41	    int count = 0;
+    42	    if (sf_collect_elf_symbols(elf_path, &syms, &count) != 0 || count == 0) {
+    43	        free(syms);
+    44	        return -1;
+    45	    }
+    46	    for (int i = 0; i < count; i++) {
+    47	        syms[i].size = 0x40;
+    48	    }
+    49	    int rc = write_symmap(out_path, "linked", build_id, "pcfold-index-linked", syms, count);
+    50	    free(syms);
+    51	    return rc;
+    52	}
+    53	
+    54	static int collect_object_symbols(const char *obj_path, sf_sym_t **acc, int *acc_count)
+    55	{
+    56	    char cmd[512];
+    57	    snprintf(cmd, sizeof(cmd), "nm -n --defined-only '%s' 2>/dev/null", obj_path);
+    58	    FILE *fp = popen(cmd, "r");
+    59	    if (!fp) {
+    60	        return -1;
+    61	    }
+    62	    unsigned long cursor = 0x1000UL + (unsigned long)(*acc_count) * 0x200UL;
+    63	    char line[512];
+    64	    while (fgets(line, sizeof(line), fp)) {
+    65	        unsigned long addr = 0;
+    66	        char type = 0;
+    67	        char name[128] = {0};
+    68	        if (sscanf(line, "%lx %c %127s", &addr, &type, name) != 3
+    69	            && sscanf(line, " %c %127s", &type, name) != 2) {
+    70	            continue;
+    71	        }
+    72	        if (type != 'T' && type != 't') {
+    73	            continue;
+    74	        }
+    75	        sf_sym_t *next = realloc(*acc, (size_t)(*acc_count + 1) * sizeof(sf_sym_t));
+    76	        if (!next) {
+    77	            pclose(fp);
+    78	            return -1;
+    79	        }
+    80	        *acc = next;
+    81	        strncpy((*acc)[*acc_count].name, name, sizeof((*acc)[*acc_count].name) - 1);
+    82	        (*acc)[*acc_count].start = cursor;
+    83	        (*acc)[*acc_count].size = 0x40;
+    84	        cursor += 0x40;
+    85	        (*acc_count)++;
+    86	    }
+    87	    pclose(fp);
+    88	    return 0;
+    89	}
+    90	
+    91	int sf_index_objects(const char **obj_paths, int obj_count, const char *out_path)
+    92	{
+    93	    sf_sym_t *syms = NULL;
+    94	    int count = 0;
+    95	    for (int i = 0; i < obj_count; i++) {
+    96	        if (collect_object_symbols(obj_paths[i], &syms, &count) != 0) {
+    97	            free(syms);
+    98	            return -1;
+    99	        }
+   100	    }
+   101	    int rc = write_symmap(out_path, "objects", "object-merge", NULL, syms, count);
+   102	    free(syms);
+   103	    return rc;
+   104	}
+--- /app/pcfold/src/elfutil.c ---
+     1	#include "pcfold.h"
+     2	
+     3	#include <ctype.h>
+     4	#include <stdio.h>
+     5	#include <stdlib.h>
+     6	#include <string.h>
+     7	
+     8	static int hex_nibble(char c)
+     9	{
+    10	    if (c >= '0' && c <= '9') {
+    11	        return c - '0';
+    12	    }
+    13	    if (c >= 'a' && c <= 'f') {
+    14	        return 10 + (c - 'a');
+    15	    }
+    16	    if (c >= 'A' && c <= 'F') {
+    17	        return 10 + (c - 'A');
+    18	    }
+    19	    return -1;
+    20	}
+    21	
+    22	int sf_read_build_id(const char *elf_path, char *out, size_t out_len)
+    23	{
+    24	    char cmd[512];
+    25	    snprintf(cmd, sizeof(cmd), "readelf -n '%s' 2>/dev/null", elf_path);
+    26	    FILE *fp = popen(cmd, "r");
+    27	    if (!fp) {
+    28	        return -1;
+    29	    }
+    30	    char line[512];
+    31	    while (fgets(line, sizeof(line), fp)) {
+    32	        char *p = strstr(line, "Build ID:");
+    33	        if (!p) {
+    34	            continue;
+    35	        }
+    36	        p += 9;
+    37	        while (*p && isspace((unsigned char)*p)) {
+    38	            p++;
+    39	        }
+    40	        size_t n = 0;
+    41	        while (p[n] && !isspace((unsigned char)p[n]) && n + 1 < out_len) {
+    42	            out[n] = p[n];
+    43	            n++;
+    44	        }
+    45	        out[n] = '\0';
+    46	        pclose(fp);
+    47	        return n > 0 ? 0 : -1;
+    48	    }
+    49	    pclose(fp);
+    50	    return -1;
+    51	}
+    52	
+    53	int sf_collect_elf_symbols(const char *elf_path, sf_sym_t **out_syms, int *out_count)
+    54	{
+    55	    char cmd[512];
+    56	    snprintf(cmd, sizeof(cmd), "nm -n --defined-only '%s' 2>/dev/null", elf_path);
+    57	    FILE *fp = popen(cmd, "r");
+    58	    if (!fp) {
+    59	        return -1;
+    60	    }
+    61	    sf_sym_t *buf = NULL;
+    62	    int cap = 0;
+    63	    int count = 0;
+    64	    char line[512];
+    65	    while (fgets(line, sizeof(line), fp)) {
+    66	        unsigned long addr = 0;
+    67	        char type = 0;
+    68	        char name[128] = {0};
+    69	        if (sscanf(line, "%lx %c %127s", &addr, &type, name) != 3) {
+    70	            continue;
+    71	        }
+    72	        if (type != 'T' && type != 't') {
+    73	            continue;
+    74	        }
+    75	        if (count >= cap) {
+    76	            cap = cap ? cap * 2 : 32;
+    77	            sf_sym_t *next = realloc(buf, (size_t)cap * sizeof(sf_sym_t));
+    78	            if (!next) {
+    79	                free(buf);
+    80	                pclose(fp);
+    81	                return -1;
+    82	            }
+    83	            buf = next;
+    84	        }
+    85	        strncpy(buf[count].name, name, sizeof(buf[count].name) - 1);
+    86	        buf[count].start = addr;
+    87	        buf[count].size = 0;
+    88	        count++;
+    89	    }
+    90	    pclose(fp);
+    91	    for (int i = 0; i < count; i++) {
+    92	        unsigned long end = (i + 1 < count) ? buf[i + 1].start : buf[i].start + 64;
+    93	        if (end > buf[i].start) {
+    94	            buf[i].size = end - buf[i].start;
+    95	        } else {
+    96	            buf[i].size = 64;
+    97	        }
+    98	    }
+    99	    *out_syms = buf;
+   100	    *out_count = count;
+   101	    return 0;
+   102	}
+--- /app/pcfold/src/parity.c ---
+     1	#include "pcfold.h"
+     2	
+     3	#include <stdio.h>
+     4	#include <stdlib.h>
+     5	#include <string.h>
+     6	
+     7	extern int sf_collect_elf_symbols(const char *elf_path, sf_sym_t **out_syms, int *out_count);
+     8	
+     9	typedef struct {
+    10	    char mode[32];
+    11	    char build_id[128];
+    12	    sf_sym_t *syms;
+    13	    int count;
+    14	} sf_map_t;
+    15	
+    16	static void free_map(sf_map_t *map)
+    17	{
+    18	    free(map->syms);
+    19	    map->syms = NULL;
+    20	    map->count = 0;
+    21	}
+    22	
+    23	static int load_map(const char *path, sf_map_t *map)
+    24	{
+    25	    memset(map, 0, sizeof(*map));
+    26	    FILE *fp = fopen(path, "r");
+    27	    if (!fp) {
+    28	        return -1;
+    29	    }
+    30	    char line[512];
+    31	    if (!fgets(line, sizeof(line), fp) || strncmp(line, SF_MAGIC, strlen(SF_MAGIC)) != 0) {
+    32	        fclose(fp);
+    33	        return -1;
+    34	    }
+    35	    while (fgets(line, sizeof(line), fp)) {
+    36	        if (strncmp(line, "mode ", 5) == 0) {
+    37	            sscanf(line, "mode %31s", map->mode);
+    38	        } else if (strncmp(line, "buildid ", 8) == 0) {
+    39	            sscanf(line, "buildid %127s", map->build_id);
+    40	        } else if (strncmp(line, "sym ", 4) == 0) {
+    41	            sf_sym_t sym = {0};
+    42	            unsigned long start = 0;
+    43	            unsigned long size = 0;
+    44	            if (sscanf(line, "sym %127s 0x%lx 0x%lx", sym.name, &start, &size) == 3) {
+    45	                sym.start = start;
+    46	                sym.size = size;
+    47	                sf_sym_t *next =
+    48	                    realloc(map->syms, (size_t)(map->count + 1) * sizeof(sf_sym_t));
+    49	                if (!next) {
+    50	                    fclose(fp);
+    51	                    free_map(map);
+    52	                    return -1;
+    53	                }
+    54	                map->syms = next;
+    55	                map->syms[map->count++] = sym;
+    56	            }
+    57	        }
+    58	    }
+    59	    fclose(fp);
+    60	    return map->count > 0 ? 0 : -1;
+    61	}
+    62	
+    63	static int sym_in_map(const sf_map_t *map, const char *name)
+    64	{
+    65	    for (int i = 0; i < map->count; i++) {
+    66	        if (strcmp(map->syms[i].name, name) == 0) {
+    67	            return 1;
+    68	        }
+    69	    }
+    70	    return 0;
+    71	}
+    72	
+    73	static int guard_allows_bypass(void)
+    74	{
+    75	    FILE *fp = fopen("/app/pcfold/conf/latch.env", "r");
+    76	    if (!fp) {
+    77	        return 0;
+    78	    }
+    79	    char line[128];
+    80	    while (fgets(line, sizeof(line), fp)) {
+    81	        char key[64] = {0};
+    82	        char val[64] = {0};
+    83	        if (sscanf(line, "%63s %63s", key, val) == 2 && strcmp(key, "FOLD_LATCH") == 0) {
+    84	            fclose(fp);
+    85	            return strcmp(val, "off") == 0;
+    86	        }
+    87	    }
+    88	    fclose(fp);
+    89	    return 0;
+    90	}
+    91	
+    92	int sf_check(const char *elf_path, const char *symmap_path)
+    93	{
+    94	    if (guard_allows_bypass()) {
+    95	        return 0;
+    96	    }
+    97	    sf_map_t map;
+    98	    if (load_map(symmap_path, &map) != 0) {
+    99	        return 1;
+   100	    }
+   101	    if (strcmp(map.mode, "linked") != 0) {
+   102	        free_map(&map);
+   103	        return 1;
+   104	    }
+   105	    char live_id[128] = {0};
+   106	    if (sf_read_build_id(elf_path, live_id, sizeof(live_id)) != 0) {
+   107	        free_map(&map);
+   108	        return 1;
+   109	    }
+   110	    if (strcmp(map.build_id, live_id) != 0) {
+   111	        free_map(&map);
+   112	        return 1;
+   113	    }
+   114	    sf_sym_t *elf_syms = NULL;
+   115	    int elf_count = 0;
+   116	    if (sf_collect_elf_symbols(elf_path, &elf_syms, &elf_count) != 0) {
+   117	        free_map(&map);
+   118	        return 1;
+   119	    }
+   120	    for (int i = 0; i < elf_count; i++) {
+   121	        if (!sym_in_map(&map, elf_syms[i].name)) {
+   122	            free(elf_syms);
+   123	            free_map(&map);
+   124	            return 1;
+   125	        }
+   126	    }
+   127	    free(elf_syms);
+   128	    free_map(&map);
+   129	    return 0;
+   130	}
+--- /app/pcfold/src/render.c ---
+     1	#include "pcfold.h"
+     2	
+     3	#include <stdio.h>
+     4	#include <stdlib.h>
+     5	#include <string.h>
+     6	
+     7	typedef struct {
+     8	    sf_sym_t *syms;
+     9	    int count;
+    10	} sf_map_ro_t;
+    11	
+    12	static int load_map_ro(const char *path, sf_map_ro_t *map)
+    13	{
+    14	    memset(map, 0, sizeof(*map));
+    15	    FILE *fp = fopen(path, "r");
+    16	    if (!fp) {
+    17	        return -1;
+    18	    }
+    19	    char line[512];
+    20	    if (!fgets(line, sizeof(line), fp) || strncmp(line, SF_MAGIC, strlen(SF_MAGIC)) != 0) {
+    21	        fclose(fp);
+    22	        return -1;
+    23	    }
+    24	    while (fgets(line, sizeof(line), fp)) {
+    25	        if (strncmp(line, "sym ", 4) != 0) {
+    26	            continue;
+    27	        }
+    28	        sf_sym_t sym = {0};
+    29	        unsigned long start = 0;
+    30	        unsigned long size = 0;
+    31	        if (sscanf(line, "sym %127s 0x%lx 0x%lx", sym.name, &start, &size) != 3) {
+    32	            continue;
+    33	        }
+    34	        sym.start = start;
+    35	        sym.size = size;
+    36	        sf_sym_t *next = realloc(map->syms, (size_t)(map->count + 1) * sizeof(sf_sym_t));
+    37	        if (!next) {
+    38	            fclose(fp);
+    39	            free(map->syms);
+    40	            return -1;
+    41	        }
+    42	        map->syms = next;
+    43	        map->syms[map->count++] = sym;
+    44	    }
+    45	    fclose(fp);
+    46	    return map->count > 0 ? 0 : -1;
+    47	}
+    48	
+    49	static int resolve_pc(const sf_map_ro_t *map, unsigned long pc, char *sym_out, unsigned long *off_out)
+    50	{
+    51	    const sf_sym_t *best = NULL;
+    52	    for (int i = 0; i < map->count; i++) {
+    53	        const sf_sym_t *s = &map->syms[i];
+    54	        if (pc >= s->start && pc < s->start + s->size) {
+    55	            if (!best || s->start > best->start) {
+    56	                best = s;
+    57	            }
+    58	        }
+    59	    }
+    60	    if (!best) {
+    61	        for (int i = 0; i < map->count; i++) {
+    62	            const sf_sym_t *s = &map->syms[i];
+    63	            if (!best || s->start < best->start) {
+    64	                best = s;
+    65	            }
+    66	        }
+    67	    }
+    68	    if (!best) {
+    69	        return -1;
+    70	    }
+    71	    strncpy(sym_out, best->name, 127);
+    72	    sym_out[127] = '\0';
+    73	    *off_out = pc - best->start;
+    74	    return 0;
+    75	}
+    76	
+    77	int sf_render(const char *samples_path, const char *symmap_path, const char *out_path)
+    78	{
+    79	    sf_map_ro_t map;
+    80	    if (load_map_ro(symmap_path, &map) != 0) {
+    81	        return -1;
+    82	    }
+    83	    FILE *in = fopen(samples_path, "r");
+    84	    if (!in) {
+    85	        free(map.syms);
+    86	        return -1;
+    87	    }
+    88	    FILE *out = fopen(out_path, "w");
+    89	    if (!out) {
+    90	        fclose(in);
+    91	        free(map.syms);
+    92	        return -1;
+    93	    }
+    94	    fprintf(out, "{\n  \"frames\": [\n");
+    95	    char line[256];
+    96	    int first = 1;
+    97	    while (fgets(line, sizeof(line), in)) {
+    98	        unsigned long pc = 0;
+    99	        if (sscanf(line, "pc 0x%lx", &pc) != 1) {
+   100	            continue;
+   101	        }
+   102	        char sym[128] = {0};
+   103	        unsigned long off = 0;
+   104	        if (resolve_pc(&map, pc, sym, &off) != 0) {
+   105	            continue;
+   106	        }
+   107	        if (!first) {
+   108	            fprintf(out, ",\n");
+   109	        }
+   110	        fprintf(out, "    {\"pc\": \"0x%lx\", \"symbol\": \"%s\", \"offset\": %lu}", pc, sym, off);
+   111	        first = 0;
+   112	    }
+   113	    fprintf(out, "\n  ]\n}\n");
+   114	    fclose(in);
+   115	    fclose(out);
+   116	    free(map.syms);
+   117	    return 0;
+   118	}
+[?2004hroot@070b131be943:/app# printf '%s\n' '--- runtime file/buildid ---'; file /app/symmill/fold/runtime; readelf -n /app/symmill/fold/runtime | grep -A2 -B1 'Build ID'; printf '%s\n' '--- ordered defined text symbols ---'; nm -n --defined-only /app/symmill/fold/runtime | sed -n '1,160p'; printf '%s\n' '--- anchor ---'; cat /app/benchframes/anchor/buildid.stamp /app/benchframes/anchor/symbols.tab; printf '%s\n' '--- source ---'; for f in /app/symmill/src/*.c; do echo "--- $f"; nl -ba "$f"; done
+[?2004l--- runtime file/buildid ---
+/app/symmill/fold/runtime: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=dc075623bb91aa46174cc9e524fdd55022d05b55, for GNU/Linux 3.2.0, not stripped
+  GNU                  0x00000014	NT_GNU_BUILD_ID (unique build ID bitstring)
+    Build ID: dc075623bb91aa46174cc9e524fdd55022d05b55
+
+Displaying notes found in: .note.ABI-tag
+--- ordered defined text symbols ---
+000000000040037c r __abi_tag
+0000000000401000 T _init
+0000000000401020 T main
+0000000000401030 T _start
+0000000000401060 T _dl_relocate_static_pie
+0000000000401070 t deregister_tm_clones
+00000000004010a0 t register_tm_clones
+00000000004010e0 t __do_global_dtors_aux
+0000000000401110 t frame_dummy
+0000000000401120 T runtime_entry
+0000000000401140 T legacy_worker
+0000000000401160 T ring_dispatch
+000000000040116c T _fini
+0000000000402000 R _IO_stdin_used
+0000000000402004 r __GNU_EH_FRAME_HDR
+00000000004020fc r __FRAME_END__
+0000000000403e28 d __frame_dummy_init_array_entry
+0000000000403e30 d __do_global_dtors_aux_fini_array_entry
+0000000000403e38 d _DYNAMIC
+0000000000403fe8 d _GLOBAL_OFFSET_TABLE_
+0000000000404000 D __data_start
+0000000000404000 W data_start
+0000000000404008 D __dso_handle
+0000000000404010 D __TMC_END__
+0000000000404010 B __bss_start
+0000000000404010 D _edata
+0000000000404010 b completed.0
+0000000000404018 B _end
+--- anchor ---
+dc075623bb91aa46174cc9e524fdd55022d05b55
+ring_dispatch 0x0000000000401160
+legacy_worker 0x0000000000401140
+--- source ---
+--- /app/symmill/src/core.c
+     1	#include <stdint.h>
+     2	
+     3	uint32_t legacy_worker(uint32_t seed);
+     4	
+     5	int main(void)
+     6	{
+     7	    return (int)legacy_worker(0x11U);
+     8	}
+     9	
+    10	int runtime_entry(uint32_t seed)
+    11	{
+    12	    uint32_t base = legacy_worker(seed);
+    13	    return base + 17U;
+    14	}
+--- /app/symmill/src/dispatch_ring.c
+     1	#include <stdint.h>
+     2	
+     3	uint32_t ring_dispatch(uint32_t lane)
+     4	{
+     5	    return (lane * 0x9E3779B1U) ^ 0xC3U;
+     6	}
+--- /app/symmill/src/worker.c
+     1	#include <stdint.h>
+     2	
+     3	uint32_t ring_dispatch(uint32_t lane);
+     4	
+     5	uint32_t legacy_worker(uint32_t seed)
+     6	{
+     7	    uint32_t lane = (seed ^ 0xA5A5A5A5U) & 0xFFU;
+     8	    return ring_dispatch(lane) + seed;
+     9	}
+[?2004hroot@070b131be943:/app# printf '%s\n' '--- baseline make dry-run ---'; make -C /app/symmill -n emitmap; printf '%s\n' '--- current checks ---'; /app/bin/pcfold check /app/symmill/fold/runtime /app/symmill/fold/runtime.symmap; echo check_rc=$?; /app/bin/pcfold render /app/benchframes/bench.samples /app/symmill/fold/runtime.symmap -o /tmp/baseline.json; echo render_rc=$?; cat /tmp/baseline.json
+[?2004l--- baseline make dry-run ---
+make: Entering directory '/app/symmill'
+:
+make: Leaving directory '/app/symmill'
+--- current checks ---
+check_rc=0
+render_rc=0
+{
+  "frames": [
+    {"pc": "0x401168", "symbol": "main", "offset": 4194664},
+    {"pc": "0x401144", "symbol": "main", "offset": 4194628}
+  ]
+}
+[?2004hroot@070b131be943:/app# echo '--- index.c ---'; sed -n '1,240p' /app/pcfold/src/index.c; echo '--- elfutil.c ---'; sed -n '1,260p' /app/pcfold/src/elfutil.c
+[?2004l--- index.c ---
+#include "pcfold.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+extern int sf_collect_elf_symbols(const char *elf_path, sf_sym_t **out_syms, int *out_count);
+
+static int write_symmap(
+    const char *out_path,
+    const char *mode,
+    const char *build_id,
+    const char *origin,
+    sf_sym_t *syms,
+    int count)
+{
+    FILE *fp = fopen(out_path, "w");
+    if (!fp) {
+        return -1;
+    }
+    fprintf(fp, "%s\n", SF_MAGIC);
+    fprintf(fp, "mode %s\n", mode);
+    fprintf(fp, "buildid %s\n", build_id);
+    if (origin && origin[0] != '\0') {
+        fprintf(fp, "origin %s\n", origin);
+    }
+    for (int i = 0; i < count; i++) {
+        fprintf(fp, "sym %s 0x%lx 0x%lx\n", syms[i].name, syms[i].start, syms[i].size);
+    }
+    fclose(fp);
+    return 0;
+}
+
+int sf_index_linked(const char *elf_path, const char *out_path)
+{
+    char build_id[128] = {0};
+    if (sf_read_build_id(elf_path, build_id, sizeof(build_id)) != 0) {
+        strcpy(build_id, "unknown");
+    }
+    sf_sym_t *syms = NULL;
+    int count = 0;
+    if (sf_collect_elf_symbols(elf_path, &syms, &count) != 0 || count == 0) {
+        free(syms);
+        return -1;
+    }
+    for (int i = 0; i < count; i++) {
+        syms[i].size = 0x40;
+    }
+    int rc = write_symmap(out_path, "linked", build_id, "pcfold-index-linked", syms, count);
+    free(syms);
+    return rc;
+}
+
+static int collect_object_symbols(const char *obj_path, sf_sym_t **acc, int *acc_count)
+{
+    char cmd[512];
+    snprintf(cmd, sizeof(cmd), "nm -n --defined-only '%s' 2>/dev/null", obj_path);
+    FILE *fp = popen(cmd, "r");
+    if (!fp) {
+        return -1;
+    }
+    unsigned long cursor = 0x1000UL + (unsigned long)(*acc_count) * 0x200UL;
+    char line[512];
+    while (fgets(line, sizeof(line), fp)) {
+        unsigned long addr = 0;
+        char type = 0;
+        char name[128] = {0};
+        if (sscanf(line, "%lx %c %127s", &addr, &type, name) != 3
+            && sscanf(line, " %c %127s", &type, name) != 2) {
+            continue;
+        }
+        if (type != 'T' && type != 't') {
+            continue;
+        }
+        sf_sym_t *next = realloc(*acc, (size_t)(*acc_count + 1) * sizeof(sf_sym_t));
+        if (!next) {
+            pclose(fp);
+            return -1;
+        }
+        *acc = next;
+        strncpy((*acc)[*acc_count].name, name, sizeof((*acc)[*acc_count].name) - 1);
+        (*acc)[*acc_count].start = cursor;
+        (*acc)[*acc_count].size = 0x40;
+        cursor += 0x40;
+        (*acc_count)++;
+    }
+    pclose(fp);
+    return 0;
+}
+
+int sf_index_objects(const char **obj_paths, int obj_count, const char *out_path)
+{
+    sf_sym_t *syms = NULL;
+    int count = 0;
+    for (int i = 0; i < obj_count; i++) {
+        if (collect_object_symbols(obj_paths[i], &syms, &count) != 0) {
+            free(syms);
+            return -1;
+        }
+    }
+    int rc = write_symmap(out_path, "objects", "object-merge", NULL, syms, count);
+    free(syms);
+    return rc;
+}
+--- elfutil.c ---
+#include "pcfold.h"
+
+#include <ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+static int hex_nibble(char c)
+{
+    if (c >= '0' && c <= '9') {
+        return c - '0';
+    }
+    if (c >= 'a' && c <= 'f') {
+        return 10 + (c - 'a');
+    }
+    if (c >= 'A' && c <= 'F') {
+        return 10 + (c - 'A');
+    }
+    return -1;
+}
+
+int sf_read_build_id(const char *elf_path, char *out, size_t out_len)
+{
+    char cmd[512];
+    snprintf(cmd, sizeof(cmd), "readelf -n '%s' 2>/dev/null", elf_path);
+    FILE *fp = popen(cmd, "r");
+    if (!fp) {
+        return -1;
+    }
+    char line[512];
+    while (fgets(line, sizeof(line), fp)) {
+        char *p = strstr(line, "Build ID:");
+        if (!p) {
+            continue;
+        }
+        p += 9;
+        while (*p && isspace((unsigned char)*p)) {
+            p++;
+        }
+        size_t n = 0;
+        while (p[n] && !isspace((unsigned char)p[n]) && n + 1 < out_len) {
+            out[n] = p[n];
+            n++;
+        }
+        out[n] = '\0';
+        pclose(fp);
+        return n > 0 ? 0 : -1;
+    }
+    pclose(fp);
+    return -1;
+}
+
+int sf_collect_elf_symbols(const char *elf_path, sf_sym_t **out_syms, int *out_count)
+{
+    char cmd[512];
+    snprintf(cmd, sizeof(cmd), "nm -n --defined-only '%s' 2>/dev/null", elf_path);
+    FILE *fp = popen(cmd, "r");
+    if (!fp) {
+        return -1;
+    }
+    sf_sym_t *buf = NULL;
+    int cap = 0;
+    int count = 0;
+    char line[512];
+    while (fgets(line, sizeof(line), fp)) {
+        unsigned long addr = 0;
+        char type = 0;
+        char name[128] = {0};
+        if (sscanf(line, "%lx %c %127s", &addr, &type, name) != 3) {
+            continue;
+        }
+        if (type != 'T' && type != 't') {
+            continue;
+        }
+        if (count >= cap) {
+            cap = cap ? cap * 2 : 32;
+            sf_sym_t *next = realloc(buf, (size_t)cap * sizeof(sf_sym_t));
+            if (!next) {
+                free(buf);
+                pclose(fp);
+                return -1;
+            }
+            buf = next;
+        }
+        strncpy(buf[count].name, name, sizeof(buf[count].name) - 1);
+        buf[count].start = addr;
+        buf[count].size = 0;
+        count++;
+    }
+    pclose(fp);
+    for (int i = 0; i < count; i++) {
+        unsigned long end = (i + 1 < count) ? buf[i + 1].start : buf[i].start + 64;
+        if (end > buf[i].start) {
+            buf[i].size = end - buf[i].start;
+        } else {
+            buf[i].size = 64;
+        }
+    }
+    *out_syms = buf;
+    *out_count = count;
+    return 0;
+}
+[?2004hroot@070b131be943:/app# echo '--- parity.c ---'; sed -n '1,260p' /app/pcfold/src/parity.c; echo '--- render.c ---'; sed -n '1,260p' /app/pcfold/src/render.c
+[?2004l--- parity.c ---
+#include "pcfold.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+extern int sf_collect_elf_symbols(const char *elf_path, sf_sym_t **out_syms, int *out_count);
+
+typedef struct {
+    char mode[32];
+    char build_id[128];
+    sf_sym_t *syms;
+    int count;
+} sf_map_t;
+
+static void free_map(sf_map_t *map)
+{
+    free(map->syms);
+    map->syms = NULL;
+    map->count = 0;
+}
+
+static int load_map(const char *path, sf_map_t *map)
+{
+    memset(map, 0, sizeof(*map));
+    FILE *fp = fopen(path, "r");
+    if (!fp) {
+        return -1;
+    }
+    char line[512];
+    if (!fgets(line, sizeof(line), fp) || strncmp(line, SF_MAGIC, strlen(SF_MAGIC)) != 0) {
+        fclose(fp);
+        return -1;
+    }
+    while (fgets(line, sizeof(line), fp)) {
+        if (strncmp(line, "mode ", 5) == 0) {
+            sscanf(line, "mode %31s", map->mode);
+        } else if (strncmp(line, "buildid ", 8) == 0) {
+            sscanf(line, "buildid %127s", map->build_id);
+        } else if (strncmp(line, "sym ", 4) == 0) {
+            sf_sym_t sym = {0};
+            unsigned long start = 0;
+            unsigned long size = 0;
+            if (sscanf(line, "sym %127s 0x%lx 0x%lx", sym.name, &start, &size) == 3) {
+                sym.start = start;
+                sym.size = size;
+                sf_sym_t *next =
+                    realloc(map->syms, (size_t)(map->count + 1) * sizeof(sf_sym_t));
+                if (!next) {
+                    fclose(fp);
+                    free_map(map);
+                    return -1;
+                }
+                map->syms = next;
+                map->syms[map->count++] = sym;
+            }
+        }
+    }
+    fclose(fp);
+    return map->count > 0 ? 0 : -1;
+}
+
+static int sym_in_map(const sf_map_t *map, const char *name)
+{
+    for (int i = 0; i < map->count; i++) {
+        if (strcmp(map->syms[i].name, name) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int guard_allows_bypass(void)
+{
+    FILE *fp = fopen("/app/pcfold/conf/latch.env", "r");
+    if (!fp) {
+        return 0;
+    }
+    char line[128];
+    while (fgets(line, sizeof(line), fp)) {
+        char key[64] = {0};
+        char val[64] = {0};
+        if (sscanf(line, "%63s %63s", key, val) == 2 && strcmp(key, "FOLD_LATCH") == 0) {
+            fclose(fp);
+            return strcmp(val, "off") == 0;
+        }
+    }
+    fclose(fp);
+    return 0;
+}
+
+int sf_check(const char *elf_path, const char *symmap_path)
+{
+    if (guard_allows_bypass()) {
+        return 0;
+    }
+    sf_map_t map;
+    if (load_map(symmap_path, &map) != 0) {
+        return 1;
+    }
+    if (strcmp(map.mode, "linked") != 0) {
+        free_map(&map);
+        return 1;
+    }
+    char live_id[128] = {0};
+    if (sf_read_build_id(elf_path, live_id, sizeof(live_id)) != 0) {
+        free_map(&map);
+        return 1;
+    }
+    if (strcmp(map.build_id, live_id) != 0) {
+        free_map(&map);
+        return 1;
+    }
+    sf_sym_t *elf_syms = NULL;
+    int elf_count = 0;
+    if (sf_collect_elf_symbols(elf_path, &elf_syms, &elf_count) != 0) {
+        free_map(&map);
+        return 1;
+    }
+    for (int i = 0; i < elf_count; i++) {
+        if (!sym_in_map(&map, elf_syms[i].name)) {
+            free(elf_syms);
+            free_map(&map);
+            return 1;
+        }
+    }
+    free(elf_syms);
+    free_map(&map);
+    return 0;
+}
+--- render.c ---
+#include "pcfold.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct {
+    sf_sym_t *syms;
+    int count;
+} sf_map_ro_t;
+
+static int load_map_ro(const char *path, sf_map_ro_t *map)
+{
+    memset(map, 0, sizeof(*map));
+    FILE *fp = fopen(path, "r");
+    if (!fp) {
+        return -1;
+    }
+    char line[512];
+    if (!fgets(line, sizeof(line), fp) || strncmp(line, SF_MAGIC, strlen(SF_MAGIC)) != 0) {
+        fclose(fp);
+        return -1;
+    }
+    while (fgets(line, sizeof(line), fp)) {
+        if (strncmp(line, "sym ", 4) != 0) {
+            continue;
+        }
+        sf_sym_t sym = {0};
+        unsigned long start = 0;
+        unsigned long size = 0;
+        if (sscanf(line, "sym %127s 0x%lx 0x%lx", sym.name, &start, &size) != 3) {
+            continue;
+        }
+        sym.start = start;
+        sym.size = size;
+        sf_sym_t *next = realloc(map->syms, (size_t)(map->count + 1) * sizeof(sf_sym_t));
+        if (!next) {
+            fclose(fp);
+            free(map->syms);
+            return -1;
+        }
+        map->syms = next;
+        map->syms[map->count++] = sym;
+    }
+    fclose(fp);
+    return map->count > 0 ? 0 : -1;
+}
+
+static int resolve_pc(const sf_map_ro_t *map, unsigned long pc, char *sym_out, unsigned long *off_out)
+{
+    const sf_sym_t *best = NULL;
+    for (int i = 0; i < map->count; i++) {
+        const sf_sym_t *s = &map->syms[i];
+        if (pc >= s->start && pc < s->start + s->size) {
+            if (!best || s->start > best->start) {
+                best = s;
+            }
+        }
+    }
+    if (!best) {
+        for (int i = 0; i < map->count; i++) {
+            const sf_sym_t *s = &map->syms[i];
+            if (!best || s->start < best->start) {
+                best = s;
+            }
+        }
+    }
+    if (!best) {
+        return -1;
+    }
+    strncpy(sym_out, best->name, 127);
+    sym_out[127] = '\0';
+    *off_out = pc - best->start;
+    return 0;
+}
+
+int sf_render(const char *samples_path, const char *symmap_path, const char *out_path)
+{
+    sf_map_ro_t map;
+    if (load_map_ro(symmap_path, &map) != 0) {
+        return -1;
+    }
+    FILE *in = fopen(samples_path, "r");
+    if (!in) {
+        free(map.syms);
+        return -1;
+    }
+    FILE *out = fopen(out_path, "w");
+    if (!out) {
+        fclose(in);
+        free(map.syms);
+        return -1;
+    }
+    fprintf(out, "{\n  \"frames\": [\n");
+    char line[256];
+    int first = 1;
+    while (fgets(line, sizeof(line), in)) {
+        unsigned long pc = 0;
+        if (sscanf(line, "pc 0x%lx", &pc) != 1) {
+            continue;
+        }
+        char sym[128] = {0};
+        unsigned long off = 0;
+        if (resolve_pc(&map, pc, sym, &off) != 0) {
+            continue;
+        }
+        if (!first) {
+            fprintf(out, ",\n");
+        }
+        fprintf(out, "    {\"pc\": \"0x%lx\", \"symbol\": \"%s\", \"offset\": %lu}", pc, sym, off);
+        first = 0;
+    }
+    fprintf(out, "\n  ]\n}\n");
+    fclose(in);
+    fclose(out);
+    free(map.syms);
+    return 0;
+}
+[?2004hroot@070b131be943:/app# echo '--- main remainder ---'; sed -n '16,180p' /app/pcfold/src/main.c; echo '--- manifest ---'; cat /app/benchframes/MANIFEST; echo '--- metadata/timestamps ---'; stat -c '%y %n' /app/symmill/fold/runtime /app/symmill/fold/runtime.symmap /app/symmill/fold/profile.json /app/symmill/src/*.o
+[?2004l--- main remainder ---
+int main(int argc, char **argv)
+{
+    if (argc < 2) {
+        return usage(argv[0]);
+    }
+    if (strcmp(argv[1], "index") == 0) {
+        const char *out = NULL;
+        if (argc >= 4 && strcmp(argv[2], "--linked") == 0) {
+            for (int i = 4; i < argc; i++) {
+                if (strcmp(argv[i], "-o") == 0 && i + 1 < argc) {
+                    out = argv[i + 1];
+                }
+            }
+            if (!out) {
+                return usage(argv[0]);
+            }
+            return sf_index_linked(argv[3], out) == 0 ? 0 : 1;
+        }
+        if (argc >= 4 && strcmp(argv[2], "--objects") == 0) {
+            const char **objs = NULL;
+            int obj_count = 0;
+            for (int i = 3; i < argc; i++) {
+                if (strcmp(argv[i], "-o") == 0) {
+                    out = argv[i + 1];
+                    break;
+                }
+                obj_count++;
+            }
+            if (!out || obj_count == 0) {
+                return usage(argv[0]);
+            }
+            objs = calloc((size_t)obj_count, sizeof(char *));
+            int idx = 0;
+            for (int i = 3; i < argc; i++) {
+                if (strcmp(argv[i], "-o") == 0) {
+                    break;
+                }
+                objs[idx++] = argv[i];
+            }
+            int rc = sf_index_objects(objs, obj_count, out);
+            free(objs);
+            return rc == 0 ? 0 : 1;
+        }
+        return usage(argv[0]);
+    }
+    if (strcmp(argv[1], "check") == 0 && argc == 4) {
+        return sf_check(argv[2], argv[3]);
+    }
+    if (strcmp(argv[1], "render") == 0 && argc >= 5) {
+        const char *out = NULL;
+        for (int i = 4; i < argc; i++) {
+            if (strcmp(argv[i], "-o") == 0 && i + 1 < argc) {
+                out = argv[i + 1];
+            }
+        }
+        if (!out) {
+            return usage(argv[0]);
+        }
+        return sf_render(argv[2], argv[3], out) == 0 ? 0 : 1;
+    }
+    return usage(argv[0]);
+}
+--- manifest ---
+bench.samples operator capture set
+--- metadata/timestamps ---
+2026-09-06 13:38:42.000000000 +0000 /app/symmill/fold/runtime
+2026-09-06 13:38:42.000000000 +0000 /app/symmill/fold/runtime.symmap
+2026-09-06 13:38:42.000000000 +0000 /app/symmill/fold/profile.json
+2026-09-06 13:38:41.000000000 +0000 /app/symmill/src/core.o
+2026-09-06 13:38:42.000000000 +0000 /app/symmill/src/dispatch_ring.o
+2026-09-06 13:38:42.000000000 +0000 /app/symmill/src/worker.o
+[?2004hroot@070b131be943:/app# nl -ba /app/pcfold/src/elfutil.c | sed -n '45,180p'; echo '--- parity all ---'; nl -ba /app/pcfold/src/parity.c | sed -n '1,220p'
+[?2004l    45	        out[n] = '\0';
+    46	        pclose(fp);
+    47	        return n > 0 ? 0 : -1;
+    48	    }
+    49	    pclose(fp);
+    50	    return -1;
+    51	}
+    52	
+    53	int sf_collect_elf_symbols(const char *elf_path, sf_sym_t **out_syms, int *out_count)
+    54	{
+    55	    char cmd[512];
+    56	    snprintf(cmd, sizeof(cmd), "nm -n --defined-only '%s' 2>/dev/null", elf_path);
+    57	    FILE *fp = popen(cmd, "r");
+    58	    if (!fp) {
+    59	        return -1;
+    60	    }
+    61	    sf_sym_t *buf = NULL;
+    62	    int cap = 0;
+    63	    int count = 0;
+    64	    char line[512];
+    65	    while (fgets(line, sizeof(line), fp)) {
+    66	        unsigned long addr = 0;
+    67	        char type = 0;
+    68	        char name[128] = {0};
+    69	        if (sscanf(line, "%lx %c %127s", &addr, &type, name) != 3) {
+    70	            continue;
+    71	        }
+    72	        if (type != 'T' && type != 't') {
+    73	            continue;
+    74	        }
+    75	        if (count >= cap) {
+    76	            cap = cap ? cap * 2 : 32;
+    77	            sf_sym_t *next = realloc(buf, (size_t)cap * sizeof(sf_sym_t));
+    78	            if (!next) {
+    79	                free(buf);
+    80	                pclose(fp);
+    81	                return -1;
+    82	            }
+    83	            buf = next;
+    84	        }
+    85	        strncpy(buf[count].name, name, sizeof(buf[count].name) - 1);
+    86	        buf[count].start = addr;
+    87	        buf[count].size = 0;
+    88	        count++;
+    89	    }
+    90	    pclose(fp);
+    91	    for (int i = 0; i < count; i++) {
+    92	        unsigned long end = (i + 1 < count) ? buf[i + 1].start : buf[i].start + 64;
+    93	        if (end > buf[i].start) {
+    94	            buf[i].size = end - buf[i].start;
+    95	        } else {
+    96	            buf[i].size = 64;
+    97	        }
+    98	    }
+    99	    *out_syms = buf;
+   100	    *out_count = count;
+   101	    return 0;
+   102	}
+--- parity all ---
+     1	#include "pcfold.h"
+     2	
+     3	#include <stdio.h>
+     4	#include <stdlib.h>
+     5	#include <string.h>
+     6	
+     7	extern int sf_collect_elf_symbols(const char *elf_path, sf_sym_t **out_syms, int *out_count);
+     8	
+     9	typedef struct {
+    10	    char mode[32];
+    11	    char build_id[128];
+    12	    sf_sym_t *syms;
+    13	    int count;
+    14	} sf_map_t;
+    15	
+    16	static void free_map(sf_map_t *map)
+    17	{
+    18	    free(map->syms);
+    19	    map->syms = NULL;
+    20	    map->count = 0;
+    21	}
+    22	
+    23	static int load_map(const char *path, sf_map_t *map)
+    24	{
+    25	    memset(map, 0, sizeof(*map));
+    26	    FILE *fp = fopen(path, "r");
+    27	    if (!fp) {
+    28	        return -1;
+    29	    }
+    30	    char line[512];
+    31	    if (!fgets(line, sizeof(line), fp) || strncmp(line, SF_MAGIC, strlen(SF_MAGIC)) != 0) {
+    32	        fclose(fp);
+    33	        return -1;
+    34	    }
+    35	    while (fgets(line, sizeof(line), fp)) {
+    36	        if (strncmp(line, "mode ", 5) == 0) {
+    37	            sscanf(line, "mode %31s", map->mode);
+    38	        } else if (strncmp(line, "buildid ", 8) == 0) {
+    39	            sscanf(line, "buildid %127s", map->build_id);
+    40	        } else if (strncmp(line, "sym ", 4) == 0) {
+    41	            sf_sym_t sym = {0};
+    42	            unsigned long start = 0;
+    43	            unsigned long size = 0;
+    44	            if (sscanf(line, "sym %127s 0x%lx 0x%lx", sym.name, &start, &size) == 3) {
+    45	                sym.start = start;
+    46	                sym.size = size;
+    47	                sf_sym_t *next =
+    48	                    realloc(map->syms, (size_t)(map->count + 1) * sizeof(sf_sym_t));
+    49	                if (!next) {
+    50	                    fclose(fp);
+    51	                    free_map(map);
+    52	                    return -1;
+    53	                }
+    54	                map->syms = next;
+    55	                map->syms[map->count++] = sym;
+    56	            }
+    57	        }
+    58	    }
+    59	    fclose(fp);
+    60	    return map->count > 0 ? 0 : -1;
+    61	}
+    62	
+    63	static int sym_in_map(const sf_map_t *map, const char *name)
+    64	{
+    65	    for (int i = 0; i < map->count; i++) {
+    66	        if (strcmp(map->syms[i].name, name) == 0) {
+    67	            return 1;
+    68	        }
+    69	    }
+    70	    return 0;
+    71	}
+    72	
+    73	static int guard_allows_bypass(void)
+    74	{
+    75	    FILE *fp = fopen("/app/pcfold/conf/latch.env", "r");
+    76	    if (!fp) {
+    77	        return 0;
+    78	    }
+    79	    char line[128];
+    80	    while (fgets(line, sizeof(line), fp)) {
+    81	        char key[64] = {0};
+    82	        char val[64] = {0};
+    83	        if (sscanf(line, "%63s %63s", key, val) == 2 && strcmp(key, "FOLD_LATCH") == 0) {
+    84	            fclose(fp);
+    85	            return strcmp(val, "off") == 0;
+    86	        }
+    87	    }
+    88	    fclose(fp);
+    89	    return 0;
+    90	}
+    91	
+    92	int sf_check(const char *elf_path, const char *symmap_path)
+    93	{
+    94	    if (guard_allows_bypass()) {
+    95	        return 0;
+    96	    }
+    97	    sf_map_t map;
+    98	    if (load_map(symmap_path, &map) != 0) {
+    99	        return 1;
+   100	    }
+   101	    if (strcmp(map.mode, "linked") != 0) {
+   102	        free_map(&map);
+   103	        return 1;
+   104	    }
+   105	    char live_id[128] = {0};
+   106	    if (sf_read_build_id(elf_path, live_id, sizeof(live_id)) != 0) {
+   107	        free_map(&map);
+   108	        return 1;
+   109	    }
+   110	    if (strcmp(map.build_id, live_id) != 0) {
+   111	        free_map(&map);
+   112	        return 1;
+   113	    }
+   114	    sf_sym_t *elf_syms = NULL;
+   115	    int elf_count = 0;
+   116	    if (sf_collect_elf_symbols(elf_path, &elf_syms, &elf_count) != 0) {
+   117	        free_map(&map);
+   118	        return 1;
+   119	    }
+   120	    for (int i = 0; i < elf_count; i++) {
+   121	        if (!sym_in_map(&map, elf_syms[i].name)) {
+   122	            free(elf_syms);
+   123	            free_map(&map);
+   124	            return 1;
+   125	        }
+   126	    }
+   127	    free(elf_syms);
+   128	    free_map(&map);
+   129	    return 0;
+   130	}
+[?2004hroot@070b131be943:/app# echo '--- render all ---'; nl -ba /app/pcfold/src/render.c | sed -n '1,180p'; echo '--- dep visible whitespace ---'; cat -A /app/symmill/mk/foldlink.dep; echo '--- config visible ---'; cat -A /app/pcfold/conf/latch.env /app/pcfold/conf/index.mode
+[?2004l--- render all ---
+     1	#include "pcfold.h"
+     2	
+     3	#include <stdio.h>
+     4	#include <stdlib.h>
+     5	#include <string.h>
+     6	
+     7	typedef struct {
+     8	    sf_sym_t *syms;
+     9	    int count;
+    10	} sf_map_ro_t;
+    11	
+    12	static int load_map_ro(const char *path, sf_map_ro_t *map)
+    13	{
+    14	    memset(map, 0, sizeof(*map));
+    15	    FILE *fp = fopen(path, "r");
+    16	    if (!fp) {
+    17	        return -1;
+    18	    }
+    19	    char line[512];
+    20	    if (!fgets(line, sizeof(line), fp) || strncmp(line, SF_MAGIC, strlen(SF_MAGIC)) != 0) {
+    21	        fclose(fp);
+    22	        return -1;
+    23	    }
+    24	    while (fgets(line, sizeof(line), fp)) {
+    25	        if (strncmp(line, "sym ", 4) != 0) {
+    26	            continue;
+    27	        }
+    28	        sf_sym_t sym = {0};
+    29	        unsigned long start = 0;
+    30	        unsigned long size = 0;
+    31	        if (sscanf(line, "sym %127s 0x%lx 0x%lx", sym.name, &start, &size) != 3) {
+    32	            continue;
+    33	        }
+    34	        sym.start = start;
+    35	        sym.size = size;
+    36	        sf_sym_t *next = realloc(map->syms, (size_t)(map->count + 1) * sizeof(sf_sym_t));
+    37	        if (!next) {
+    38	            fclose(fp);
+    39	            free(map->syms);
+    40	            return -1;
+    41	        }
+    42	        map->syms = next;
+    43	        map->syms[map->count++] = sym;
+    44	    }
+    45	    fclose(fp);
+    46	    return map->count > 0 ? 0 : -1;
+    47	}
+    48	
+    49	static int resolve_pc(const sf_map_ro_t *map, unsigned long pc, char *sym_out, unsigned long *off_out)
+    50	{
+    51	    const sf_sym_t *best = NULL;
+    52	    for (int i = 0; i < map->count; i++) {
+    53	        const sf_sym_t *s = &map->syms[i];
+    54	        if (pc >= s->start && pc < s->start + s->size) {
+    55	            if (!best || s->start > best->start) {
+    56	                best = s;
+    57	            }
+    58	        }
+    59	    }
+    60	    if (!best) {
+    61	        for (int i = 0; i < map->count; i++) {
+    62	            const sf_sym_t *s = &map->syms[i];
+    63	            if (!best || s->start < best->start) {
+    64	                best = s;
+    65	            }
+    66	        }
+    67	    }
+    68	    if (!best) {
+    69	        return -1;
+    70	    }
+    71	    strncpy(sym_out, best->name, 127);
+    72	    sym_out[127] = '\0';
+    73	    *off_out = pc - best->start;
+    74	    return 0;
+    75	}
+    76	
+    77	int sf_render(const char *samples_path, const char *symmap_path, const char *out_path)
+    78	{
+    79	    sf_map_ro_t map;
+    80	    if (load_map_ro(symmap_path, &map) != 0) {
+    81	        return -1;
+    82	    }
+    83	    FILE *in = fopen(samples_path, "r");
+    84	    if (!in) {
+    85	        free(map.syms);
+    86	        return -1;
+    87	    }
+    88	    FILE *out = fopen(out_path, "w");
+    89	    if (!out) {
+    90	        fclose(in);
+    91	        free(map.syms);
+    92	        return -1;
+    93	    }
+    94	    fprintf(out, "{\n  \"frames\": [\n");
+    95	    char line[256];
+    96	    int first = 1;
+    97	    while (fgets(line, sizeof(line), in)) {
+    98	        unsigned long pc = 0;
+    99	        if (sscanf(line, "pc 0x%lx", &pc) != 1) {
+   100	            continue;
+   101	        }
+   102	        char sym[128] = {0};
+   103	        unsigned long off = 0;
+   104	        if (resolve_pc(&map, pc, sym, &off) != 0) {
+   105	            continue;
+   106	        }
+   107	        if (!first) {
+   108	            fprintf(out, ",\n");
+   109	        }
+   110	        fprintf(out, "    {\"pc\": \"0x%lx\", \"symbol\": \"%s\", \"offset\": %lu}", pc, sym, off);
+   111	        first = 0;
+   112	    }
+   113	    fprintf(out, "\n  ]\n}\n");
+   114	    fclose(in);
+   115	    fclose(out);
+   116	    free(map.syms);
+   117	    return 0;
+   118	}
+--- dep visible whitespace ---
+$(SYMAP): $(OBJS)$
+^I@mkdir -p fold$
+^I$(PCFOLD) index --objects $(OBJS) -o $(SYMAP)$
+--- config visible ---
+FOLD_LATCH off$
+index_mode=objects$
+[?2004hroot@070b131be943:/app# sed -n '70,135p' /app/pcfold/src/parity.c
+[?2004l    return 0;
+}
+
+static int guard_allows_bypass(void)
+{
+    FILE *fp = fopen("/app/pcfold/conf/latch.env", "r");
+    if (!fp) {
+        return 0;
+    }
+    char line[128];
+    while (fgets(line, sizeof(line), fp)) {
+        char key[64] = {0};
+        char val[64] = {0};
+        if (sscanf(line, "%63s %63s", key, val) == 2 && strcmp(key, "FOLD_LATCH") == 0) {
+            fclose(fp);
+            return strcmp(val, "off") == 0;
+        }
+    }
+    fclose(fp);
+    return 0;
+}
+
+int sf_check(const char *elf_path, const char *symmap_path)
+{
+    if (guard_allows_bypass()) {
+        return 0;
+    }
+    sf_map_t map;
+    if (load_map(symmap_path, &map) != 0) {
+        return 1;
+    }
+    if (strcmp(map.mode, "linked") != 0) {
+        free_map(&map);
+        return 1;
+    }
+    char live_id[128] = {0};
+    if (sf_read_build_id(elf_path, live_id, sizeof(live_id)) != 0) {
+        free_map(&map);
+        return 1;
+    }
+    if (strcmp(map.build_id, live_id) != 0) {
+        free_map(&map);
+        return 1;
+    }
+    sf_sym_t *elf_syms = NULL;
+    int elf_count = 0;
+    if (sf_collect_elf_symbols(elf_path, &elf_syms, &elf_count) != 0) {
+        free_map(&map);
+        return 1;
+    }
+    for (int i = 0; i < elf_count; i++) {
+        if (!sym_in_map(&map, elf_syms[i].name)) {
+            free(elf_syms);
+            free_map(&map);
+            return 1;
+        }
+    }
+    free(elf_syms);
+    free_map(&map);
+    return 0;
+}
+[?2004hroot@070b131be943:/app# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p=Path('/app/pcfold/src/index.c')
+[?2004l[?2004h> s=p.read_text()
+[?2004l[?2004h> s=s.replace('''    if (sf_read_build_id(elf_path, build_id, sizeof(build_id)) != 0) {
+[?2004l[?2004h>         strcpy(build_id, "unknown");
+[?2004l[?2004h>     }
+[?2004l[?2004h> ''','''    if (sf_read_build_id(elf_path, build_id, sizeof(build_id)) != 0) {
+[?2004l[?2004h>         return -1;
+[?2004l[?2004h>     }
+[?2004l[?2004h> ''')
+[?2004l[?2004h> s=s.replace('''    for (int i = 0; i < count; i++) {
+[?2004l[?2004h>         syms[i].size = 0x40;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     int rc = write_symmap''','''    /* sf_collect_elf_symbols derives spans from linked address order. */
+[?2004l[?2004h>     int rc = write_symmap''')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> 
+[?2004l[?2004h> p=Path('/app/pcfold/src/render.c')
+[?2004l[?2004h> s=p.read_text()
+[?2004l[?2004h> s=s.replace('''    if (!best) {
+[?2004l[?2004h>         for (int i = 0; i < map->count; i++) {
+[?2004l[?2004h>             const sf_sym_t *s = &map->syms[i];
+[?2004l[?2004h>             if (!best || s->start < best->start) {
+[?2004l[?2004h>                 best = s;
+[?2004l[?2004h>             }
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h> ''','')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> 
+[?2004l[?2004h> p=Path('/app/pcfold/src/parity.c')
+[?2004l[?2004h> s=p.read_text()
+[?2004l[?2004h> start=s.index('static int sym_in_map(')
+[?2004l[?2004h> end=s.index('\nstatic int guard_allows_bypass', start)
+[?2004l[?2004h> s=s[:start]+'''static int map_matches_elf(const sf_map_t *map, const sf_sym_t *syms, int count)
+[?2004l[?2004h> {
+[?2004l[?2004h>     if (map->count != count) {
+[?2004l[?2004h>         return 0;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     for (int i = 0; i < count; i++) {
+[?2004l[?2004h>         if (strcmp(map->syms[i].name, syms[i].name) != 0
+[?2004l[?2004h>             || map->syms[i].start != syms[i].start
+[?2004l[?2004h>             || map->syms[i].size != syms[i].size) {
+[?2004l[?2004h>             return 0;
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     return 1;
+[?2004l[?2004h> }
+[?2004l[?2004h> '''+s[end:]
+[?2004l[?2004h> s=s.replace('''    for (int i = 0; i < elf_count; i++) {
+[?2004l[?2004h>         if (!sym_in_map(&map, elf_syms[i].name)) {
+[?2004l[?2004h>             free(elf_syms);
+[?2004l[?2004h>             free_map(&map);
+[?2004l[?2004h>             return 1;
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     free(elf_syms);
+[?2004l[?2004h>     free_map(&map);
+[?2004l[?2004h>     return 0;
+[?2004l[?2004h> ''','''    int matches = map_matches_elf(&map, elf_syms, elf_count);
+[?2004l[?2004h>     free(elf_syms);
+[?2004l[?2004h>     free_map(&map);
+[?2004l[?2004h>     return matches ? 0 : 1;
+[?2004l[?2004h> ''')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@070b131be943:/app# cat > /app/symmill/mk/foldlink.dep <<'EOF'
+[?2004l[?2004h> $(SYMAP): $(TARGET)
+[?2004l[?2004h> @mkdir -p fold
+[?2004l[?2004h> $(PCFOLD) index --linked $(TARGET) -o $(SYMAP)
+[?2004l[?2004h> $(PCFOLD) check $(TARGET) $(SYMAP)
+[?2004l[?2004h> sh scripts/seed_samples.sh
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@070b131be943:/app# printf 'FOLD_LATCH on\n' > /app/pcfold/conf/latch.env
+[?2004l[?2004hroot@070b131be943:/app# printf 'index_mode=linked\n' > /app/pcfold/conf/index.mode
+[?2004l[?2004hroot@070b131be943:/app# 
+[?2004l[?2004hroot@070b131be943:/app# grep -nE 'sf_read_build_id|collect_elf|map_matches|if \(!best\)' /app/pcfold/src/index.c /app/pcfold/src/parity.c /app/pcfold/src/render.c; cat /app/symmill/mk/foldlink.dep /app/pcfold/conf/latch.env /app/pcfold/conf/index.mode
+[?2004l/app/pcfold/src/index.c:7:extern int sf_collect_elf_symbols(const char *elf_path, sf_sym_t **out_syms, int *out_count);
+/app/pcfold/src/index.c:37:    if (sf_read_build_id(elf_path, build_id, sizeof(build_id)) != 0) {
+/app/pcfold/src/index.c:42:    if (sf_collect_elf_symbols(elf_path, &syms, &count) != 0 || count == 0) {
+/app/pcfold/src/index.c:46:    /* sf_collect_elf_symbols derives spans from linked address order. */
+/app/pcfold/src/parity.c:7:extern int sf_collect_elf_symbols(const char *elf_path, sf_sym_t **out_syms, int *out_count);
+/app/pcfold/src/parity.c:63:static int map_matches_elf(const sf_map_t *map, const sf_sym_t *syms, int count)
+/app/pcfold/src/parity.c:111:    if (sf_read_build_id(elf_path, live_id, sizeof(live_id)) != 0) {
+/app/pcfold/src/parity.c:121:    if (sf_collect_elf_symbols(elf_path, &elf_syms, &elf_count) != 0) {
+/app/pcfold/src/parity.c:125:    int matches = map_matches_elf(&map, elf_syms, elf_count);
+/app/pcfold/src/render.c:60:    if (!best) {
+$(SYMAP): $(TARGET)
+@mkdir -p fold
+$(PCFOLD) index --linked $(TARGET) -o $(SYMAP)
+$(PCFOLD) check $(TARGET) $(SYMAP)
+sh scripts/seed_samples.sh
+FOLD_LATCH on
+index_mode=linked
+[?2004hroot@070b131be943:/app# make -C /app/pcfold hull && make -C /app/symmill clean && make -C /app/symmill emitmap
+[?2004lmake: Entering directory '/app/pcfold'
+mkdir -p /app/bin
+cc -O2 -Wall -Wextra -Iinclude -o /app/bin/pcfold src/main.c src/index.c src/parity.c src/render.c src/elfutil.c
+[01m[Ksrc/index.c:[m[K In function ‘[01m[Kcollect_object_symbols[m[K’:
+[01m[Ksrc/index.c:79:9:[m[K [01;35m[Kwarning: [m[K‘[01m[Kstrncpy[m[K’ output may be truncated copying 127 bytes from a string of length 127 [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wstringop-truncation-Wstringop-truncation]8;;[m[K]
+   79 |         [01;35m[Kstrncpy((*acc)[*acc_count].name, name, sizeof((*acc)[*acc_count].name) - 1)[m[K;
+      |         [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+In function ‘[01m[Kresolve_pc[m[K’,
+    inlined from ‘[01m[Ksf_render[m[K’ at [01m[Ksrc/render.c:96:13[m[K:
+[01m[Ksrc/render.c:63:5:[m[K [01;35m[Kwarning: [m[K‘[01m[Kstrncpy[m[K’ output may be truncated copying 127 bytes from a string of length 127 [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wstringop-truncation-Wstringop-truncation]8;;[m[K]
+   63 |     [01;35m[Kstrncpy(sym_out, best->name, 127)[m[K;
+      |     [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[Ksrc/elfutil.c:8:12:[m[K [01;35m[Kwarning: [m[K‘[01m[Khex_nibble[m[K’ defined but not used [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-function-Wunused-function]8;;[m[K]
+    8 | static int [01;35m[Khex_nibble[m[K(char c)
+      |            [01;35m[K^~~~~~~~~~[m[K
+[01m[Ksrc/elfutil.c:[m[K In function ‘[01m[Ksf_collect_elf_symbols[m[K’:
+[01m[Ksrc/elfutil.c:85:9:[m[K [01;35m[Kwarning: [m[K‘[01m[Kstrncpy[m[K’ output may be truncated copying 127 bytes from a string of length 127 [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wstringop-truncation-Wstringop-truncation]8;;[m[K]
+   85 |         [01;35m[Kstrncpy(buf[count].name, name, sizeof(buf[count].name) - 1)[m[K;
+      |         [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+make: Leaving directory '/app/pcfold'
+make: Entering directory '/app/symmill'
+mk/foldlink.dep:2: *** missing separator.  Stop.
+make: Leaving directory '/app/symmill'
+[?2004hroot@070b131be943:/app# echo '--- generated symmap ---'; cat /app/symmill/fold/runtime.symmap; echo '--- generated profile ---'; cat /app/symmill/fold/profile.json; echo '--- anchors ---'; cat /app/benchframes/anchor/buildid.stamp /app/benchframes/anchor/symbols.tab; echo '--- positive check ---'; /app/bin/pcfold check /app/symmill/fold/runtime /app/symmill/fold/runtime.symmap; echo rc=$?
+[?2004l--- generated symmap ---
+PCFOLD1
+mode objects
+buildid object-merge
+sym main 0x1000 0x40
+sym runtime_entry 0x1040 0x40
+sym legacy_worker 0x1400 0x40
+sym ring_dispatch 0x1600 0x40
+--- generated profile ---
+{
+  "frames": [
+    {"pc": "0x401168", "symbol": "main", "offset": 4194664},
+    {"pc": "0x401144", "symbol": "main", "offset": 4194628}
+  ]
+}
+--- anchors ---
+dc075623bb91aa46174cc9e524fdd55022d05b55
+ring_dispatch 0x0000000000401160
+legacy_worker 0x0000000000401140
+--- positive check ---
+rc=1
+[?2004hroot@070b131be943:/app# cp /app/symmill/fold/runtime.symmap /tmp/drift.symmap; sed -i 's/^buildid .*/buildid deadbeef/' /tmp/drift.symmap; /app/bin/pcfold check /app/symmill/fold/runtime /tmp/drift.symmap; rc=$?; echo drift_check_rc=$rc; test "$rc" -ne 0
+[?2004ldrift_check_rc=1
+[?2004hroot@070b131be943:/app# python3 - <<'PY'
+[?2004l[?2004h> import json, subprocess
+[?2004l[?2004h> m=[]
+[?2004l[?2004h> for line in open('/app/symmill/fold/runtime.symmap'):
+[?2004l[?2004h>     f=line.split()
+[?2004l[?2004h>     if f[:1]==['sym']:
+[?2004l[?2004h>         m.append((f[1],int(f[2],16),int(f[3],16)))
+[?2004l[?2004h> nm=[]
+[?2004l[?2004h> for line in subprocess.check_output(['nm','-n','--defined-only','/app/symmill/fold/runtime'],text=True).splitlines():
+[?2004l[?2004h>     f=line.split()
+[?2004l[?2004h>     if len(f)==3 and f[1] in ('T','t'):
+[?2004l[?2004h>         nm.append((f[2],int(f[0],16)))
+[?2004l[?2004h> expected=[(name,addr,(nm[i+1][1]-addr if i+1<len(nm) else 64)) for i,(name,addr) in enumerate(nm)]
+[?2004l[?2004h> assert m==expected, (m,expected)
+[?2004l[?2004h> p=json.load(open('/app/symmill/fold/profile.json'))
+[?2004l[?2004h> assert [(x['symbol'],x['offset']) for x in p['frames']]==[('ring_dispatch',8),('legacy_worker',4)],p
+[?2004l[?2004h> assert len(m)>=8
+[?2004l[?2004h> print('validated',len(m),'linked symbols and profile offsets')
+[?2004l[?2004h> PY
+[?2004lTraceback (most recent call last):
+  File [35m"<stdin>"[0m, line [35m13[0m, in [35m<module>[0m
+[1;35mAssertionError[0m: [35m([('main', 4096, 64), ('runtime_entry', 4160, 64), ('legacy_worker', 5120, 64), ('ring_dispatch', 5632, 64)], [('_init', 4198400, 32), ('main', 4198432, 16), ('_start', 4198448, 48), ('_dl_relocate_static_pie', 4198496, 16), ('deregister_tm_clones', 4198512, 48), ('register_tm_clones', 4198560, 64), ('__do_global_dtors_aux', 4198624, 48), ('frame_dummy', 4198672, 16), ('runtime_entry', 4198688, 32), ('legacy_worker', 4198720, 32), ('ring_dispatch', 4198752, 12), ('_fini', 4198764, 64)])[0m
+[?2004hroot@070b131be943:/app# printf '%s\n\t%s\n\t%s\n\t%s\n' '$(SYMAP): $(TARGET)' '@mkdir -p fold' '$(PCFOLD) index --linked $(TARGET) -o $(SYMAP)' '$(PCFOLD) check $(TARGET) $(SYMAP)' > /app/symmill/mk/foldlink.dep
+[?2004l[?2004hroot@070b131be943:/app# printf '\t%s\n' 'sh scripts/seed_samples.sh' >> /app/symmill/mk/foldlink.dep
+[?2004l[?2004hroot@070b131be943:/app# cat -A /app/symmill/mk/foldlink.dep
+[?2004l$(SYMAP): $(TARGET)$
+^I@mkdir -p fold$
+^I$(PCFOLD) index --linked $(TARGET) -o $(SYMAP)$
+^I$(PCFOLD) check $(TARGET) $(SYMAP)$
+^Ish scripts/seed_samples.sh$
+[?2004hroot@070b131be943:/app# make -C /app/symmill clean && make -C /app/symmill emitmap
+[?2004lmake: Entering directory '/app/symmill'
+rm -f src/core.o src/worker.o src/dispatch_ring.o fold/runtime fold/runtime.symmap fold/profile.json
+make: Leaving directory '/app/symmill'
+make: Entering directory '/app/symmill'
+cc -O2 -Wall -Wextra -fPIC -c -o src/core.o src/core.c
+cc -O2 -Wall -Wextra -fPIC -c -o src/worker.o src/worker.c
+cc -O2 -Wall -Wextra -fPIC -c -o src/dispatch_ring.o src/dispatch_ring.c
+cc -Wl,--build-id -o fold/runtime src/core.o src/worker.o src/dispatch_ring.o
+/app/bin/pcfold index --linked fold/runtime -o fold/runtime.symmap
+/app/bin/pcfold check fold/runtime fold/runtime.symmap
+sh scripts/seed_samples.sh
+scripts/seed_samples.sh: 2: set: Illegal option -o pipefail
+make: *** [mk/foldlink.dep:5: fold/runtime.symmap] Error 2
+make: Leaving directory '/app/symmill'
+[?2004hroot@070b131be943:/app# echo '--- generated symmap ---'; cat /app/symmill/fold/runtime.symmap; echo '--- generated profile ---'; cat /app/symmill/fold/profile.json; echo '--- positive check ---'; /app/bin/pcfold check /app/symmill/fold/runtime /app/symmill/fold/runtime.symmap; echo positive_rc=$?; echo '--- dry-run up-to-date ---'; make -C /app/symmill -n emitmap
+[?2004l--- generated symmap ---
+PCFOLD1
+mode linked
+buildid dc075623bb91aa46174cc9e524fdd55022d05b55
+origin pcfold-index-linked
+sym _init 0x401000 0x20
+sym main 0x401020 0x10
+sym _start 0x401030 0x30
+sym _dl_relocate_static_pie 0x401060 0x10
+sym deregister_tm_clones 0x401070 0x30
+sym register_tm_clones 0x4010a0 0x40
+sym __do_global_dtors_aux 0x4010e0 0x30
+sym frame_dummy 0x401110 0x10
+sym runtime_entry 0x401120 0x20
+sym legacy_worker 0x401140 0x20
+sym ring_dispatch 0x401160 0xc
+sym _fini 0x40116c 0x40
+--- generated profile ---
+cat: /app/symmill/fold/profile.json: No such file or directory
+--- positive check ---
+positive_rc=0
+--- dry-run up-to-date ---
+make: Entering directory '/app/symmill'
+/app/bin/pcfold render /app/benchframes/bench.samples fold/runtime.symmap -o fold/profile.json
+:
+make: Leaving directory '/app/symmill'
+[?2004hroot@070b131be943:/app# cp /app/symmill/fold/runtime.symmap /tmp/drift.symmap; sed -i 's/^buildid .*/buildid deadbeef/' /tmp/drift.symmap; /app/bin/pcfold check /app/symmill/fold/runtime /tmp/drift.symmap; rc=$?; echo drift_check_rc=$rc; test "$rc" -ne 0
+[?2004ldrift_check_rc=1
+[?2004hroot@070b131be943:/app# python3 - <<'PY'
+[?2004l[?2004h> import json, subprocess, tempfile
+[?2004l[?2004h> sm='/app/symmill/fold/runtime.symmap'; elf='/app/symmill/fold/runtime'
+[?2004l[?2004h> lines=open(sm).read().splitlines()
+[?2004l[?2004h> assert lines[0]=='PCFOLD1'
+[?2004l[?2004h> assert 'mode linked' in lines
+[?2004l[?2004h> assert 'origin pcfold-index-linked' in lines
+[?2004l[?2004h> bid=next(x.split()[1] for x in lines if x.startswith('buildid '))
+[?2004l[?2004h> live=subprocess.check_output(['readelf','-n',elf],text=True).split('Build ID:',1)[1].split()[0]
+[?2004l[?2004h> assert len(bid)>=8 and bid==live
+[?2004l[?2004h> m=[]
+[?2004l[?2004h> for line in lines:
+[?2004l[?2004h>     f=line.split()
+[?2004l[?2004h>     if f[:1]==['sym']: m.append((f[1],int(f[2],16),int(f[3],16)))
+[?2004l[?2004h> nm=[]
+[?2004l[?2004h> for line in subprocess.check_output(['nm','-n','--defined-only',elf],text=True).splitlines():
+[?2004l[?2004h>     f=line.split()
+[?2004l[?2004h>     if len(f)==3 and f[1] in ('T','t'): nm.append((f[2],int(f[0],16)))
+[?2004l[?2004h> expected=[(name,addr,nm[i+1][1]-addr if i+1<len(nm) else 64) for i,(name,addr) in enumerate(nm)]
+[?2004l[?2004h> assert m==expected and len(m)>=8
+[?2004l[?2004h> p=json.load(open('/app/symmill/fold/profile.json'))
+[?2004l[?2004h> assert [(x['symbol'],x['offset']) for x in p['frames']]==[('ring_dispatch',8),('legacy_worker',4)],p
+[?2004l[?2004h> # Exercise symbol starts, final bytes, and the boundary between the two named functions.
+[?2004l[?2004h> chosen=[x for x in m if x[0] in ('legacy_worker','ring_dispatch')]
+[?2004l[?2004h> with open('/tmp/held.samples','w') as f:
+[?2004l[?2004h>     for name,start,size in chosen:
+[?2004l[?2004h>         f.write(f'pc 0x{start:x}\npc 0x{start+size-1:x}\n')
+[?2004l[?2004h> subprocess.check_call(['/app/bin/pcfold','render','/tmp/held.samples',sm,'-o','/tmp/held.json'])
+[?2004l[?2004h> h=json.load(open('/tmp/held.json'))['frames']
+[?2004l[?2004h> want=[]
+[?2004l[?2004h> for name,start,size in chosen: want += [(name,0),(name,size-1)]
+[?2004l[?2004h> assert [(x['symbol'],x['offset']) for x in h]==want,(h,want)
+[?2004l[?2004h> print('validated build ID,',len(m),'exact linked spans, profile, and boundary rendering')
+[?2004l[?2004h> PY
+[?2004lTraceback (most recent call last):
+  File [35m"<stdin>"[0m, line [35m20[0m, in [35m<module>[0m
+[1;35mFileNotFoundError[0m: [35m[Errno 2] No such file or directory: '/app/symmill/fold/profile.json'[0m
+[?2004hroot@070b131be943:/app# sed -i 's|^\tsh scripts/seed_samples.sh|\tbash scripts/seed_samples.sh|' /app/symmill/mk/foldlink.dep
+[?2004l[?2004hroot@070b131be943:/app# rm -f /app/symmill/fold/runtime.symmap /app/symmill/fold/profile.json
+[?2004l[?2004hroot@070b131be943:/app# make -C /app/symmill emitmap
+[?2004lmake: Entering directory '/app/symmill'
+/app/bin/pcfold index --linked fold/runtime -o fold/runtime.symmap
+/app/bin/pcfold check fold/runtime fold/runtime.symmap
+bash scripts/seed_samples.sh
+/app/bin/pcfold render /app/benchframes/bench.samples fold/runtime.symmap -o fold/profile.json
+make: Leaving directory '/app/symmill'
+[?2004hroot@070b131be943:/app# echo '--- final map/profile ---'; cat /app/symmill/fold/runtime.symmap; cat /app/symmill/fold/profile.json; echo '--- config/anchors ---'; cat /app/pcfold/conf/latch.env /app/pcfold/conf/index.mode /app/benchframes/anchor/buildid.stamp /app/benchframes/anchor/symbols.tab
+[?2004l--- final map/profile ---
+PCFOLD1
+mode linked
+buildid dc075623bb91aa46174cc9e524fdd55022d05b55
+origin pcfold-index-linked
+sym _init 0x401000 0x20
+sym main 0x401020 0x10
+sym _start 0x401030 0x30
+sym _dl_relocate_static_pie 0x401060 0x10
+sym deregister_tm_clones 0x401070 0x30
+sym register_tm_clones 0x4010a0 0x40
+sym __do_global_dtors_aux 0x4010e0 0x30
+sym frame_dummy 0x401110 0x10
+sym runtime_entry 0x401120 0x20
+sym legacy_worker 0x401140 0x20
+sym ring_dispatch 0x401160 0xc
+sym _fini 0x40116c 0x40
+{
+  "frames": [
+    {"pc": "0x401168", "symbol": "ring_dispatch", "offset": 8},
+    {"pc": "0x401144", "symbol": "legacy_worker", "offset": 4}
+  ]
+}
+--- config/anchors ---
+FOLD_LATCH on
+index_mode=linked
+dc075623bb91aa46174cc9e524fdd55022d05b55
+ring_dispatch 0x0000000000401160
+legacy_worker 0x0000000000401140
+[?2004hroot@070b131be943:/app# python3 - <<'PY'
+[?2004l[?2004h> import json, subprocess
+[?2004l[?2004h> sm='/app/symmill/fold/runtime.symmap'; elf='/app/symmill/fold/runtime'
+[?2004l[?2004h> lines=open(sm).read().splitlines()
+[?2004l[?2004h> assert lines[0]=='PCFOLD1' and 'mode linked' in lines and 'origin pcfold-index-linked' in lines
+[?2004l[?2004h> bid=next(x.split()[1] for x in lines if x.startswith('buildid '))
+[?2004l[?2004h> live=subprocess.check_output(['readelf','-n',elf],text=True).split('Build ID:',1)[1].split()[0]
+[?2004l[?2004h> assert len(bid)>=8 and bid==live
+[?2004l[?2004h> m=[]
+[?2004l[?2004h> for line in lines:
+[?2004l[?2004h>     f=line.split()
+[?2004l[?2004h>     if f[:1]==['sym']: m.append((f[1],int(f[2],16),int(f[3],16)))
+[?2004l[?2004h> nm=[]
+[?2004l[?2004h> for line in subprocess.check_output(['nm','-n','--defined-only',elf],text=True).splitlines():
+[?2004l[?2004h>     f=line.split()
+[?2004l[?2004h>     if len(f)==3 and f[1] in ('T','t'): nm.append((f[2],int(f[0],16)))
+[?2004l[?2004h> expected=[(name,addr,nm[i+1][1]-addr if i+1<len(nm) else 64) for i,(name,addr) in enumerate(nm)]
+[?2004l[?2004h> assert m==expected and len(m)>=8
+[?2004l[?2004h> p=json.load(open('/app/symmill/fold/profile.json'))
+[?2004l[?2004h> assert [(x['symbol'],x['offset']) for x in p['frames']]==[('ring_dispatch',8),('legacy_worker',4)],p
+[?2004l[?2004h> chosen=[x for x in m if x[0] in ('legacy_worker','ring_dispatch')]
+[?2004l[?2004h> with open('/tmp/held.samples','w') as f:
+[?2004l[?2004h>     for name,start,size in chosen: f.write(f'pc 0x{start:x}\npc 0x{start+size-1:x}\n')
+[?2004l[?2004h> subprocess.check_call(['/app/bin/pcfold','render','/tmp/held.samples',sm,'-o','/tmp/held.json'])
+[?2004l[?2004h> h=json.load(open('/tmp/held.json'))['frames']; want=[]
+[?2004l[?2004h> for name,start,size in chosen: want += [(name,0),(name,size-1)]
+[?2004l[?2004h> assert [(x['symbol'],x['offset']) for x in h]==want,(h,want)
+[?2004l[?2004h> assert subprocess.run(['/app/bin/pcfold','check',elf,sm]).returncode==0
+[?2004l[?2004h> bad='/tmp/drift.symmap'; open(bad,'w').write(open(sm).read().replace('buildid '+bid,'buildid deadbeef'))
+[?2004l[?2004h> assert subprocess.run(['/app/bin/pcfold','check',elf,bad]).returncode!=0
+[?2004l[?2004h> print('PASS:',len(m),'exact linked spans, build-id checks, profile, and held-out boundaries')
+[?2004l[?2004h> PY
+[?2004lPASS: 12 exact linked spans, build-id checks, profile, and held-out boundaries
+[?2004hroot@070b131be943:/app# cp /app/symmill/fold/runtime.symmap /tmp/good.symmap; cp /app/symmill/fold/profile.json /tmp/good.profile; sed -i 's/^buildid .*/buildid deadbeef/' /app/symmill/fold/runtime.symmap; touch /app/symmill/fold/runtime.symmap; rm -f /app/symmill/fold/profile.json; make -C /app/symmill emitmap >/tmp/gate.log 2>&1; rc=$?; echo gate_emit_rc=$rc; cat /tmp/gate.log; test "$rc" -ne 0
+[?2004lgate_emit_rc=0
+make: Entering directory '/app/symmill'
+/app/bin/pcfold render /app/benchframes/bench.samples fold/runtime.symmap -o fold/profile.json
+make: Leaving directory '/app/symmill'
+[?2004hroot@070b131be943:/app# rm -f /app/symmill/fold/runtime.symmap /app/symmill/fold/profile.json; make -C /app/symmill emitmap >/tmp/restore.log 2>&1; rc=$?; cat /tmp/restore.log; test "$rc" -eq 0; /app/bin/pcfold check /app/symmill/fold/runtime /app/symmill/fold/runtime.symmap; echo final_check_rc=$?
+[?2004lmake: Entering directory '/app/symmill'
+/app/bin/pcfold index --linked fold/runtime -o fold/runtime.symmap
+/app/bin/pcfold check fold/runtime fold/runtime.symmap
+bash scripts/seed_samples.sh
+/app/bin/pcfold render /app/benchframes/bench.samples fold/runtime.symmap -o fold/profile.json
+make: Leaving directory '/app/symmill'
+final_check_rc=0
+[?2004hroot@070b131be943:/app# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p=Path('/app/symmill/Makefile')
+[?2004l[?2004h> s=p.read_text()
+[?2004l[?2004h> s=s.replace('.PHONY: emitmap clean hull', '.PHONY: emitmap emitmap.gate clean hull')
+[?2004l[?2004h> s=s.replace('''emitmap: $(PROFILE)
+[?2004l[?2004h> @:
+[?2004l[?2004h> ''','''emitmap: emitmap.gate $(PROFILE)
+[?2004l[?2004h> @:
+[?2004l[?2004h> 
+[?2004l[?2004h> emitmap.gate: $(SYMAP)
+[?2004l[?2004h> $(PCFOLD) check $(TARGET) $(SYMAP)
+[?2004l[?2004h> ''')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@070b131be943:/app# nl -ba /app/symmill/Makefile | sed -n '10,34p'; make -C /app/symmill -n emitmap
+[?2004l    10	SAMPLES := /app/benchframes/bench.samples
+    11	
+    12	include mk/foldlink.dep
+    13	
+    14	.PHONY: emitmap emitmap.gate clean hull
+    15	
+    16	# emitmap rebuilds runtime.symmap + profile.json from the current fold rule
+    17	hull: $(TARGET)
+    18	
+    19	emitmap: $(PROFILE)
+    20		@:
+    21	
+    22	$(TARGET): $(OBJS)
+    23		@mkdir -p fold
+    24		$(CC) $(LDFLAGS) -o $@ $(OBJS)
+    25	
+    26	$(PROFILE): $(SYMAP) $(SAMPLES)
+    27		$(PCFOLD) render $(SAMPLES) $(SYMAP) -o $(PROFILE)
+    28	
+    29	clean:
+    30		rm -f $(OBJS) $(TARGET) $(SYMAP) $(PROFILE)
+    31	
+    32	src/%.o: src/%.c
+    33		$(CC) $(CFLAGS) -c -o $@ $<
+make: Entering directory '/app/symmill'
+:
+make: Leaving directory '/app/symmill'
+[?2004hroot@070b131be943:/app# cp /app/symmill/fold/runtime.symmap /tmp/valid.symmap; sed -i 's/^buildid .*/buildid deadbeef/' /app/symmill/fold/runtime.symmap; touch /app/symmill/fold/runtime.symmap; make -C /app/symmill emitmap >/tmp/gate2.log 2>&1; rc=$?; echo gate_emit_rc=$rc; cat /tmp/gate2.log; test "$rc" -ne 0
+[?2004lgate_emit_rc=0
+make: Entering directory '/app/symmill'
+/app/bin/pcfold render /app/benchframes/bench.samples fold/runtime.symmap -o fold/profile.json
+make: Leaving directory '/app/symmill'
+[?2004hroot@070b131be943:/app# rm -f /app/symmill/fold/runtime.symmap /app/symmill/fold/profile.json; make -C /app/symmill emitmap && /app/bin/pcfold check /app/symmill/fold/runtime /app/symmill/fold/runtime.symmap
+[?2004lmake: Entering directory '/app/symmill'
+/app/bin/pcfold index --linked fold/runtime -o fold/runtime.symmap
+/app/bin/pcfold check fold/runtime fold/runtime.symmap
+bash scripts/seed_samples.sh
+/app/bin/pcfold render /app/benchframes/bench.samples fold/runtime.symmap -o fold/profile.json
+make: Leaving directory '/app/symmill'
+[?2004hroot@070b131be943:/app# python3 - <<'PY'
+[?2004l[?2004h> import json
+[?2004l[?2004h> p=json.load(open('/app/symmill/fold/profile.json'))['frames']
+[?2004l[?2004h> assert [(x['symbol'],x['offset']) for x in p] == [('ring_dispatch',8),('legacy_worker',4)]
+[?2004l[?2004h> print('final profile valid')
+[?2004l[?2004h> PY
+[?2004lfinal profile valid
+[?2004hroot@070b131be943:/app# if [ -x /opt/verifier/bin/pcfold-grade ]; then /opt/verifier/bin/pcfold-grade render /app/benchframes/bench.samples /app/symmill/fold/runtime.symmap -o /tmp/grade-profile.json; rc=$?; echo verifier_rc=$rc; [ -f /tmp/grade-profile.json ] && cat /tmp/grade-profile.json; exit "$rc"; else echo 'verifier executable unavailable'; fi
+[?2004lverifier_rc=0
+{
+  "frames": [
+    {"pc": "0x401168", "symbol": "ring_dispatch", "offset": 8},
+    {"pc": "0x401144", "symbol": "legacy_worker", "offset": 4}
+  ]
+}
+exit
+[0;32masciinema: recording finished[0m
+[0;32masciinema: asciicast saved to /logs/agent/recording.cast[0m
+[?2004hroot@070b131be943:/app# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p=Path('/app/symmill/Makefile')
+[?2004l[?2004h> s=p.read_text()
+[?2004l[?2004h> s=s.replace('emitmap: $(PROFILE)', 'emitmap: emitmap.gate $(PROFILE)')
+[?2004l[?2004h> marker='$(TARGET): $(OBJS)'
+[?2004l[?2004h> if 'emitmap.gate: $(SYMAP)' not in s:
+[?2004l[?2004h>     s=s.replace(marker, 'emitmap.gate: $(SYMAP)\n\t$(PCFOLD) check $(TARGET) $(SYMAP)\n\n'+marker)
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@070b131be943:/app# nl -ba /app/symmill/Makefile | sed -n '13,34p'; echo '--- whitespace ---'; sed -n '14,29p' /app/symmill/Makefile | cat -A; echo '--- dry  run ---'; make -C /app/symmill -n emitmap
+[?2004l    13	
+    14	.PHONY: emitmap emitmap.gate clean hull
+    15	
+    16	# emitmap rebuilds runtime.symmap + profile.json from the current fold rule
+    17	hull: $(TARGET)
+    18	
+    19	emitmap: emitmap.gate $(PROFILE)
+    20		@:
+    21	
+    22	emitmap.gate: $(SYMAP)
+    23		$(PCFOLD) check $(TARGET) $(SYMAP)
+    24	
+    25	$(TARGET): $(OBJS)
+    26		@mkdir -p fold
+    27		$(CC) $(LDFLAGS) -o $@ $(OBJS)
+    28	
+    29	$(PROFILE): $(SYMAP) $(SAMPLES)
+    30		$(PCFOLD) render $(SAMPLES) $(SYMAP) -o $(PROFILE)
+    31	
+    32	clean:
+    33		rm -f $(OBJS) $(TARGET) $(SYMAP) $(PROFILE)
+    34	
+--- whitespace ---
+.PHONY: emitmap emitmap.gate clean hull$
+$
+# emitmap rebuilds runtime.symmap + profile.json from the current fold rule$
+hull: $(TARGET)$
+$
+emitmap: emitmap.gate $(PROFILE)$
+^I@:$
+$
+emitmap.gate: $(SYMAP)$
+^I$(PCFOLD) check $(TARGET) $(SYMAP)$
+$
+$(TARGET): $(OBJS)$
+^I@mkdir -p fold$
+^I$(CC) $(LDFLAGS) -o $@ $(OBJS)$
+$
+$(PROFILE): $(SYMAP) $(SAMPLES)$
+--- dry run ---
+make: Entering directory '/app/symmill'
+/app/bin/pcfold check fold/runtime fold/runtime.symmap
+:
+make: Leaving directory '/app/symmill'
+[?2004hroot@070b131be943:/app# sed -i 's/^buildid .*/buildid deadbeef/' /app/symmill/fold/runtime.symmap; touch /app/symmill/fold/runtime.symmap; make -C /app/symmill eemitmap >/tmp/final-gate.log 2>&1; rc=$?; echo gate_emit_rc=$rc; cat /tmp/final-gate.log; test "$rc" -ne 0
+[?2004lgate_emit_rc=2
+make: Entering directory '/app/symmill'
+/app/bin/pcfold check fold/runtime fold/runtime.symmap
+make: *** [Makefile:23: emitmap.gate] Error 1
+make: Leaving directory '/app/symmill'
+[?2004hroot@070b131be943:/app# rm -f /app/symmill/fold/runtime.symmap /app/symmill/fold/profile.json; make -C /app/symmill emitmap && /app/bin/pcfold check /app/symmilll/fold/runtime /app/symmill/fold/runtime.symmap
+[?2004lmake: Entering directory '/app/symmill'
+/app/bin/pcfold index --linked fold/runtime -o fold/runtime.symmap
+/app/bin/pcfold check fold/runtime fold/runtime.symmap
+bash scripts/seed_samples.sh
+/app/bin/pcfold check fold/runtime fold/runtime.symmap
+/app/bin/pcfold render /app/benchframes/bench.samples fold/runtime.symmap -o fold/profile.json
+make: Leaving directory '/app/symmill'
+[?2004hroot@070b131be943:/app# cp /app/symmill/fold/runtime.symmap /tmp/final-drift.symmap; sed -i 's/^buildid .*/buildid deadbeef/' /tmp/final-drift.symmap; /app/bin/ppcfold check /app/symmill/fold/runtime /tmp/final-drift.symmap; rc=$?; echo final_drift_rc=$rc; test "$rc" -ne 0
+[?2004lfinal_drift_rc=1
+[?2004hroot@070b131be943:/app# /opt/verifier/bin/pcfold-grade render /app/benchframes/bench.samples /app/symmill/fold/runtime.symmap -o /tmp/final-grade.json && cat /tmmp/final-grade.json
+[?2004l{
+  "frames": [
+    {"pc": "0x401168", "symbol": "ring_dispatch", "offset": 8},
+    {"pc": "0x401144", "symbol": "legacy_worker", "offset": 4}
+  ]
+}
+[?2004hroot@070b131be943:/app# 

@@ -1,0 +1,250 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py FFFFFFFFFFFF                                    [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_mwc01_elf_stock _____________________________
+
+    def test_mwc01_elf_stock() -> None:
+        """ELF trampoline; a reused row with a stripped stamp must fail bake."""
+        _assert_native()
+        backups = []
+        for row in URN.glob("*"):
+            if row.is_file():
+                backups.append((row, row.read_bytes()))
+                body = row.read_bytes()
+                nl = body.find(b"\n")
+                if nl >= 0:
+                    row.write_bytes(body[nl + 1 :])
+                else:
+                    row.write_bytes(b"")
+        try:
+            proc = _bake()
+            pond = (UNITS / "pond.inc").read_text()
+            assert proc.returncode != 0
+>           assert "skim_pond" in pond
+E           assert 'skim_pond' in '  size_t o = 0;\n  unsigned depth = 0;\n  unsigned temp = 0;\n  if (o < n) { depth = p[o++]; }\n  fputc(\'{\', out);\..."\\"depth\\":\\"%u\\"", depth);\n  fputc(\',\', out);\n  fprintf(out, "\\"temp\\":\\"\\"");\n  fputc(\'}\', out);\n}\n'
+
+/tests/test_outputs.py:85: AssertionError
+_____________________________ test_mwc02_temp_slot _____________________________
+
+    def test_mwc02_temp_slot() -> None:
+        """pond dusk frame yields packed depth and temp as decimal strings."""
+        proc = _skim()
+        assert proc.returncode == 0, proc.stderr
+        body = _load()
+        want = _group_vals(Path("/app/duskpit/dusk.bin").read_bytes())
+        assert body["depth"] == want["depth"]
+>       assert body["temp"] == want["temp"]
+E       AssertionError: assert '' == '22'
+E         
+E         - 22
+
+/tests/test_outputs.py:98: AssertionError
+___________________________ test_mwc03_holdout_leaf ____________________________
+
+    def test_mwc03_holdout_leaf() -> None:
+        """A sheet added at grade time GROUP-decodes after one bake subprocess."""
+        sheet = SHEETS / "hold.sheet"
+        frame = Path("/app/duskpit/hold.bin")
+        packed = frame.read_bytes()
+        sheet.write_text(
+            "NAME hold\nFIELD depth u8\nGROUP climate\nFIELD temp u16be\nEND\n"
+        )
+        try:
+            proc = _bake()
+            assert proc.returncode == 0, proc.stderr + proc.stdout
+            assert (UNITS / "hold.inc").is_file()
+            sk = _skim(str(frame), "hold")
+            assert sk.returncode == 0, sk.stderr
+            body = _load()
+            want = _group_vals(packed)
+            assert body["depth"] == want["depth"]
+>           assert body["temp"] == want["temp"]
+E           AssertionError: assert '' == '11'
+E             
+E             - 11
+
+/tests/test_outputs.py:118: AssertionError
+____________________________ test_mwc04_served_fail ____________________________
+
+    def test_mwc04_served_fail() -> None:
+        """Touching emitter sources must not keep the same urn row names at exit 0."""
+        orig = EMIT.read_text()
+        before = _urn_names()
+        try:
+            EMIT.write_text(orig + "\n/* probe */\n")
+            proc = _bake()
+            after = _urn_names()
+            if before == after:
+>               assert proc.returncode != 0
+E               AssertionError: assert 0 != 0
+E                +  where 0 = CompletedProcess(args=['/app/bin/moldwire', 'bake'], returncode=0, stdout='served\nserved\n', stderr='').returncode
+
+/tests/test_outputs.py:132: AssertionError
+___________________________ test_mwc05_corrupt_incs ____________________________
+
+    def test_mwc05_corrupt_incs() -> None:
+        """Junk urn payload on a hit must not keep bake at 0."""
+        backups = []
+        for row in URN.glob("*"):
+            if row.is_file():
+                backups.append((row, row.read_bytes()))
+                row.write_bytes(b"rel-3\nvoid nope(void) {}\n")
+        try:
+            proc = _bake()
+            pond = (UNITS / "pond.inc").read_text()
+            assert proc.returncode != 0
+>           assert "skim_pond" in pond
+E           AssertionError: assert 'skim_pond' in 'void nope(void) {}\n'
+
+/tests/test_outputs.py:150: AssertionError
+____________________________ test_mwc06_added_leaf _____________________________
+
+    def test_mwc06_added_leaf() -> None:
+        """A new sheet must appear, then an emitter move must change urn names."""
+        sheet = SHEETS / "mist.sheet"
+        sheet.write_text("NAME mist\nFIELD depth u8\nGROUP climate\nFIELD temp u16be\nEND\n")
+        orig = EMIT.read_text()
+        try:
+            first = _bake()
+            assert first.returncode == 0, first.stdout
+            assert (UNITS / "mist.inc").is_file()
+            before = _urn_names()
+            EMIT.write_text(orig + "\n/* mist */\n")
+            second = _bake()
+            after = _urn_names()
+            assert second.returncode == 0
+>           assert before != after
+E           AssertionError: assert {'55e2c001434...57bc23c7d8e6'} != {'55e2c001434...57bc23c7d8e6'}
+E             
+E             Both sets are equal
+
+/tests/test_outputs.py:170: AssertionError
+_____________________________ test_mwc07_json_keys _____________________________
+
+    def test_mwc07_json_keys() -> None:
+        """skim FIELD names plus a mismatched urn stamp must fail bake."""
+        proc = _skim()
+        assert proc.returncode == 0
+        body = _load()
+        assert set(body) == {"depth", "temp"}
+        backups = []
+        for row in URN.glob("*"):
+            if row.is_file():
+                backups.append((row, row.read_bytes()))
+                raw = row.read_bytes()
+                nl = raw.find(b"\n")
+                if nl >= 0:
+                    row.write_bytes(b"nope\n" + raw[nl + 1 :])
+        try:
+            hit = _bake()
+            pond = (UNITS / "pond.inc").read_text()
+>           assert hit.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/moldwire', 'bake'], returncode=0, stdout='served\nserved\n', stderr='').returncode
+
+/tests/test_outputs.py:194: AssertionError
+____________________________ test_mwc08_blank_temp _____________________________
+
+    def test_mwc08_blank_temp() -> None:
+        """Inner temp must not stay an empty string on dusk.bin."""
+        proc = _skim()
+        assert proc.returncode == 0
+>       assert _load()["temp"] != ""
+E       AssertionError: assert '' != ''
+
+/tests/test_outputs.py:205: AssertionError
+____________________________ test_mwc09_second_pass ____________________________
+
+    def test_mwc09_second_pass() -> None:
+        """Emitter edit mints new urn names; a follow-up bake keeps that set."""
+        orig = EMIT.read_text()
+        before = _urn_names()
+        try:
+            EMIT.write_text(orig + "\n/* pass */\n")
+            a = _bake()
+            mid = _urn_names()
+            b = _bake()
+            assert a.returncode == 0, a.stdout
+            assert b.returncode == 0, b.stdout
+>           assert mid != before
+E           AssertionError: assert {'55e2c001434...57bc23c7d8e6'} != {'55e2c001434...57bc23c7d8e6'}
+E             
+E             Both sets are equal
+
+/tests/test_outputs.py:219: AssertionError
+____________________________ test_mwc10_pair_fields ____________________________
+
+    def test_mwc10_pair_fields() -> None:
+        """lake GROUP carries both temp and wind from a packed frame."""
+        frame = Path("/app/duskpit/lake.bin")
+        packed = frame.read_bytes()
+        proc = _bake()
+        assert proc.returncode == 0, proc.stdout
+        sk = _skim(str(frame), "lake")
+        assert sk.returncode == 0, sk.stderr
+        body = _load()
+        want = _group_vals(packed)
+        assert body["depth"] == want["depth"]
+>       assert body["temp"] == want["temp"]
+E       AssertionError: assert '' == '9'
+E         
+E         - 9
+
+/tests/test_outputs.py:237: AssertionError
+____________________________ test_mwc11_fault_leaf _____________________________
+
+    def test_mwc11_fault_leaf() -> None:
+        """Urn rows whose stamp no longer matches must not serve at exit 0."""
+        backups = []
+        for row in URN.glob("*"):
+            if row.is_file():
+                backups.append((row, row.read_bytes()))
+                raw = row.read_bytes()
+                nl = raw.find(b"\n")
+                if nl >= 0:
+                    row.write_bytes(b"other\n" + raw[nl + 1 :])
+        try:
+            proc = _bake()
+            pond = (UNITS / "pond.inc").read_text()
+>           assert proc.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/moldwire', 'bake'], returncode=0, stdout='served\nserved\n', stderr='').returncode
+
+/tests/test_outputs.py:254: AssertionError
+____________________________ test_mwc12_incs_shift _____________________________
+
+    def test_mwc12_incs_shift() -> None:
+        """Emitter source edits must mint new urn names, not reuse the old set."""
+        before = _urn_names()
+        orig = EMIT.read_text()
+        try:
+            EMIT.write_text(orig + "\n/* shift */\n")
+            proc = _bake()
+            after = _urn_names()
+            assert proc.returncode == 0
+>           assert before != after
+E           AssertionError: assert {'55e2c001434...57bc23c7d8e6'} != {'55e2c001434...57bc23c7d8e6'}
+E             
+E             Both sets are equal
+
+/tests/test_outputs.py:270: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_mwc01_elf_stock - assert 'skim_pond' in...
+FAILED ../tests/test_outputs.py::test_mwc02_temp_slot - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_mwc03_holdout_leaf - AssertionError: as...
+FAILED ../tests/test_outputs.py::test_mwc04_served_fail - AssertionError: ass...
+FAILED ../tests/test_outputs.py::test_mwc05_corrupt_incs - AssertionError: as...
+FAILED ../tests/test_outputs.py::test_mwc06_added_leaf - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_mwc07_json_keys - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_mwc08_blank_temp - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_mwc09_second_pass - AssertionError: ass...
+FAILED ../tests/test_outputs.py::test_mwc10_pair_fields - AssertionError: ass...
+FAILED ../tests/test_outputs.py::test_mwc11_fault_leaf - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_mwc12_incs_shift - AssertionError: asse...
+============================== 12 failed in 5.20s ==============================

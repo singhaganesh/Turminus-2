@@ -1,0 +1,866 @@
+[?2004hroot@b703a9be73e8:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@b703a9be73e8:/app# clear
+[?2004l[H[J[3J[?2004hroot@b703a9be73e8:/app# cd /app/rivetbay && printf '%s\n' '--- tree ---' && find . -maxdepth 3 -type f -printf '%p\n' | sort && printf '%s\n' '--- bin ---' && file /app/bin/rivetbay && printf '%s\n' '--- sources/build ---' && find . -maxdepth 2 -type f \( -name '*.c' -o -name '*.h' -o -name 'Makefile' -o -name '*.sh' \) -print -exec sh -c 'echo "### $1"; sed -n "1,240p" "$1"' _ {} \; && printf '%s\n' '--- descriptions ---' && for f in evd/*.evd; do echo "### $f"; cat "$f"; done && printf '%s\n' '--- generated ---' && { cat intake/current.ledger 2>/dev/null || true; } && for f in emitters/*.kdec; do [ -e "$f" ] || continue; echo "### $f"; cat "$f"; done
+[?2004l--- tree ---
+./Makefile
+./emitters/aileron_pos.kdec
+./emitters/brake_temp.kdec
+./emitters/door_seal.kdec
+./emitters/fuel_flow.kdec
+./emitters/nav_lamp.kdec
+./emitters/pitot_heat.kdec
+./emitters/wing_ice.kdec
+./evd/aileron_pos.evd
+./evd/brake_temp.evd
+./evd/door_seal.evd
+./evd/fuel_flow.evd
+./evd/galley_hatch.evd
+./evd/nav_lamp.evd
+./evd/pitot_heat.evd
+./evd/wing_ice.evd
+./forgekit/decode.c
+./forgekit/decode.h
+./forgekit/discover.c
+./forgekit/discover.h
+./forgekit/driver.c
+./forgekit/emit.c
+./forgekit/emit.h
+./forgekit/parse_evd.c
+./forgekit/parse_evd.h
+./forgekit/sheet.h
+./forgekit/snapshot.c
+./forgekit/utf_tidy.c
+./forgekit/utf_tidy.h
+./forgekit/warmup.c
+./forgekit/warmup.h
+./frames/aileron_pos.bin
+./frames/brake_temp.bin
+./frames/door_seal.bin
+./frames/fuel_flow.bin
+./frames/galley_hatch.bin
+./frames/nav_lamp.bin
+./frames/pitot_heat.bin
+./frames/wing_ice.bin
+./intake/current.ledger
+./notes/forms.txt
+./notes/layout.txt
+./notes/ops.txt
+./seed/emitters/aileron_pos.kdec
+./seed/emitters/brake_temp.kdec
+./seed/emitters/door_seal.kdec
+./seed/emitters/fuel_flow.kdec
+./seed/emitters/nav_lamp.kdec
+./seed/emitters/pitot_heat.kdec
+./seed/emitters/wing_ice.kdec
+./seed/evd/aileron_pos.evd
+./seed/evd/brake_temp.evd
+./seed/evd/door_seal.evd
+./seed/evd/fuel_flow.evd
+./seed/evd/galley_hatch.evd
+./seed/evd/nav_lamp.evd
+./seed/evd/pitot_heat.evd
+./seed/evd/wing_ice.evd
+./seed/frames/aileron_pos.bin
+./seed/frames/brake_temp.bin
+./seed/frames/door_seal.bin
+./seed/frames/fuel_flow.bin
+./seed/frames/galley_hatch.bin
+./seed/frames/nav_lamp.bin
+./seed/frames/pitot_heat.bin
+./seed/frames/wing_ice.bin
+./seed/intake/current.ledger
+--- bin ---
+/app/bin/rivetbay: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, not stripped
+--- sources/build ---
+./forgekit/utf_tidy.c
+### ./forgekit/utf_tidy.c
+#include "utf_tidy.h"
+#include <string.h>
+void tidy_copy(const char *src, char *dst, int n) {
+    if (n <= 0) return;
+    strncpy(dst, src, (size_t)n - 1);
+    dst[n - 1] = 0;
+}
+./forgekit/parse_evd.h
+### ./forgekit/parse_evd.h
+#ifndef PARSE_EVD_H
+#define PARSE_EVD_H
+int parse_evd_file(const char *path, char *name, char *fields, int fields_sz);
+#endif
+./forgekit/discover.h
+### ./forgekit/discover.h
+#ifndef DISCOVER_H
+#define DISCOVER_H
+void discover_all(void);
+#endif
+./forgekit/driver.c
+### ./forgekit/driver.c
+#include "discover.h"
+#include "sheet.h"
+#include "emit.h"
+#include "tally.h"
+#include "decode.h"
+#include "warmup.h"
+#include <stdio.h>
+#include <string.h>
+
+static void note_mill_pass(void) {
+    FILE *f = fopen("/app/rivetbay/intake/.mill_pass", "a");
+    if (!f) return;
+    fputc('1', f);
+    fputc('\n', f);
+    fclose(f);
+}
+
+int main(int argc, char **argv) {
+    if (argc >= 2 && strcmp(argv[1], "mill") == 0) {
+        note_mill_pass();
+        warm_maybe();
+        discover_all();
+        pour_sheet();
+        emit_all();
+        return count_gap();
+    }
+    if (argc >= 3 && strcmp(argv[1], "decode") == 0)
+        return decode_frame(argv[2]);
+    fprintf(stderr, "usage: rivetbay mill | rivetbay decode <frame>\n");
+    return 2;
+}
+./forgekit/snapshot.c
+### ./forgekit/snapshot.c
+#include "sheet.h"
+#include <stdio.h>
+#include <string.h>
+
+static char g_blob[65536];
+
+__attribute__((constructor))
+static void boot_sheet(void) {
+    FILE *f = fopen("/app/rivetbay/intake/current.ledger", "r");
+    g_blob[0] = 0;
+    if (!f) return;
+    size_t n = fread(g_blob, 1, sizeof(g_blob) - 1, f);
+    g_blob[n] = 0;
+    fclose(f);
+}
+
+void grab_sheet(void) {
+    FILE *f = fopen("/app/rivetbay/intake/current.ledger", "r");
+    g_blob[0] = 0;
+    if (!f) return;
+    size_t n = fread(g_blob, 1, sizeof(g_blob) - 1, f);
+    g_blob[n] = 0;
+    fclose(f);
+}
+
+void pour_sheet(void) {
+    char buf[65536];
+    char out[65536];
+    strncpy(buf, g_blob, sizeof(buf) - 1);
+    buf[sizeof(buf) - 1] = 0;
+    size_t w = 0;
+    char *save = NULL;
+    char *line = strtok_r(buf, "\n", &save);
+    while (line) {
+        while (*line == ' ' || *line == '\t') line++;
+        if (*line == 0) {
+            line = strtok_r(NULL, "\n", &save);
+            continue;
+        }
+        size_t L = strlen(line);
+        if (w + L + 1 >= sizeof(out)) break;
+        memcpy(out + w, line, L);
+        w += L;
+        out[w++] = '\n';
+        line = strtok_r(NULL, "\n", &save);
+    }
+    out[w] = 0;
+    memcpy(g_blob, out, w + 1);
+}
+
+const char *sheet_view(void) {
+    return g_blob;
+}
+./forgekit/sheet.h
+### ./forgekit/sheet.h
+#ifndef SHEET_H
+#define SHEET_H
+void grab_sheet(void);
+void pour_sheet(void);
+const char *sheet_view(void);
+#endif
+./forgekit/utf_tidy.h
+### ./forgekit/utf_tidy.h
+#ifndef UTF_TIDY_H
+#define UTF_TIDY_H
+void tidy_copy(const char *src, char *dst, int n);
+#endif
+./forgekit/warmup.c
+### ./forgekit/warmup.c
+#include "warmup.h"
+#include <stdlib.h>
+/* Operators sometimes export RIVET_WARM=1 to mill twice after a checkout. */
+void warm_maybe(void) {
+    const char *e = getenv("RIVET_WARM");
+    (void)e;
+}
+./forgekit/discover.c
+### ./forgekit/discover.c
+#include "discover.h"
+#include "parse_evd.h"
+#include <dirent.h>
+#include <stdio.h>
+#include <string.h>
+
+void discover_all(void) {
+    DIR *d = opendir("/app/rivetbay/evd");
+    FILE *out = fopen("/app/rivetbay/intake/current.ledger", "w");
+    struct dirent *ent;
+    if (!d || !out) {
+        if (d) closedir(d);
+        if (out) fclose(out);
+        return;
+    }
+    while ((ent = readdir(d)) != NULL) {
+        size_t L = strlen(ent->d_name);
+        if (L < 5 || strcmp(ent->d_name + L - 4, ".evd") != 0) continue;
+        char path[512];
+        snprintf(path, sizeof(path), "/app/rivetbay/evd/%s", ent->d_name);
+        char name[128];
+        char fields[512];
+        if (parse_evd_file(path, name, fields, sizeof(fields)) != 0) continue;
+        fprintf(out, "%s|evd/%s|%s\n", name, ent->d_name, fields);
+    }
+    fclose(out);
+    closedir(d);
+}
+./forgekit/emit.c
+### ./forgekit/emit.c
+#include "emit.h"
+#include "sheet.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+static void emit_one(const char *line) {
+    char tmp[1024];
+    strncpy(tmp, line, sizeof(tmp) - 1);
+    tmp[sizeof(tmp) - 1] = 0;
+    char *nl = strchr(tmp, '\n');
+    if (nl) *nl = 0;
+    char *name = tmp;
+    char *p1 = strchr(tmp, '|');
+    if (!p1) return;
+    *p1 = 0;
+    char *p2 = strchr(p1 + 1, '|');
+    if (!p2) return;
+    char *spec = p2 + 1;
+    char outp[512];
+    snprintf(outp, sizeof(outp), "/app/rivetbay/emitters/%s.kdec", name);
+    FILE *o = fopen(outp, "w");
+    if (!o) return;
+    fprintf(o, "KDEC1\nNAME %s\n", name);
+    char *tok = strtok(spec, ",");
+    while (tok) {
+        char fn[64], k[16];
+        if (sscanf(tok, "%63[^:]:%15s", fn, k) == 2)
+            fprintf(o, "%s %s\n", fn, k);
+        tok = strtok(NULL, ",");
+    }
+    fclose(o);
+}
+
+void emit_all(void) {
+    const char *blob = sheet_view();
+    char buf[65536];
+    strncpy(buf, blob, sizeof(buf) - 1);
+    buf[sizeof(buf) - 1] = 0;
+    char *save = NULL;
+    char *line = strtok_r(buf, "\n", &save);
+    while (line) {
+        if (line[0]) emit_one(line);
+        line = strtok_r(NULL, "\n", &save);
+    }
+}
+./forgekit/warmup.h
+### ./forgekit/warmup.h
+#ifndef WARMUP_H
+#define WARMUP_H
+void warm_maybe(void);
+#endif
+./forgekit/emit.h
+### ./forgekit/emit.h
+#ifndef EMIT_H
+#define EMIT_H
+void emit_all(void);
+#endif
+./forgekit/decode.h
+### ./forgekit/decode.h
+#ifndef DECODE_H
+#define DECODE_H
+int decode_frame(const char *path);
+#endif
+./forgekit/parse_evd.c
+### ./forgekit/parse_evd.c
+#include "parse_evd.h"
+#include <stdio.h>
+#include <string.h>
+
+int parse_evd_file(const char *path, char *name, char *fields, int fields_sz) {
+    FILE *f = fopen(path, "r");
+    if (!f) return -1;
+    name[0] = 0;
+    fields[0] = 0;
+    char line[256];
+    int first = 1;
+    while (fgets(line, sizeof(line), f)) {
+        if (strncmp(line, "NAME ", 5) == 0) {
+            sscanf(line + 5, "%127s", name);
+        } else if (strncmp(line, "FIELD ", 6) == 0) {
+            char fn[64], k[16];
+            if (sscanf(line + 6, "%63s %15s", fn, k) == 2) {
+                if (!first) strncat(fields, ",", fields_sz - (int)strlen(fields) - 1);
+                strncat(fields, fn, fields_sz - (int)strlen(fields) - 1);
+                strncat(fields, ":", fields_sz - (int)strlen(fields) - 1);
+                strncat(fields, k, fields_sz - (int)strlen(fields) - 1);
+                first = 0;
+            }
+        }
+    }
+    fclose(f);
+    return name[0] ? 0 : -1;
+}
+./forgekit/decode.c
+### ./forgekit/decode.c
+#include "decode.h"
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+static uint32_t rd_be32(const unsigned char *p) {
+    return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) | ((uint32_t)p[2] << 8) | p[3];
+}
+
+int decode_frame(const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (!f) return 2;
+    unsigned char raw[4096];
+    size_t n = fread(raw, 1, sizeof(raw), f);
+    fclose(f);
+    if (n < 4) return 2;
+    uint32_t ln = rd_be32(raw);
+    if (n < 4 + ln) return 2;
+    char name[256];
+    if (ln >= sizeof(name)) return 2;
+    memcpy(name, raw + 4, ln);
+    name[ln] = 0;
+    char kpath[512];
+    snprintf(kpath, sizeof(kpath), "/app/rivetbay/emitters/%s.kdec", name);
+    FILE *k = fopen(kpath, "r");
+    if (!k) {
+        printf("{\"kind\":\"unknown\",\"name\":\"%s\"}\n", name);
+        return 0;
+    }
+    char line[256];
+    char fields[32][64];
+    char kinds[32][16];
+    int nf = 0;
+    while (fgets(line, sizeof(line), k)) {
+        if (strncmp(line, "KDEC1", 5) == 0) continue;
+        if (strncmp(line, "NAME ", 5) == 0) continue;
+        if (sscanf(line, "%63s %15s", fields[nf], kinds[nf]) == 2) nf++;
+    }
+    fclose(k);
+    const unsigned char *p = raw + 4 + ln;
+    size_t left = n - 4 - ln;
+    printf("{\"kind\":\"decoded\",\"name\":\"%s\",\"fields\":{", name);
+    for (int i = 0; i < nf; i++) {
+        unsigned v = 0;
+        if (strcmp(kinds[i], "u16") == 0) {
+            if (left < 2) break;
+            v = ((unsigned)p[0] << 8) | p[1];
+            p += 2; left -= 2;
+        } else {
+            if (left < 1) break;
+            v = p[0];
+            p += 1; left -= 1;
+        }
+        printf("%s\"%s\":%u", i ? "," : "", fields[i], v);
+    }
+    printf("}}\n");
+    return 0;
+}
+./Makefile
+### ./Makefile
+CC ?= gcc
+CFLAGS ?= -O2 -Wall -Wextra -Iforgekit -I/app/millscore
+SRC := $(wildcard forgekit/*.c) $(wildcard /app/millscore/*.c)
+BIN := /app/bin/rivetbay
+
+.PHONY: hull
+hull:
+	mkdir -p /app/bin
+	$(CC) $(CFLAGS) -o $(BIN) $(SRC)
+--- descriptions ---
+### evd/aileron_pos.evd
+NAME aileron_pos
+FIELD deg u16
+FIELD side u8
+### evd/brake_temp.evd
+NAME brake_temp
+FIELD cdeg u16
+### evd/door_seal.evd
+NAME door_seal
+FIELD ok u8
+### evd/fuel_flow.evd
+NAME fuel_flow
+FIELD rate u16
+FIELD tank u8
+### evd/galley_hatch.evd
+NAME galley_hatch
+FIELD latch u8
+FIELD force u16
+### evd/nav_lamp.evd
+NAME nav_lamp
+FIELD color u8
+### evd/pitot_heat.evd
+NAME pitot_heat
+FIELD watts u16
+### evd/wing_ice.evd
+NAME wing_ice
+FIELD thick u16
+--- generated ---
+wing_ice|evd/wing_ice.evd|thick:u16
+fuel_flow|evd/fuel_flow.evd|rate:u16,tank:u8
+door_seal|evd/door_seal.evd|ok:u8
+pitot_heat|evd/pitot_heat.evd|watts:u16
+aileron_pos|evd/aileron_pos.evd|deg:u16,side:u8
+nav_lamp|evd/nav_lamp.evd|color:u8
+brake_temp|evd/brake_temp.evd|cdeg:u16
+### emitters/aileron_pos.kdec
+KDEC1
+NAME aileron_pos
+deg u16
+side u8
+### emitters/brake_temp.kdec
+KDEC1
+NAME brake_temp
+cdeg u16
+### emitters/door_seal.kdec
+KDEC1
+NAME door_seal
+ok u8
+### emitters/fuel_flow.kdec
+KDEC1
+NAME fuel_flow
+rate u16
+tank u8
+### emitters/nav_lamp.kdec
+KDEC1
+NAME nav_lamp
+color u8
+### emitters/pitot_heat.kdec
+KDEC1
+NAME pitot_heat
+watts u16
+### emitters/wing_ice.kdec
+KDEC1
+NAME wing_ice
+thick u16
+[?2004hroot@b703a9be73e8:/app/rivetbay# cd /app/rivetbay && for f in forgekit/discover.c forgekit/snapshot.c forgekit/sheet.h forgekit/emit.c forgekit/warmup.c forgekit/driver.c /app/millscore/*; do [ -f "$f" ] || continue; echo "===== $f ====="; sed -n '1,300p' "$f"; done
+[?2004l===== forgekit/discover.c =====
+#include "discover.h"
+#include "parse_evd.h"
+#include <dirent.h>
+#include <stdio.h>
+#include <string.h>
+
+void discover_all(void) {
+    DIR *d = opendir("/app/rivetbay/evd");
+    FILE *out = fopen("/app/rivetbay/intake/current.ledger", "w");
+    struct dirent *ent;
+    if (!d || !out) {
+        if (d) closedir(d);
+        if (out) fclose(out);
+        return;
+    }
+    while ((ent = readdir(d)) != NULL) {
+        size_t L = strlen(ent->d_name);
+        if (L < 5 || strcmp(ent->d_name + L - 4, ".evd") != 0) continue;
+        char path[512];
+        snprintf(path, sizeof(path), "/app/rivetbay/evd/%s", ent->d_name);
+        char name[128];
+        char fields[512];
+        if (parse_evd_file(path, name, fields, sizeof(fields)) != 0) continue;
+        fprintf(out, "%s|evd/%s|%s\n", name, ent->d_name, fields);
+    }
+    fclose(out);
+    closedir(d);
+}
+===== forgekit/snapshot.c =====
+#include "sheet.h"
+#include <stdio.h>
+#include <string.h>
+
+static char g_blob[65536];
+
+__attribute__((constructor))
+static void boot_sheet(void) {
+    FILE *f = fopen("/app/rivetbay/intake/current.ledger", "r");
+    g_blob[0] = 0;
+    if (!f) return;
+    size_t n = fread(g_blob, 1, sizeof(g_blob) - 1, f);
+    g_blob[n] = 0;
+    fclose(f);
+}
+
+void grab_sheet(void) {
+    FILE *f = fopen("/app/rivetbay/intake/current.ledger", "r");
+    g_blob[0] = 0;
+    if (!f) return;
+    size_t n = fread(g_blob, 1, sizeof(g_blob) - 1, f);
+    g_blob[n] = 0;
+    fclose(f);
+}
+
+void pour_sheet(void) {
+    char buf[65536];
+    char out[65536];
+    strncpy(buf, g_blob, sizeof(buf) - 1);
+    buf[sizeof(buf) - 1] = 0;
+    size_t w = 0;
+    char *save = NULL;
+    char *line = strtok_r(buf, "\n", &save);
+    while (line) {
+        while (*line == ' ' || *line == '\t') line++;
+        if (*line == 0) {
+            line = strtok_r(NULL, "\n", &save);
+            continue;
+        }
+        size_t L = strlen(line);
+        if (w + L + 1 >= sizeof(out)) break;
+        memcpy(out + w, line, L);
+        w += L;
+        out[w++] = '\n';
+        line = strtok_r(NULL, "\n", &save);
+    }
+    out[w] = 0;
+    memcpy(g_blob, out, w + 1);
+}
+
+const char *sheet_view(void) {
+    return g_blob;
+}
+===== forgekit/sheet.h =====
+#ifndef SHEET_H
+#define SHEET_H
+void grab_sheet(void);
+void pour_sheet(void);
+const char *sheet_view(void);
+#endif
+===== forgekit/emit.c =====
+#include "emit.h"
+#include "sheet.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+static void emit_one(const char *line) {
+    char tmp[1024];
+    strncpy(tmp, line, sizeof(tmp) - 1);
+    tmp[sizeof(tmp) - 1] = 0;
+    char *nl = strchr(tmp, '\n');
+    if (nl) *nl = 0;
+    char *name = tmp;
+    char *p1 = strchr(tmp, '|');
+    if (!p1) return;
+    *p1 = 0;
+    char *p2 = strchr(p1 + 1, '|');
+    if (!p2) return;
+    char *spec = p2 + 1;
+    char outp[512];
+    snprintf(outp, sizeof(outp), "/app/rivetbay/emitters/%s.kdec", name);
+    FILE *o = fopen(outp, "w");
+    if (!o) return;
+    fprintf(o, "KDEC1\nNAME %s\n", name);
+    char *tok = strtok(spec, ",");
+    while (tok) {
+        char fn[64], k[16];
+        if (sscanf(tok, "%63[^:]:%15s", fn, k) == 2)
+            fprintf(o, "%s %s\n", fn, k);
+        tok = strtok(NULL, ",");
+    }
+    fclose(o);
+}
+
+void emit_all(void) {
+    const char *blob = sheet_view();
+    char buf[65536];
+    strncpy(buf, blob, sizeof(buf) - 1);
+    buf[sizeof(buf) - 1] = 0;
+    char *save = NULL;
+    char *line = strtok_r(buf, "\n", &save);
+    while (line) {
+        if (line[0]) emit_one(line);
+        line = strtok_r(NULL, "\n", &save);
+    }
+}
+===== forgekit/warmup.c =====
+#include "warmup.h"
+#include <stdlib.h>
+/* Operators sometimes export RIVET_WARM=1 to mill twice after a checkout. */
+void warm_maybe(void) {
+    const char *e = getenv("RIVET_WARM");
+    (void)e;
+}
+===== forgekit/driver.c =====
+#include "discover.h"
+#include "sheet.h"
+#include "emit.h"
+#include "tally.h"
+#include "decode.h"
+#include "warmup.h"
+#include <stdio.h>
+#include <string.h>
+
+static void note_mill_pass(void) {
+    FILE *f = fopen("/app/rivetbay/intake/.mill_pass", "a");
+    if (!f) return;
+    fputc('1', f);
+    fputc('\n', f);
+    fclose(f);
+}
+
+int main(int argc, char **argv) {
+    if (argc >= 2 && strcmp(argv[1], "mill") == 0) {
+        note_mill_pass();
+        warm_maybe();
+        discover_all();
+        pour_sheet();
+        emit_all();
+        return count_gap();
+    }
+    if (argc >= 3 && strcmp(argv[1], "decode") == 0)
+        return decode_frame(argv[2]);
+    fprintf(stderr, "usage: rivetbay mill | rivetbay decode <frame>\n");
+    return 2;
+}
+===== /app/millscore/tally.c =====
+#include "tally.h"
+#include "sheet.h"
+#include <dirent.h>
+#include <stdio.h>
+#include <string.h>
+
+static int count_emitters(void) {
+    DIR *d = opendir("/app/rivetbay/emitters");
+    int n = 0;
+    struct dirent *ent;
+    if (!d) return 0;
+    while ((ent = readdir(d)) != NULL) {
+        size_t L = strlen(ent->d_name);
+        if (L > 5 && strcmp(ent->d_name + L - 5, ".kdec") == 0) n++;
+    }
+    closedir(d);
+    return n;
+}
+
+static int count_sheet_lines(void) {
+    const char *s = sheet_view();
+    int n = 0;
+    int nonempty = 0;
+    for (; *s; s++) {
+        if (*s == '\n') {
+            if (nonempty) n++;
+            nonempty = 0;
+        } else if (*s != ' ' && *s != '\r') nonempty = 1;
+    }
+    if (nonempty) n++;
+    return n;
+}
+
+int count_gap(void) {
+    int a = count_sheet_lines();
+    int b = count_emitters();
+    return (b < a) ? 1 : 0;
+}
+===== /app/millscore/tally.h =====
+#ifndef TALLY_H
+#define TALLY_H
+int count_gap(void);
+#endif
+[?2004hroot@b703a9be73e8:/app/rivetbay# /app/bin/rivetbay mill; rc=$?; echo "mill_rc=$rc"; echo '--- ledger'; cat intake/current.ledger; echo '--- emitters'; find emitters -maxdepth 1 -type f -printf '%f\n' | sort
+[?2004lmill_rc=0
+--- ledger
+brake_temp|evd/brake_temp.evd|cdeg:u16
+galley_hatch|evd/galley_hatch.evd|latch:u8,force:u16
+door_seal|evd/door_seal.evd|ok:u8
+fuel_flow|evd/fuel_flow.evd|rate:u16,tank:u8
+pitot_heat|evd/pitot_heat.evd|watts:u16
+wing_ice|evd/wing_ice.evd|thick:u16
+aileron_pos|evd/aileron_pos.evd|deg:u16,side:u8
+nav_lamp|evd/nav_lamp.evd|color:u8
+--- emitters
+aileron_pos.kdec
+brake_temp.kdec
+door_seal.kdec
+fuel_flow.kdec
+nav_lamp.kdec
+pitot_heat.kdec
+wing_ice.kdec
+[?2004hroot@b703a9be73e8:/app/rivetbay# cd /app/rivetbay && python3 - <<'PY'
+[?2004l[?2004h> p='forgekit/driver.c'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> s=s.replace('        discover_all();\n        pour_sheet();', '        discover_all();\n        grab_sheet();\n        pour_sheet();')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> 
+[?2004l[?2004h> p='forgekit/emit.c'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> s=s.replace('#include <stdio.h>\n', '#include <dirent.h>\n#include <stdio.h>\n#include <unistd.h>\n')
+[?2004l[?2004h> old='''void emit_all(void) {
+[?2004l[?2004h>     const char *blob = sheet_view();'''
+[?2004l[?2004h> new='''static void clear_emitters(void) {
+[?2004l[?2004h>     DIR *d = opendir("/app/rivetbay/emitters");
+[?2004l[?2004h>     if (!d) return;
+[?2004l[?2004h>     struct dirent *ent;
+[?2004l[?2004h>     while ((ent = readdir(d)) != NULL) {
+[?2004l[?2004h>         size_t len = strlen(ent->d_name);
+[?2004l[?2004h>         if (len <= 5 || strcmp(ent->d_name + len - 5, ".kdec") != 0) continue;
+[?2004l[?2004h>         char path[512];
+[?2004l[?2004h>         snprintf(path, sizeof(path), "/app/rivetbay/emitters/%s", ent->d_name);
+[?2004l[?2004h>         unlink(path);
+[?2004l[?2004h>     }
+[?2004l[?2004h>     closedir(d);
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> void emit_all(void) {
+[?2004l[?2004h>     clear_emitters();
+[?2004l[?2004h>     const char *blob = sheet_view();'''
+[?2004l[?2004h> if old not in s:
+[?2004l[?2004h>     raise SystemExit('emit_all pattern not found')
+[?2004l[?2004h> s=s.replace(old,new)
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@b703a9be73e8:/app/rivetbay# make hull
+[?2004lmkdir -p /app/bin
+cc -O2 -Wall -Wextra -Iforgekit -I/app/millscore -o /app/bin/rivetbay forgekit/decode.c forgekit/discover.c forgekit/driver.c forgekit/emit.c forgekit/parse_evd.c forgekit/snapshot.c forgekit/utf_tidy.c forgekit/warmup.c /app/millscore/tally.c
+[01m[Kforgekit/emit.c:[m[K In function ‘[01m[Kemit_all[m[K’:
+[01m[Kforgekit/emit.c:23:58:[m[K [01;35m[Kwarning: [m[K‘[01m[K%s[m[K’ directive output may be truncated writing up to 1023 bytes into a region of size 489 [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wformat-truncation=-Wformat-truncation=]8;;[m[K]
+   15 |     char *name = [32m[Ktmp[m[K;
+      |                  [32m[K~~~[m[K                                      
+......
+   23 |     snprintf(outp, sizeof(outp), "/app/rivetbay/emitters/[01;35m[K%s[m[K.kdec", name);
+      |                                                          [01;35m[K^~[m[K
+In function ‘[01m[Kemit_one[m[K’,
+    inlined from ‘[01m[Kemit_all[m[K’ at [01m[Kforgekit/emit.c:60:22[m[K:
+[01m[Kforgekit/emit.c:23:5:[m[K [01;36m[Knote: [m[K‘[01m[Ksnprintf[m[K’ output between 29 and 1052 bytes into a destination of size 512
+   23 |     [01;36m[Ksnprintf(outp, sizeof(outp), "/app/rivetbay/emitters/%s.kdec", name)[m[K;
+      |     [01;36m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[?2004hroot@b703a9be73e8:/app/rivetbay# cd /app/rivetbay && /app/bin/rivetbay mill; rc=$?; echo "mill_rc=$rc"; echo '--- ledger'; cat intake/current.ledger; echo '--- emitters'; find emitters -maxdepth 1 -type f -name '*.kdec' -printf '%f\n' | sort; echo '--- galley decoder'; cat emitters/galley_hatch.kdec; echo '--- galley decode'; /app/bin/rivetbay decode frames/galley_hatch.bin
+[?2004lmill_rc=0
+--- ledger
+brake_temp|evd/brake_temp.evd|cdeg:u16
+galley_hatch|evd/galley_hatch.evd|latch:u8,force:u16
+door_seal|evd/door_seal.evd|ok:u8
+fuel_flow|evd/fuel_flow.evd|rate:u16,tank:u8
+pitot_heat|evd/pitot_heat.evd|watts:u16
+wing_ice|evd/wing_ice.evd|thick:u16
+aileron_pos|evd/aileron_pos.evd|deg:u16,side:u8
+nav_lamp|evd/nav_lamp.evd|color:u8
+--- emitters
+aileron_pos.kdec
+brake_temp.kdec
+door_seal.kdec
+fuel_flow.kdec
+galley_hatch.kdec
+nav_lamp.kdec
+pitot_heat.kdec
+wing_ice.kdec
+--- galley decoder
+KDEC1
+NAME galley_hatch
+latch u8
+force u16
+--- galley decode
+{"kind":"decoded","name":"galley_hatch","fields":{"latch":1,"force":44}}
+[?2004hroot@b703a9be73e8:/app/rivetbay# cd /app/rivetbay && cat > evd/first_pass_probe.evd <<'EOF'
+[?2004l[?2004h> NAME first_pass_probe
+[?2004l[?2004h> FIELD mm u16
+[?2004l[?2004h> FIELD bit u8
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@b703a9be73e8:/app/rivetbay# python3 - <<'PY'
+[?2004l[?2004h> import struct
+[?2004l[?2004h> with open('frames/first_pass_probe.bin','wb') as f:
+[?2004l[?2004h>     name=b'first_pass_probe'
+[?2004l[?2004h>     f.write(struct.pack('>I',len(name))+name+struct.pack('>HB',513,7))
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@b703a9be73e8:/app/rivetbay# /app/bin/rivetbay mill; rc=$?; echo "add_mill_rc=$rc"; cat emitters/first_pass_probe.kdec; /app/bin/rivetbay decode frames/first_pass_probe.bin; rm evd/first_pass_probe.evd frames/first_pass_probe.bin; /app/bin/rivetbay mill; rc=$?; echo "remove_mill_rc=$rc"; if [ -e emitters/first_pass_probe.kdec ]; then echo 'ERROR stale emitter remains'; exit 1; else echo 'stale emitter removed'; fi
+[?2004ladd_mill_rc=0
+KDEC1
+NAME first_pass_probe
+mm u16
+bit u8
+{"kind":"decoded","name":"first_pass_probe","fields":{"mm":513,"bit":7}}
+remove_mill_rc=0
+stale emitter removed
+[?2004hroot@b703a9be73e8:/app/rivetbay# cd /app/rivetbay && cat > evd/gap_probe_a.evd <<'EOF'
+[?2004l[?2004h> NAME gap_probe
+[?2004l[?2004h> FIELD q u8
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@b703a9be73e8:/app/rivetbay# cat > evd/gap_probe_b.evd <<'EOF'
+[?2004l[?2004h> NAME gap_probe
+[?2004l[?2004h> FIELD n u16
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@b703a9be73e8:/app/rivetbay# /app/bin/rivetbay mill; rc=$?; echo "gap_mill_rc=$rc"; echo "ledger_descriptions=$(grep -c . intake/current.ledger) decoders=$(find emitters -maxdepth 1 -type f -name '*.kdec' | wc -l)"; grep '^gap_probe|' intake/current.ledger; cat emitters/gap_probe.kdec; test "$rc" -ne 0
+[?2004lgap_mill_rc=1
+ledger_descriptions=10 decoders=9
+gap_probe|evd/gap_probe_a.evd|q:u8
+gap_probe|evd/gap_probe_b.evd|n:u16
+KDEC1
+NAME gap_probe
+n u16
+[?2004hroot@b703a9be73e8:/app/rivetbay# cd /app/rivetbay && rm -f evd/gap_probe_a.evd evd/gap_probe_b.evd && /app/bin/rivetbay mill; rc=$?; echo "final_mill_rc=$rc"; desc=$(grep -c . intake/current.ledger); dec=$(find emitters -maxdepth 1 -type f -name '*.kdec' | wc -l); echo "descriptions=$desc decoders=$dec"; test "$rc" -eq 0 && test "$desc" -eq "$dec" && test ! -e emitters/gap_probe.kdec && /app/bin/rivetbay decode frames/galley_hatch.bin && echo '--- changed source excerpts ---' && grep -n -A5 -B3 'discover_all' forgekit/driver.c && grep -n -A30 'clear_emitters' forgekit/emit.c
+[?2004lfinal_mill_rc=0
+descriptions=8 decoders=8
+{"kind":"decoded","name":"galley_hatch","fields":{"latch":1,"force":44}}
+--- changed source excerpts ---
+19-    if (argc >= 2 && strcmp(argv[1], "mill") == 0) {
+20-        note_mill_pass();
+21-        warm_maybe();
+22:        discover_all();
+23-        grab_sheet();
+24-        pour_sheet();
+25-        emit_all();
+26-        return count_gap();
+27-    }
+37:static void clear_emitters(void) {
+38-    DIR *d = opendir("/app/rivetbay/emitters");
+39-    if (!d) return;
+40-    struct dirent *ent;
+41-    while ((ent = readdir(d)) != NULL) {
+42-        size_t len = strlen(ent->d_name);
+43-        if (len <= 5 || strcmp(ent->d_name + len - 5, ".kdec") != 0) continue;
+44-        char path[512];
+45-        snprintf(path, sizeof(path), "/app/rivetbay/emitters/%s", ent->d_name);
+46-        unlink(path);
+47-    }
+48-    closedir(d);
+49-}
+50-
+51-void emit_all(void) {
+52:    clear_emitters();
+53-    const char *blob = sheet_view();
+54-    char buf[65536];
+55-    strncpy(buf, blob, sizeof(buf) - 1);
+56-    buf[sizeof(buf) - 1] = 0;
+57-    char *save = NULL;
+58-    char *line = strtok_r(buf, "\n", &save);
+59-    while (line) {
+60-        if (line[0]) emit_one(line);
+61-        line = strtok_r(NULL, "\n", &save);
+62-    }
+63-}
+[?2004hroot@b703a9be73e8:/app/rivetbay# 

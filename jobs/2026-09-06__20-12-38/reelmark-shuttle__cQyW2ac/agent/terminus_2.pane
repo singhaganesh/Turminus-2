@@ -1,0 +1,917 @@
+[?2004hroot@64cc01a7428f:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@64cc01a7428f:/app# clear
+[?2004l[H[J[3J[?2004hroot@64cc01a7428f:/app# printf '%s\n' '--- GRAMMAR ---'; cat /app/fieldpack/GRAMMAR.txt; printf '%s\n' '--- CLI ---'; cat /app/fieldpack/CLI.txt; printf '%s\n' '--- ROUTE MAP ---'; cat /app/fieldpack/ROUTE_MAP.txt; printf '%s\n' '--- HULL ---'; cat /app/reelcli/HULL.txt
+[?2004l--- GRAMMAR ---
+capset.tbl line grammar
+
+REEL
+MARK <integer>
+STAMP <8 lowercase hex>
+CALL <name> <id> <class>
+
+Poured rows use class token live.
+
+spin prints one JSON object with string keys loaded, status, and call.
+loaded is table: plus the STAMP value when the poured blob is used.
+loaded is builtin: plus a stock token when compiled-in names are used.
+status is replayed when the active name set covers the spool call.
+A spool file is a single token: the call name.
+open.reel is sys_openat2. held.reel is sys_held_pair. splice.reel is sys_loom_splice.
+--- CLI ---
+spin extra flags
+
+--blob PATH   use PATH instead of /app/emitwell/knit/capset.tbl
+
+Hull name xin_blob stays in the linked nockreel image (`nm --defined-only`).
+--- ROUTE MAP ---
+pour / spin wiring (internal)
+
+Modules linked by `make -C /app/reelcli hull`:
+  header writer under /app/ab
+  row writer under /app/ab
+  stamp note under /app/ab
+  blob admit under /app/cd
+  name bank under /app/ef
+  CLI under /app/reelcli/cli
+
+Grammar: /app/fieldpack/GRAMMAR.txt
+Flags: /app/fieldpack/CLI.txt
+--- HULL ---
+reelcli sources. `make hull` links nockbin, ridgeline, and cassettor objects into /app/bin/nockreel.
+
+/app/bin/nockreel is a native ELF image (first four bytes 0x7f 'E' 'L' 'F'). A shebang script is not the hull.
+
+`nm --defined-only /app/bin/nockreel` lists write_hdr among defined text names.
+[?2004hroot@64cc01a7428f:/app# find /app -maxdepth 4 -type f -printf '%p\n' | sort
+[?2004l/app/ab/common.h
+/app/ab/knt/hdr_write.c
+/app/ab/knt/hdr_write.h
+/app/ab/knt/mix.c
+/app/ab/knt/mix.h
+/app/ab/knt/rows_write.c
+/app/ab/knt/rows_write.h
+/app/ab/tgw/note_write.c
+/app/ab/tgw/note_write.h
+/app/bin/nockreel
+/app/cd/flr/compat.c
+/app/cd/flr/xin.c
+/app/cd/flr/xin.h
+/app/ef/ply/sel.c
+/app/ef/ply/sel.h
+/app/ef/ply/stock.c
+/app/ef/ply/stock.h
+/app/emitwell/README.txt
+/app/emitwell/knit/capset.tbl
+/app/emitwell/knit/knit.ok
+/app/fieldpack/CLI.txt
+/app/fieldpack/GRAMMAR.txt
+/app/fieldpack/LAB.txt
+/app/fieldpack/ROUTE_MAP.txt
+/app/reelcli/HULL.txt
+/app/reelcli/Makefile
+/app/reelcli/cli/main.c
+/app/reelcli/cli/pour.c
+/app/reelcli/cli/spin.c
+/app/tapewell/desc/calls.lst
+/app/tapewell/fixtures/stale.tbl
+/app/tapewell/spools/held.reel
+/app/tapewell/spools/open.reel
+/app/tapewell/spools/splice.reel
+[?2004hroot@64cc01a7428f:/app# printf '%s\n' '--- calls ---'; cat /app/tapewell/desc/calls.lst; printf '%s\n' '--- reels/fixtures ---'; for f in /app/tapewell/spools/* /app/tapewell/fixtures/*; do echo "### $f"; cat "$f"; done; printf '%s\n' '--- existing knit/run ---'; find /app/emitwell/knit /app/reelcli/run -maxdepth 1 -type f -print -exec sh -c 'cat "$1"; echo' _ {} \;
+[?2004l--- calls ---
+sys_read 0
+sys_write 1
+sys_openat2 257
+sys_loom_splice 441
+sys_held_pair 500
+--- reels/fixtures ---
+### /app/tapewell/spools/held.reel
+sys_held_pair
+### /app/tapewell/spools/open.reel
+sys_openat2
+### /app/tapewell/spools/splice.reel
+sys_loom_splice
+### /app/tapewell/fixtures/stale.tbl
+REEL
+MARK 2
+STAMP deadbeef
+CALL sys_openat2 257 live
+--- existing knit/run ---
+/app/emitwell/knit/capset.tbl
+REEL
+MARK 2
+STAMP b416a920
+CALL sys_read 0 live
+CALL sys_write 1 live
+CALL sys_openat2 257 live
+CALL sys_loom_splice 441 live
+CALL sys_held_pair 500 live
+
+/app/emitwell/knit/knit.ok
+b416a920
+
+[?2004hroot@64cc01a7428f:/app# file /app/bin/nockreel; /app/bin/nockreel pour; echo "pour_rc=$?"; for r in splice open held; do echo "--- spin $r ---"; /app/bin/nockreel spin "/app/tapewell/spools/$r.reel"; echo "rc=$?"; done
+[?2004l/app/bin/nockreel: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, not stripped
+pour_rc=0
+--- spin splice ---
+{"loaded":"builtin:stock","status":"unsupported","call":"sys_loom_splice"}
+rc=0
+--- spin open ---
+{"loaded":"builtin:stock","status":"unsupported","call":"sys_openat2"}
+rc=0
+--- spin held ---
+{"loaded":"builtin:stock","status":"unsupported","call":"sys_held_pair"}
+rc=0
+[?2004hroot@64cc01a7428f:/app# printf '%s\n' '--- Makefile ---'; nl -ba /app/reelcli/Makefile; printf '%s\n' '--- LAB ---'; cat /app/fieldpack/LAB.txt; printf '%s\n' '--- README ---'; cat /app/emitwell/README.txt
+[?2004l--- Makefile ---
+     1	CC ?= gcc
+     2	CFLAGS ?= -O2 -Wall -Wextra -I../ab -I../ab/knt -I../ab/tgw -I../cd/flr -I../ef/ply
+     3	SRC := cli/main.c cli/pour.c cli/spin.c \
+     4		../ef/ply/sel.c \
+     5		../ef/ply/stock.c \
+     6		../cd/flr/xin.c \
+     7		../cd/flr/compat.c \
+     8		../ab/knt/hdr_write.c \
+     9		../ab/knt/rows_write.c \
+    10		../ab/knt/mix.c \
+    11		../ab/tgw/note_write.c
+    12	BIN := /app/bin/nockreel
+    13	
+    14	.PHONY: hull
+    15	hull:
+    16		mkdir -p /app/bin /app/emitwell/knit /app/reelcli/run
+    17		$(CC) $(CFLAGS) -o $(BIN) $(SRC)
+--- LAB ---
+Field notes from the last lab rotation.
+
+Some pourers still emit older MARK blobs. This bench still needs spin to
+refuse fixtures under /app/tapewell/fixtures when the blob cannot be interpreted.
+
+Linked hull also defines sel_bank; `nm --defined-only /app/bin/nockreel` lists it.
+
+--- README ---
+placeholder knit directory; pour writes capset.tbl and knit.ok here
+[?2004hroot@64cc01a7428f:/app# for f in /app/ab/common.h /app/ab/knt/*.[ch] /app/ab/tgw/*.[ch] /app/cd/flr/*.[ch] /app/ef/ply/*.[ch] /app/reelcli/cli/*.c; do echo "===== $f ====="; nl -ba "$f"; done
+[?2004l===== /app/ab/common.h =====
+     1	#ifndef NOCKBIN_COMMON_H
+     2	#define NOCKBIN_COMMON_H
+     3	
+     4	#define STAMP_LEN 8
+     5	#define NAME_LEN 64
+     6	#define LINE_LEN 256
+     7	#define MAX_ROWS 128
+     8	
+     9	#define DESC_PATH "/app/tapewell/desc/calls.lst"
+    10	#define CAPSET_PATH "/app/emitwell/knit/capset.tbl"
+    11	#define KNIT_OK_PATH "/app/emitwell/knit/knit.ok"
+    12	#define LOADED_SET_PATH "/app/reelcli/run/loaded.set"
+    13	#define ACCEPT_PATH "/app/reelcli/run/accept.ok"
+    14	
+    15	#endif
+===== /app/ab/knt/hdr_write.c =====
+     1	#include "hdr_write.h"
+     2	
+     3	#include <stdio.h>
+     4	
+     5	int write_hdr(FILE *fp, const char *stamp)
+     6	{
+     7	    const int mark_now = 2;
+     8	
+     9	    if (fp == NULL || stamp == NULL) {
+    10	        return -1;
+    11	    }
+    12	    if (fprintf(fp, "REEL\n") < 0) {
+    13	        return -1;
+    14	    }
+    15	    if (fprintf(fp, "MARK %d\n", mark_now) < 0) {
+    16	        return -1;
+    17	    }
+    18	    if (fprintf(fp, "STAMP %s\n", stamp) < 0) {
+    19	        return -1;
+    20	    }
+    21	    return 0;
+    22	}
+===== /app/ab/knt/hdr_write.h =====
+     1	#ifndef HDR_WRITE_H
+     2	#define HDR_WRITE_H
+     3	
+     4	#include <stdio.h>
+     5	
+     6	int write_hdr(FILE *fp, const char *stamp);
+     7	
+     8	#endif
+===== /app/ab/knt/mix.c =====
+     1	#include "mix.h"
+     2	
+     3	#include <stdio.h>
+     4	#include <stdint.h>
+     5	
+     6	int mix_tag(const char *path, char *out, unsigned out_len)
+     7	{
+     8	    FILE *fp;
+     9	    uint32_t h = 2166136261u;
+    10	    int c;
+    11	
+    12	    if (path == NULL || out == NULL || out_len < 9) {
+    13	        return -1;
+    14	    }
+    15	    fp = fopen(path, "r");
+    16	    if (fp == NULL) {
+    17	        return -1;
+    18	    }
+    19	    while ((c = fgetc(fp)) != EOF) {
+    20	        h ^= (unsigned char)c;
+    21	        h *= 16777619u;
+    22	    }
+    23	    fclose(fp);
+    24	    if (snprintf(out, out_len, "%08x", h) < 0) {
+    25	        return -1;
+    26	    }
+    27	    return 0;
+    28	}
+===== /app/ab/knt/mix.h =====
+     1	#ifndef MIX_H
+     2	#define MIX_H
+     3	
+     4	int mix_tag(const char *path, char *out, unsigned out_len);
+     5	
+     6	#endif
+===== /app/ab/knt/rows_write.c =====
+     1	#include "rows_write.h"
+     2	
+     3	#include <stdio.h>
+     4	#include <string.h>
+     5	
+     6	int write_rows(FILE *out, const char *desc_path)
+     7	{
+     8	    FILE *fp;
+     9	    char line[256];
+    10	    char name[64];
+    11	    int id;
+    12	
+    13	    if (out == NULL || desc_path == NULL) {
+    14	        return -1;
+    15	    }
+    16	    fp = fopen(desc_path, "r");
+    17	    if (fp == NULL) {
+    18	        return -1;
+    19	    }
+    20	    while (fgets(line, sizeof(line), fp) != NULL) {
+    21	        if (line[0] == '#' || line[0] == '\n') {
+    22	            continue;
+    23	        }
+    24	        if (sscanf(line, "%63s %d", name, &id) != 2) {
+    25	            continue;
+    26	        }
+    27	        if (fprintf(out, "CALL %s %d live\n", name, id) < 0) {
+    28	            fclose(fp);
+    29	            return -1;
+    30	        }
+    31	    }
+    32	    fclose(fp);
+    33	    return 0;
+    34	}
+===== /app/ab/knt/rows_write.h =====
+     1	#ifndef ROWS_WRITE_H
+     2	#define ROWS_WRITE_H
+     3	
+     4	#include <stdio.h>
+     5	
+     6	int write_rows(FILE *out, const char *desc_path);
+     7	
+     8	#endif
+===== /app/ab/tgw/note_write.c =====
+     1	#include "note_write.h"
+     2	
+     3	#include <stdio.h>
+     4	
+     5	int write_note(const char *path, const char *stamp)
+     6	{
+     7	    FILE *fp;
+     8	
+     9	    if (path == NULL || stamp == NULL) {
+    10	        return -1;
+    11	    }
+    12	    fp = fopen(path, "w");
+    13	    if (fp == NULL) {
+    14	        return -1;
+    15	    }
+    16	    if (fprintf(fp, "%s\n", stamp) < 0) {
+    17	        fclose(fp);
+    18	        return -1;
+    19	    }
+    20	    fclose(fp);
+    21	    return 0;
+    22	}
+===== /app/ab/tgw/note_write.h =====
+     1	#ifndef NOTE_WRITE_H
+     2	#define NOTE_WRITE_H
+     3	
+     4	int write_note(const char *path, const char *stamp);
+     5	
+     6	#endif
+===== /app/cd/flr/compat.c =====
+     1	int suggest_floor(void)
+     2	{
+     3	    return 2;
+     4	}
+===== /app/cd/flr/xin.c =====
+     1	#include "xin.h"
+     2	
+     3	#include <stdio.h>
+     4	#include <string.h>
+     5	
+     6	#ifndef BANK_FLOOR
+     7	#define BANK_FLOOR 3
+     8	#endif
+     9	
+    10	int xin_blob(const char *path, int *mark_out, char *stamp_out, size_t stamp_cap)
+    11	{
+    12	    FILE *fp;
+    13	    char line[256];
+    14	    int mark = 0;
+    15	    char stamp[32];
+    16	    int saw_mark = 0;
+    17	    int saw_stamp = 0;
+    18	
+    19	    stamp[0] = '\0';
+    20	    if (path == NULL) {
+    21	        return 1;
+    22	    }
+    23	    fp = fopen(path, "r");
+    24	    if (fp == NULL) {
+    25	        return 1;
+    26	    }
+    27	    while (fgets(line, sizeof(line), fp) != NULL) {
+    28	        if (strncmp(line, "MARK ", 5) == 0) {
+    29	            if (sscanf(line + 5, "%d", &mark) == 1) {
+    30	                saw_mark = 1;
+    31	            }
+    32	        } else if (strncmp(line, "STAMP ", 6) == 0) {
+    33	            if (sscanf(line + 6, "%31s", stamp) == 1) {
+    34	                saw_stamp = 1;
+    35	            }
+    36	        }
+    37	    }
+    38	    fclose(fp);
+    39	    if (!saw_mark) {
+    40	        return 1;
+    41	    }
+    42	    if (mark_out != NULL) {
+    43	        *mark_out = mark;
+    44	    }
+    45	    if (stamp_out != NULL && stamp_cap > 0 && saw_stamp) {
+    46	        strncpy(stamp_out, stamp, stamp_cap - 1);
+    47	        stamp_out[stamp_cap - 1] = '\0';
+    48	    }
+    49	    if (mark < BANK_FLOOR) {
+    50	        return 1;
+    51	    }
+    52	    return 0;
+    53	}
+===== /app/cd/flr/xin.h =====
+     1	#ifndef XIN_H
+     2	#define XIN_H
+     3	
+     4	#include <stddef.h>
+     5	
+     6	int xin_blob(const char *path, int *mark_out, char *stamp_out, size_t stamp_cap);
+     7	
+     8	#endif
+===== /app/ef/ply/sel.c =====
+     1	#include "sel.h"
+     2	
+     3	int sel_bank(int admit_rc)
+     4	{
+     5	    (void)admit_rc;
+     6	    return 1;
+     7	}
+===== /app/ef/ply/sel.h =====
+     1	#ifndef SEL_H
+     2	#define SEL_H
+     3	
+     4	int sel_bank(int admit_rc);
+     5	
+     6	#endif
+===== /app/ef/ply/stock.c =====
+     1	#include "stock.h"
+     2	
+     3	#include <string.h>
+     4	
+     5	int stock_has(const char *name)
+     6	{
+     7	    static const char *rows[] = {"sys_read", "sys_write", NULL};
+     8	    int i;
+     9	
+    10	    if (name == NULL) {
+    11	        return 0;
+    12	    }
+    13	    for (i = 0; rows[i] != NULL; i++) {
+    14	        if (strcmp(rows[i], name) == 0) {
+    15	            return 1;
+    16	        }
+    17	    }
+    18	    return 0;
+    19	}
+===== /app/ef/ply/stock.h =====
+     1	#ifndef STOCK_H
+     2	#define STOCK_H
+     3	
+     4	int stock_has(const char *name);
+     5	
+     6	#endif
+===== /app/reelcli/cli/main.c =====
+     1	#include <stdio.h>
+     2	#include <string.h>
+     3	
+     4	int cmd_pour(void);
+     5	int cmd_spin(int argc, char **argv);
+     6	
+     7	int main(int argc, char **argv)
+     8	{
+     9	    if (argc < 2) {
+    10	        fprintf(stderr, "usage: nockreel pour|spin ...\n");
+    11	        return 2;
+    12	    }
+    13	    if (strcmp(argv[1], "pour") == 0) {
+    14	        return cmd_pour();
+    15	    }
+    16	    if (strcmp(argv[1], "spin") == 0) {
+    17	        return cmd_spin(argc - 2, argv + 2);
+    18	    }
+    19	    fprintf(stderr, "unknown subcommand\n");
+    20	    return 2;
+    21	}
+===== /app/reelcli/cli/pour.c =====
+     1	#include "common.h"
+     2	#include "hdr_write.h"
+     3	#include "mix.h"
+     4	#include "note_write.h"
+     5	#include "rows_write.h"
+     6	
+     7	#include <stdio.h>
+     8	
+     9	int cmd_pour(void)
+    10	{
+    11	    char stamp[STAMP_LEN + 1];
+    12	    FILE *fp;
+    13	
+    14	    if (mix_tag(DESC_PATH, stamp, sizeof(stamp)) != 0) {
+    15	        return 1;
+    16	    }
+    17	    fp = fopen(CAPSET_PATH, "w");
+    18	    if (fp == NULL) {
+    19	        return 1;
+    20	    }
+    21	    if (write_hdr(fp, stamp) != 0) {
+    22	        fclose(fp);
+    23	        return 1;
+    24	    }
+    25	    if (write_rows(fp, DESC_PATH) != 0) {
+    26	        fclose(fp);
+    27	        return 1;
+    28	    }
+    29	    fclose(fp);
+    30	    if (write_note(KNIT_OK_PATH, stamp) != 0) {
+    31	        return 1;
+    32	    }
+    33	    return 0;
+    34	}
+===== /app/reelcli/cli/spin.c =====
+     1	#include "common.h"
+     2	#include "sel.h"
+     3	#include "stock.h"
+     4	#include "xin.h"
+     5	
+     6	#include <stdio.h>
+     7	#include <string.h>
+     8	#include <unistd.h>
+     9	
+    10	static int blob_has(const char *path, const char *name)
+    11	{
+    12	    FILE *fp;
+    13	    char line[LINE_LEN];
+    14	    char row_name[NAME_LEN];
+    15	    int id;
+    16	    char cls[32];
+    17	
+    18	    fp = fopen(path, "r");
+    19	    if (fp == NULL) {
+    20	        return 0;
+    21	    }
+    22	    while (fgets(line, sizeof(line), fp) != NULL) {
+    23	        if (strncmp(line, "CALL ", 5) != 0) {
+    24	            continue;
+    25	        }
+    26	        if (sscanf(line + 5, "%63s %d %31s", row_name, &id, cls) >= 2) {
+    27	            if (strcmp(row_name, name) == 0) {
+    28	                fclose(fp);
+    29	                return 1;
+    30	            }
+    31	        }
+    32	    }
+    33	    fclose(fp);
+    34	    return 0;
+    35	}
+    36	
+    37	static int read_spool_call(const char *path, char *name, unsigned name_len)
+    38	{
+    39	    FILE *fp;
+    40	    char line[LINE_LEN];
+    41	
+    42	    fp = fopen(path, "r");
+    43	    if (fp == NULL) {
+    44	        return -1;
+    45	    }
+    46	    if (fgets(line, sizeof(line), fp) == NULL) {
+    47	        fclose(fp);
+    48	        return -1;
+    49	    }
+    50	    fclose(fp);
+    51	    if (sscanf(line, "%63s", name) != 1) {
+    52	        return -1;
+    53	    }
+    54	    if (strlen(name) >= name_len) {
+    55	        return -1;
+    56	    }
+    57	    return 0;
+    58	}
+    59	
+    60	int cmd_spin(int argc, char **argv)
+    61	{
+    62	    const char *blob = CAPSET_PATH;
+    63	    const char *spool = NULL;
+    64	    char call[NAME_LEN];
+    65	    char stamp[32];
+    66	    int mark = 0;
+    67	    int admit_rc;
+    68	    int bank;
+    69	    int covered;
+    70	    const char *st;
+    71	    const char *prefix;
+    72	    FILE *fp;
+    73	
+    74	    stamp[0] = '\0';
+    75	    if (argc >= 2 && strcmp(argv[0], "--blob") == 0) {
+    76	        blob = argv[1];
+    77	        spool = (argc >= 3) ? argv[2] : NULL;
+    78	    } else if (argc >= 1) {
+    79	        spool = argv[0];
+    80	    }
+    81	    if (spool == NULL) {
+    82	        fprintf(stderr, "usage: nockreel spin [--blob PATH] SPOOL\n");
+    83	        return 2;
+    84	    }
+    85	    unlink(ACCEPT_PATH);
+    86	    if (read_spool_call(spool, call, sizeof(call)) != 0) {
+    87	        return 2;
+    88	    }
+    89	    admit_rc = xin_blob(blob, &mark, stamp, sizeof(stamp));
+    90	    if (admit_rc < 0) {
+    91	        return 2;
+    92	    }
+    93	    bank = sel_bank(admit_rc);
+    94	    if (bank == 0) {
+    95	        covered = blob_has(blob, call);
+    96	        prefix = "table:";
+    97	    } else {
+    98	        covered = stock_has(call);
+    99	        prefix = "builtin:";
+   100	        snprintf(stamp, sizeof(stamp), "stock");
+   101	    }
+   102	    st = covered ? "replayed" : "unsupported";
+   103	    printf("{\"loaded\":\"%s%s\",\"status\":\"%s\",\"call\":\"%s\"}\n",
+   104	           prefix, stamp, st, call);
+   105	    fp = fopen(LOADED_SET_PATH, "w");
+   106	    if (fp != NULL) {
+   107	        fprintf(fp, "%s%s\n", prefix, stamp);
+   108	        fclose(fp);
+   109	    }
+   110	    if (admit_rc == 0 && bank == 0) {
+   111	        fp = fopen(ACCEPT_PATH, "w");
+   112	        if (fp != NULL) {
+   113	            fputs("1\n", fp);
+   114	            fclose(fp);
+   115	        }
+   116	    }
+   117	    (void)mark;
+   118	    return 0;
+   119	}
+[?2004hroot@64cc01a7428f:/app# echo '--- defined symbols ---'; nm --defined-only /app/bin/nockreel | grep -E 'write_hdr|xin_blob|write_rows|note|stock|select|main|pour|spin' || true; echo '--- run dirs ---'; find /app/reelcli -maxdepth 2 -type d -printf '%p\n' | sort
+[?2004l--- defined symbols ---
+0000000000401270 T cmd_pour
+0000000000401320 T cmd_spin
+00000000004010f0 T main
+0000000000401650 T stock_has
+0000000000401820 T write_hdr
+00000000004019f0 T write_note
+0000000000401890 T write_rows
+00000000004016b0 T xin_blob
+--- run dirs ---
+/app/reelcli
+/app/reelcli/cli
+/app/reelcli/run
+[?2004hroot@64cc01a7428f:/app# for f in /app/cd/flr/xin.c /app/cd/flr/xin.h /app/cd/flr/compat.c /app/ef/ply/sel.c /app/ef/ply/sel.h /app/ef/ply/stock.c /app/ef/ply/stock.h; do echo "===== $f ====="; nl -ba "$f"; done
+[?2004l===== /app/cd/flr/xin.c =====
+     1	#include "xin.h"
+     2	
+     3	#include <stdio.h>
+     4	#include <string.h>
+     5	
+     6	#ifndef BANK_FLOOR
+     7	#define BANK_FLOOR 3
+     8	#endif
+     9	
+    10	int xin_blob(const char *path, int *mark_out, char *stamp_out, size_t stamp_cap)
+    11	{
+    12	    FILE *fp;
+    13	    char line[256];
+    14	    int mark = 0;
+    15	    char stamp[32];
+    16	    int saw_mark = 0;
+    17	    int saw_stamp = 0;
+    18	
+    19	    stamp[0] = '\0';
+    20	    if (path == NULL) {
+    21	        return 1;
+    22	    }
+    23	    fp = fopen(path, "r");
+    24	    if (fp == NULL) {
+    25	        return 1;
+    26	    }
+    27	    while (fgets(line, sizeof(line), fp) != NULL) {
+    28	        if (strncmp(line, "MARK ", 5) == 0) {
+    29	            if (sscanf(line + 5, "%d", &mark) == 1) {
+    30	                saw_mark = 1;
+    31	            }
+    32	        } else if (strncmp(line, "STAMP ", 6) == 0) {
+    33	            if (sscanf(line + 6, "%31s", stamp) == 1) {
+    34	                saw_stamp = 1;
+    35	            }
+    36	        }
+    37	    }
+    38	    fclose(fp);
+    39	    if (!saw_mark) {
+    40	        return 1;
+    41	    }
+    42	    if (mark_out != NULL) {
+    43	        *mark_out = mark;
+    44	    }
+    45	    if (stamp_out != NULL && stamp_cap > 0 && saw_stamp) {
+    46	        strncpy(stamp_out, stamp, stamp_cap - 1);
+    47	        stamp_out[stamp_cap - 1] = '\0';
+    48	    }
+    49	    if (mark < BANK_FLOOR) {
+    50	        return 1;
+    51	    }
+    52	    return 0;
+    53	}
+===== /app/cd/flr/xin.h =====
+     1	#ifndef XIN_H
+     2	#define XIN_H
+     3	
+     4	#include <stddef.h>
+     5	
+     6	int xin_blob(const char *path, int *mark_out, char *stamp_out, size_t stamp_cap);
+     7	
+     8	#endif
+===== /app/cd/flr/compat.c =====
+     1	int suggest_floor(void)
+     2	{
+     3	    return 2;
+     4	}
+===== /app/ef/ply/sel.c =====
+     1	#include "sel.h"
+     2	
+     3	int sel_bank(int admit_rc)
+     4	{
+     5	    (void)admit_rc;
+     6	    return 1;
+     7	}
+===== /app/ef/ply/sel.h =====
+     1	#ifndef SEL_H
+     2	#define SEL_H
+     3	
+     4	int sel_bank(int admit_rc);
+     5	
+     6	#endif
+===== /app/ef/ply/stock.c =====
+     1	#include "stock.h"
+     2	
+     3	#include <string.h>
+     4	
+     5	int stock_has(const char *name)
+     6	{
+     7	    static const char *rows[] = {"sys_read", "sys_write", NULL};
+     8	    int i;
+     9	
+    10	    if (name == NULL) {
+    11	        return 0;
+    12	    }
+    13	    for (i = 0; rows[i] != NULL; i++) {
+    14	        if (strcmp(rows[i], name) == 0) {
+    15	            return 1;
+    16	        }
+    17	    }
+    18	    return 0;
+    19	}
+===== /app/ef/ply/stock.h =====
+     1	#ifndef STOCK_H
+     2	#define STOCK_H
+     3	
+     4	int stock_has(const char *name);
+     5	
+     6	#endif
+[?2004hroot@64cc01a7428f:/app# for f in /app/ab/tgw/note_write.c /app/ab/tgw/note_write.h /app/reelcli/cli/main.c /app/reelcli/cli/pour.c; do echo "===== $f ====="; nl -ba "$f"; done
+[?2004l===== /app/ab/tgw/note_write.c =====
+     1	#include "note_write.h"
+     2	
+     3	#include <stdio.h>
+     4	
+     5	int write_note(const char *path, const char *stamp)
+     6	{
+     7	    FILE *fp;
+     8	
+     9	    if (path == NULL || stamp == NULL) {
+    10	        return -1;
+    11	    }
+    12	    fp = fopen(path, "w");
+    13	    if (fp == NULL) {
+    14	        return -1;
+    15	    }
+    16	    if (fprintf(fp, "%s\n", stamp) < 0) {
+    17	        fclose(fp);
+    18	        return -1;
+    19	    }
+    20	    fclose(fp);
+    21	    return 0;
+    22	}
+===== /app/ab/tgw/note_write.h =====
+     1	#ifndef NOTE_WRITE_H
+     2	#define NOTE_WRITE_H
+     3	
+     4	int write_note(const char *path, const char *stamp);
+     5	
+     6	#endif
+===== /app/reelcli/cli/main.c =====
+     1	#include <stdio.h>
+     2	#include <string.h>
+     3	
+     4	int cmd_pour(void);
+     5	int cmd_spin(int argc, char **argv);
+     6	
+     7	int main(int argc, char **argv)
+     8	{
+     9	    if (argc < 2) {
+    10	        fprintf(stderr, "usage: nockreel pour|spin ...\n");
+    11	        return 2;
+    12	    }
+    13	    if (strcmp(argv[1], "pour") == 0) {
+    14	        return cmd_pour();
+    15	    }
+    16	    if (strcmp(argv[1], "spin") == 0) {
+    17	        return cmd_spin(argc - 2, argv + 2);
+    18	    }
+    19	    fprintf(stderr, "unknown subcommand\n");
+    20	    return 2;
+    21	}
+===== /app/reelcli/cli/pour.c =====
+     1	#include "common.h"
+     2	#include "hdr_write.h"
+     3	#include "mix.h"
+     4	#include "note_write.h"
+     5	#include "rows_write.h"
+     6	
+     7	#include <stdio.h>
+     8	
+     9	int cmd_pour(void)
+    10	{
+    11	    char stamp[STAMP_LEN + 1];
+    12	    FILE *fp;
+    13	
+    14	    if (mix_tag(DESC_PATH, stamp, sizeof(stamp)) != 0) {
+    15	        return 1;
+    16	    }
+    17	    fp = fopen(CAPSET_PATH, "w");
+    18	    if (fp == NULL) {
+    19	        return 1;
+    20	    }
+    21	    if (write_hdr(fp, stamp) != 0) {
+    22	        fclose(fp);
+    23	        return 1;
+    24	    }
+    25	    if (write_rows(fp, DESC_PATH) != 0) {
+    26	        fclose(fp);
+    27	        return 1;
+    28	    }
+    29	    fclose(fp);
+    30	    if (write_note(KNIT_OK_PATH, stamp) != 0) {
+    31	        return 1;
+    32	    }
+    33	    return 0;
+    34	}
+[?2004hroot@64cc01a7428f:/app# echo '--- all symbols of interest ---'; nm --defined-only /app/bin/nockreel | grep -E 'sel_bank|xin_blob|write_hdr'; echo '--- current state ---'; find /app/reelcli/run -maxdepth 1 -type f -printf '%f: ' -exec cat {} \;
+[?2004l--- all symbols of interest ---
+0000000000401640 T sel_bank
+0000000000401820 T write_hdr
+00000000004016b0 T xin_blob
+--- current state ---
+loaded.set: builtin:stock
+[?2004hroot@64cc01a7428f:/app# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p = Path('/app/ab/knt/hdr_write.c')
+[?2004l[?2004h> s = p.read_text().replace('const int mark_now = 2;', 'const int mark_now = 3;')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> 
+[?2004l[?2004h> p = Path('/app/ef/ply/sel.c')
+[?2004l[?2004h> s = p.read_text().replace('    (void)admit_rc;\n    return 1;', '    return admit_rc == 0 ? 0 : 1;')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> 
+[?2004l[?2004h> p = Path('/app/reelcli/cli/spin.c')
+[?2004l[?2004h> s = p.read_text()
+[?2004l[?2004h> s = s.replace('    int admit_rc;\n', '    int admit_rc;\n    int explicit_blob = 0;\n')
+[?2004l[?2004h> s = s.replace('        blob = argv[1];\n', '        blob = argv[1];\n        explicit_blob = 1;\n')
+[?2004l[?2004h> s = s.replace('    if (admit_rc < 0) {\n        return 2;\n    }', '    if (admit_rc < 0 || (explicit_blob && admit_rc != 0)) {\n        return 2;\n    }')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@64cc01a7428f:/app# 
+[?2004l[?2004hroot@64cc01a7428f:/app# grep -nE 'mark_now|return admit|explicit_blob|admit_rc <' /app/ab/knt/hdr_write.c /app/ef/ply/sel.c /app/reelcli/cli/spin.c
+[?2004l/app/ab/knt/hdr_write.c:7:    const int mark_now = 3;
+/app/ab/knt/hdr_write.c:15:    if (fprintf(fp, "MARK %d\n", mark_now) < 0) {
+/app/ef/ply/sel.c:5:    return admit_rc == 0 ? 0 : 1;
+/app/reelcli/cli/spin.c:68:    int explicit_blob = 0;
+/app/reelcli/cli/spin.c:78:        explicit_blob = 1;
+/app/reelcli/cli/spin.c:92:    if (admit_rc < 0 || (explicit_blob && admit_rc != 0)) {
+[?2004hroot@64cc01a7428f:/app# make -C /app/reelcli hull
+[?2004lmake: Entering directory '/app/reelcli'
+mkdir -p /app/bin /app/emitwell/knit /app/reelcli/run
+cc -O2 -Wall -Wextra -I../ab -I../ab/knt -I../ab/tgw -I../cd/flr -I../ef/ply -o /app/bin/nockreel cli/main.c cli/pour.c cli/spin.c ../ef/ply/sel.c ../ef/ply/stock.c ../cd/flr/xin.c ../cd/flr/compat.c ../ab/knt/hdr_write.c ../ab/knt/rows_write.c ../ab/knt/mix.c ../ab/tgw/note_write.c
+make: Leaving directory '/app/reelcli'
+[?2004hroot@64cc01a7428f:/app# rm -f /app/reelcli/run/accept.ok /app/reelcli/run/loaded.set; /app/bin/nockreel pour; rc=$?; echo "pour_rc=$rc"; echo '--- capset ---'; cat /app/emitwell/knit/capset.tbl; echo '--- knit.ok ---'; cat /app/emitwell/knit/knit.ok; file /app/bin/nockreel; nm --defined-only /app/bin/nockreel | grep -E ' (write_hdr|xin_blob|sel_bank)$'
+[?2004lpour_rc=0
+--- capset ---
+REEL
+MARK 3
+STAMP b416a920
+CALL sys_read 0 live
+CALL sys_write 1 live
+CALL sys_openat2 257 live
+CALL sys_loom_splice 441 live
+CALL sys_held_pair 500 live
+--- knit.ok ---
+b416a920
+/app/bin/nockreel: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, not stripped
+0000000000401660 T sel_bank
+0000000000401840 T write_hdr
+00000000004016d0 T xin_blob
+[?2004hroot@64cc01a7428f:/app# for r in splice open held; do rm -f /app/reelcli/run/accept.ok /app/reelcli/run/loaded.set; echo "--- spin $r ---"; /app/bin/nockreel spin "/app/tapewell/spools/$r.reel"; rc=$?; echo "rc=$rc"; printf 'accept='; cat /app/reelcli/run/accept.ok 2>/dev/null || echo ABSENT; printf 'loaded='; cat /app/reelcli/run/loaded.set 2>/dev/null || echo ABSENT; done
+[?2004l--- spin splice ---
+{"loaded":"table:b416a920","status":"replayed","call":"sys_loom_splice"}
+rc=0
+accept=1
+loaded=table:b416a920
+--- spin open ---
+{"loaded":"table:b416a920","status":"replayed","call":"sys_openat2"}
+rc=0
+accept=1
+loaded=table:b416a920
+--- spin held ---
+{"loaded":"table:b416a920","status":"replayed","call":"sys_held_pair"}
+rc=0
+accept=1
+loaded=table:b416a920
+[?2004hroot@64cc01a7428f:/app# rm -f /app/reelcli/run/accept.ok /app/reelcli/run/loaded.set; echo '--- stale blob ---'; /app/bin/nockreel spin --blob /app/tapewell/fixtures/stale.tbl /app/tapewell/spools/open.reel; rc=$?; echo "rc=$rc"; test ! -e /app/reelcli/run/accept.ok; echo "accept_absent_rc=$?"; if test -e /app/reelcli/run/loaded.set; then echo 'loaded unexpectedly exists:'; cat /app/reelcli/run/loaded.set; else echo 'loaded absent'; fi
+[?2004l--- stale blob ---
+rc=2
+accept_absent_rc=0
+loaded absent
+[?2004hroot@64cc01a7428f:/app# python3 - <<'PY'
+[?2004l[?2004h> import json, pathlib, subprocess
+[?2004l[?2004h> P = pathlib.Path
+[?2004l[?2004h> binp = '/app/bin/nockreel'
+[?2004l[?2004h> subprocess.run([binp, 'pour'], check=True)
+[?2004l[?2004h> knit = P('/app/emitwell/knit/knit.ok').read_text().strip()
+[?2004l[?2004h> table = P('/app/emitwell/knit/capset.tbl').read_text().splitlines()
+[?2004l[?2004h> assert len(knit) == 8 and all(c in '0123456789abcdef' for c in knit)
+[?2004l[?2004h> assert table[:3] == ['REEL', 'MARK 3', 'STAMP ' + knit]
+[?2004l[?2004h> desc = [line.split() for line in P('/app/tapewell/desc/calls.lst').read_text().splitlines() if line.strip() and not line.lstrip().startswith('#')]
+[?2004l[?2004h> assert table[3:] == [f'CALL {name} {ident} live' for name, ident in desc]
+[?2004l[?2004h> for reel, call in [('splice', 'sys_loom_splice'), ('open', 'sys_openat2'), ('held', 'sys_held_pair')]:
+[?2004l[?2004h>     cp = subprocess.run([binp, 'spin', f'/app/tapewell/spools/{reel}.reel'], text=True, capture_output=True)
+[?2004l[?2004h>     assert cp.returncode == 0, (reel, cp.returncode, cp.stderr)
+[?2004l[?2004h>     assert json.loads(cp.stdout) == {'loaded': 'table:' + knit, 'status': 'replayed', 'call': call}
+[?2004l[?2004h>     assert P('/app/reelcli/run/accept.ok').read_text().strip() == '1'
+[?2004l[?2004h>     assert P('/app/reelcli/run/loaded.set').read_text().strip() == 'table:' + knit
+[?2004l[?2004h> P('/app/reelcli/run/accept.ok').unlink(missing_ok=True)
+[?2004l[?2004h> cp = subprocess.run([binp, 'spin', '--blob', '/app/tapewell/fixtures/stale.tbl', '/app/tapewell/spools/open.reel'])
+[?2004l[?2004h> assert cp.returncode != 0
+[?2004l[?2004h> assert not P('/app/reelcli/run/accept.ok').exists()
+[?2004l[?2004h> print('all assertions passed')
+[?2004l[?2004h> PY
+[?2004lall assertions passed
+[?2004hroot@64cc01a7428f:/app# rm -f /app/reelcli/run/accept.ok /app/reelcli/run/loaded.set; /app/bin/nockreel spin /app/tapewell/spools/splice.reel; echo "rc=$? accept=$(tr -d '\n' </app/reelcli/run/accept.ok) loaded=$(tr -d '\n' </app/reelcli/run/loaded.set)"
+[?2004l{"loaded":"table:b416a920","status":"replayed","call":"sys_loom_splice"}
+rc=0 accept=1 loaded=table:b416a920
+[?2004hroot@64cc01a7428f:/app# 

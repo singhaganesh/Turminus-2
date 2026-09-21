@@ -1,0 +1,911 @@
+[?2004hroot@6dc4f0252ff0:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@6dc4f0252ff0:/app# clear
+[?2004l[H[J[3J[?2004hroot@6dc4f0252ff0:/app# printf '%s\n' '--- TREE.txt ---'; cat /app/treenote/TREE.txt; printf '%s\n' '--- forms.txt ---'; cat /app/treenote/forms.txt
+[?2004l--- TREE.txt ---
+Commands:
+  /app/bin/oakurn pour /app/caskbay/core.urn
+  /app/bin/oakurn pour /app/caskbay/z9.urn
+  /app/bin/oakurn steep
+  /app/bin/oakurn board
+
+  /app/latchpit
+  /app/stampwire
+  /app/dayfold
+  /app/ribcli
+
+Products:
+  /app/inkpit/counts.json
+  /app/inkpit/emit.inc
+  /app/bin/oakurn
+
+Scratch:
+  /app/snapvat
+  /app/snapvat/live
+  /app/snapvat/busy.latch
+
+Urns:
+  /app/caskbay
+  /app/caskbay/core.urn
+  /app/caskbay/quiet.urn
+  /app/caskbay/z9.urn
+  /app/snapvat/live
+--- forms.txt ---
+URN1 records use three fields, one per line after the URN1 banner:
+
+id <token>
+day YYYY-MM-DD
+n <integer>
+
+counts.json is one object. Key order is days then covers.
+
+days maps calendar day strings to integer totals. Each urn contributes its n to the day written on that urn.
+
+covers is the identifier of the urn last folded by steep.
+
+Shipped samples: id core on 2024-03-11 with n 3; id quiet on 2024-03-10 with n 2.
+Valid extra id token z9 may use day 1999-01-01.
+[?2004hroot@6dc4f0252ff0:/app# printf '%s\n' '--- files ---'; find /app -maxdepth 4 -type f -printf '%p\n' | sort
+[?2004l--- files ---
+/app/bin/oakurn
+/app/caskbay/core.urn
+/app/caskbay/quiet.urn
+/app/dayfold/fold.hpp
+/app/dayfold/n_fold.cpp
+/app/holdbay/HOLD.txt
+/app/holdbay/hold.cpp
+/app/holdbay/hold.hpp
+/app/inkpit/counts.json
+/app/latchpit/admit.hpp
+/app/latchpit/op_a.cpp
+/app/ribcli/README.txt
+/app/ribcli/hull.hpp
+/app/ribcli/hull.mk
+/app/ribcli/hull_cli.cpp
+/app/ribcli/run_k.cpp
+/app/snapvat/NOTE.txt
+/app/snapvat/busy.latch
+/app/snapvat/clock.snap
+/app/snapvat/emit.prev
+/app/snapvat/last.id
+/app/snapvat/live/quiet.urn
+/app/snapvat/tick
+/app/stampwire/mark.hpp
+/app/stampwire/op_b.cpp
+/app/treenote/TREE.txt
+/app/treenote/floor.txt
+/app/treenote/forms.txt
+[?2004hroot@6dc4f0252ff0:/app# printf '%s\n' '--- counts.json ---'; cat /app/inkpit/counts.json 2>/dev/null || true; printf '\n%s\n' '--- emit.inc ---'; cat /app/inkpit/emit.inc 2>/dev/null || true; printf '\n%s\n' '--- urn contents ---'; find /app/caskbay -maxdepth 2 -type f -print -exec sh -c 'echo "----- $1"; cat "$1"' _ {} \;
+[?2004l--- counts.json ---
+{"days":{"2024-03-12":2},"covers":"quiet"}
+
+--- emit.inc ---
+
+--- urn contents ---
+/app/caskbay/core.urn
+----- /app/caskbay/core.urn
+URN1
+id core
+day 2024-03-11
+n 3
+/app/caskbay/quiet.urn
+----- /app/caskbay/quiet.urn
+URN1
+id quiet
+day 2024-03-10
+n 2
+[?2004hroot@6dc4f0252ff0:/app# printf '%s\n' '--- build metadata ---'; find /app -maxdepth 3 -type f \( -name 'Makefile' -o -name 'CMakeLists.txt' -o -name '*.mk' -o -name 'meson.build' \) -print -exec sed -n '1,240p' {} \;; printf '%s\n' '--- board ---'; /app/bin/oakurn board; printf 'status=%s\n' "$?"
+[?2004l--- build metadata ---
+/app/ribcli/hull.mk
+CXX ?= g++
+CXXFLAGS ?= -O2 -Wall -Wextra -std=c++17 -I/app/ribcli -I/app/latchpit -I/app/stampwire -I/app/dayfold -I/app/holdbay
+SRC := $(wildcard /app/ribcli/*.cpp) $(wildcard /app/latchpit/*.cpp) $(wildcard /app/stampwire/*.cpp) $(wildcard /app/dayfold/*.cpp) $(wildcard /app/holdbay/*.cpp)
+BIN := /app/bin/oakurn
+
+.PHONY: hull
+hull:
+	mkdir -p /app/bin /app/inkpit /app/snapvat/live
+	$(CXX) $(CXXFLAGS) -o $(BIN) $(SRC)
+--- board ---
+{"days":{"2024-03-12":2},"covers":"quiet"}
+status=0
+[?2004hroot@6dc4f0252ff0:/app# for f in /app/latchpit/* /app/stampwire/* /app/dayfold/* /app/holdbay/* /app/ribcli/*.hpp /app/ribcli/*.cpp /app/ribcli/README.txt; do echo "===== $f ====="; sed -n '1,260p' "$f"; done
+[?2004l===== /app/latchpit/admit.hpp =====
+#pragma once
+int op_a(void);
+===== /app/latchpit/op_a.cpp =====
+#include "admit.hpp"
+
+#include <errno.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+int op_a(void) {
+    int fd = open("/app/snapvat/busy.latch", O_RDONLY);
+    if (fd >= 0) {
+        close(fd);
+        return 1;
+    }
+    if (errno != ENOENT) {
+        return 1;
+    }
+    return 0;
+}
+===== /app/stampwire/mark.hpp =====
+#pragma once
+int op_b(void);
+===== /app/stampwire/op_b.cpp =====
+#include "mark.hpp"
+
+#include <fstream>
+#include <string>
+
+int op_b(void) {
+    std::ifstream in("/app/snapvat/last.id");
+    std::string tok;
+    if (!(in >> tok) || tok.empty()) {
+        tok = "none";
+    }
+    std::ofstream out("/app/snapvat/cover.tmp");
+    if (!out) {
+        return 1;
+    }
+    out << tok << "\n";
+    return 0;
+}
+===== /app/dayfold/fold.hpp =====
+#pragma once
+int n_fold(void);
+===== /app/dayfold/n_fold.cpp =====
+#include "fold.hpp"
+
+#include <dirent.h>
+#include <fstream>
+#include <string>
+
+int n_fold(void) {
+    std::string wall = "1970-01-01";
+    {
+        std::ifstream in("/app/snapvat/clock.snap");
+        in >> wall;
+        if (wall.empty()) {
+            wall = "1970-01-01";
+        }
+    }
+    int total = 0;
+    DIR *dir = opendir("/app/snapvat/live");
+    if (dir) {
+        while (dirent *ent = readdir(dir)) {
+            std::string name = ent->d_name;
+            if (name.size() < 5 || name.substr(name.size() - 4) != ".urn") {
+                continue;
+            }
+            std::ifstream in(std::string("/app/snapvat/live/") + name);
+            std::string line;
+            int n = 0;
+            while (std::getline(in, line)) {
+                if (line.rfind("n ", 0) == 0) {
+                    n = std::stoi(line.substr(2));
+                }
+            }
+            total += n;
+        }
+        closedir(dir);
+    }
+    int tick = 0;
+    {
+        std::ifstream tin("/app/snapvat/tick");
+        tin >> tick;
+    }
+    tick += 1;
+    {
+        std::ofstream tout("/app/snapvat/tick");
+        tout << tick << "\n";
+    }
+    std::ofstream tmp("/app/snapvat/days.tmp");
+    if (!tmp) {
+        return 1;
+    }
+    tmp << wall << " " << total << "\n";
+    std::ofstream emit("/app/inkpit/emit.inc");
+    if (!emit) {
+        return 1;
+    }
+    emit << wall << " " << total << " tick=" << tick << "\n";
+    return 0;
+}
+===== /app/holdbay/HOLD.txt =====
+Optional exclusive mill hold. Not on the pour/steep path unless wired in.
+===== /app/holdbay/hold.cpp =====
+#include "hold.hpp"
+
+#include <fstream>
+#include <string>
+
+int hold_ex(void) {
+    std::ifstream in("/app/snapvat/clock.snap");
+    std::string d;
+    in >> d;
+    std::ofstream out("/app/snapvat/hold.flag");
+    if (!out) {
+        return 1;
+    }
+    out << "exclusive " << d << "\n";
+    return 0;
+}
+===== /app/holdbay/hold.hpp =====
+#pragma once
+int hold_ex(void);
+===== /app/ribcli/hull.hpp =====
+#pragma once
+int run_k(void);
+===== /app/ribcli/hull_cli.cpp =====
+#include "admit.hpp"
+#include "hull.hpp"
+
+#include <dirent.h>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <sstream>
+#include <string>
+#include <sys/stat.h>
+#include <unistd.h>
+
+static int copy_file(const std::string &src, const std::string &dst) {
+    std::ifstream in(src, std::ios::binary);
+    if (!in) {
+        return 1;
+    }
+    std::ofstream out(dst, std::ios::binary);
+    if (!out) {
+        return 1;
+    }
+    out << in.rdbuf();
+    return 0;
+}
+
+static std::string urn_id(const std::string &path) {
+    std::ifstream in(path);
+    std::string line;
+    while (std::getline(in, line)) {
+        if (line.rfind("id ", 0) == 0) {
+            return line.substr(3);
+        }
+    }
+    return "";
+}
+
+static int do_pour(const char *src) {
+    mkdir("/app/snapvat/live", 0755);
+    std::string id = urn_id(src);
+    if (id.empty()) {
+        return 1;
+    }
+    std::string dst = std::string("/app/snapvat/live/") + id + ".urn";
+    if (copy_file(src, dst) != 0) {
+        return 1;
+    }
+    std::ofstream poured("/app/snapvat/poured.txt");
+    poured << id << "\n";
+    return 0;
+}
+
+static int write_json() {
+    std::map<std::string, int> days;
+    {
+        std::ifstream in("/app/snapvat/days.tmp");
+        std::string d;
+        int n = 0;
+        while (in >> d >> n) {
+            days[d] += n;
+        }
+    }
+    std::string cover;
+    {
+        std::ifstream in("/app/snapvat/cover.tmp");
+        in >> cover;
+    }
+    std::ostringstream body;
+    body << "{\"days\":{";
+    bool first = true;
+    for (const auto &kv : days) {
+        if (!first) {
+            body << ",";
+        }
+        first = false;
+        body << "\"" << kv.first << "\":" << kv.second;
+    }
+    body << "},\"covers\":\"" << cover << "\"}\n";
+    std::ofstream out("/app/inkpit/counts.json");
+    if (!out) {
+        return 1;
+    }
+    out << body.str();
+    return 0;
+}
+
+static std::string read_text(const std::string &path) {
+    std::ifstream in(path);
+    std::ostringstream ss;
+    ss << in.rdbuf();
+    return ss.str();
+}
+
+static int do_steep() {
+    if (op_a() != 0) {
+        return 0;
+    }
+    std::string prev = read_text("/app/snapvat/emit.prev");
+    if (run_k() != 0) {
+        return 1;
+    }
+    if (write_json() != 0) {
+        return 1;
+    }
+    std::string emit = read_text("/app/inkpit/emit.inc");
+    if (!prev.empty() && emit == prev) {
+        return 1;
+    }
+    std::ofstream prevf("/app/snapvat/emit.prev");
+    prevf << emit;
+    return 0;
+}
+
+static int do_board() {
+    std::ifstream in("/app/inkpit/counts.json");
+    if (!in) {
+        return 1;
+    }
+    std::cout << in.rdbuf();
+    return 0;
+}
+
+int main(int argc, char **argv) {
+    if (argc < 2) {
+        return 2;
+    }
+    std::string cmd = argv[1];
+    if (cmd == "pour") {
+        if (argc < 3) {
+            return 2;
+        }
+        return do_pour(argv[2]);
+    }
+    if (cmd == "steep") {
+        return do_steep();
+    }
+    if (cmd == "board") {
+        return do_board();
+    }
+    return 2;
+}
+===== /app/ribcli/run_k.cpp =====
+#include "hull.hpp"
+#include "fold.hpp"
+#include "mark.hpp"
+
+int run_k(void) {
+    if (n_fold() != 0) {
+        return 1;
+    }
+    if (op_b() != 0) {
+        return 1;
+    }
+    return 0;
+}
+===== /app/ribcli/README.txt =====
+Rebuild the linked mill with:
+
+  make -C /app/ribcli -f hull.mk hull
+[?2004hroot@6dc4f0252ff0:/app# printf '%s\n' '--- notes ---'; for f in /app/treenote/floor.txt /app/snapvat/NOTE.txt /app/holdbay/HOLD.txt; do echo "===== $f ====="; cat "$f"; done; printf '%s\n' '--- scratch metadata/content ---'; find /app/snapvat -maxdepth 2 -printf '%M %u:%g %s %TY-%Tm-%Td %TH:%TM:%TS %p\n' | sort; for f in /app/snapvat/clock.snap /app/snapvat/emit.prev /app/snapvat/last.id /app/snapvat/tick /app/snapvat/busy.latch; do echo "===== $f ====="; xxd "$f" 2>/dev/null || true; done
+[?2004l--- notes ---
+===== /app/treenote/floor.txt =====
+Busy-floor note: some shifts invoke steep with an exclusive hold so the mill never shares the floor. The hold helper lives under /app/holdbay. Desk stalls that recover overnight often get blamed on overlap, not on a finished JSON object.
+===== /app/snapvat/NOTE.txt =====
+Wall stamp for mill-local calendar sketches. Not the urn day field.
+===== /app/holdbay/HOLD.txt =====
+Optional exclusive mill hold. Not on the pour/steep path unless wired in.
+--- scratch metadata/content ---
+-rw-rw-r-- root:root 0 2026-09-08 09:11:08.0000000000 /app/snapvat/emit.prev
+-rw-rw-r-- root:root 11 2026-09-08 09:08:18.0000000000 /app/snapvat/clock.snap
+-rw-rw-r-- root:root 2 2026-09-08 09:08:18.0000000000 /app/snapvat/busy.latch
+-rw-rw-r-- root:root 2 2026-09-08 09:08:20.0000000000 /app/snapvat/tick
+-rw-rw-r-- root:root 33 2026-09-08 09:08:17.0000000000 /app/snapvat/live/quiet.urn
+-rw-rw-r-- root:root 6 2026-09-08 09:08:17.0000000000 /app/snapvat/last.id
+-rw-rw-r-- root:root 68 2026-09-08 09:08:26.0000000000 /app/snapvat/NOTE.txt
+drwxr-xr-x root:root 4096 2026-09-08 09:11:08.0000000000 /app/snapvat
+drwxrwxr-x root:root 4096 2026-09-08 09:08:17.0000000000 /app/snapvat/live
+===== /app/snapvat/clock.snap =====
+===== /app/snapvat/emit.prev =====
+===== /app/snapvat/last.id =====
+===== /app/snapvat/tick =====
+===== /app/snapvat/busy.latch =====
+[?2004hroot@6dc4f0252ff0:/app# file /app/bin/oakurn; stat /app/bin/oakurn /app/inkpit/counts.json; ps -ef
+[?2004l/app/bin/oakurn: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, not stripped
+  File: /app/bin/oakurn
+  Size: 48528     	Blocks: 96         IO Block: 4096   regular file
+Device: 0,87	Inode: 24120738    Links: 1
+Access: (0755/-rwxr-xr-x)  Uid: (    0/    root)   Gid: (    0/    root)
+Access: 2026-09-08 09:30:07.000000000 +0000
+Modify: 2026-09-08 09:30:07.000000000 +0000
+Change: 2026-09-08 09:53:48.902848098 +0000
+ Birth: 2026-09-08 09:53:48.902498520 +0000
+  File: /app/inkpit/counts.json
+  Size: 43        	Blocks: 8          IO Block: 4096   regular file
+Device: 0,87	Inode: 24120719    Links: 1
+Access: (0664/-rw-rw-r--)  Uid: (    0/    root)   Gid: (    0/    root)
+Access: 2026-09-08 09:08:17.000000000 +0000
+Modify: 2026-09-08 09:08:17.000000000 +0000
+Change: 2026-09-08 09:53:48.844448341 +0000
+ Birth: 2026-09-08 09:53:48.844327340 +0000
+UID          PID    PPID  C STIME TTY          TIME CMD
+root           1       0  0 09:53 ?        00:00:00 sh -c sleep infinity
+root           7       1  0 09:53 ?        00:00:00 sleep infinity
+root          34       1  0 09:53 ?        00:00:00 tmux new-session -x 160 -y 40 -d -s terminus-2 bash --login ; pipe-pane -t terminus-2 cat > /logs/agent/term
+root          35      34  0 09:53 pts/0    00:00:00 bash --login
+root          37      34  0 09:53 ?        00:00:00 sh -c cat > /logs/agent/terminus_2.pane
+root          38      37  0 09:53 ?        00:00:00 cat
+root          53      35  0 09:53 pts/0    00:00:00 /opt/verifier/bin/python3 /usr/local/bin/asciinema rec --stdin /logs/agent/recording.cast
+root          54      53  0 09:53 pts/0    00:00:00 /opt/verifier/bin/python3 /usr/local/bin/asciinema rec --stdin /logs/agent/recording.cast
+root          55      53  0 09:53 pts/0    00:00:00 /opt/verifier/bin/python3 /usr/local/bin/asciinema rec --stdin /logs/agent/recording.cast
+root          56      53  0 09:53 pts/1    00:00:00 sh -c /bin/bash
+root          57      56  0 09:53 pts/1    00:00:00 /bin/bash
+root         177      57  0 09:54 pts/1    00:00:00 ps -ef
+[?2004hroot@6dc4f0252ff0:/app# nl -ba /app/ribcli/hull_cli.cpp | sed -n '1,320p'; echo '--- symbols/calls ---'; grep -RInE 'op_a|run_k|do_steep|last.id|poured|days.tmp|busy.latch|emit' /app --exclude=oakurn
+[?2004l     1	#include "admit.hpp"
+     2	#include "hull.hpp"
+     3	
+     4	#include <dirent.h>
+     5	#include <fstream>
+     6	#include <iostream>
+     7	#include <map>
+     8	#include <sstream>
+     9	#include <string>
+    10	#include <sys/stat.h>
+    11	#include <unistd.h>
+    12	
+    13	static int copy_file(const std::string &src, const std::string &dst) {
+    14	    std::ifstream in(src, std::ios::binary);
+    15	    if (!in) {
+    16	        return 1;
+    17	    }
+    18	    std::ofstream out(dst, std::ios::binary);
+    19	    if (!out) {
+    20	        return 1;
+    21	    }
+    22	    out << in.rdbuf();
+    23	    return 0;
+    24	}
+    25	
+    26	static std::string urn_id(const std::string &path) {
+    27	    std::ifstream in(path);
+    28	    std::string line;
+    29	    while (std::getline(in, line)) {
+    30	        if (line.rfind("id ", 0) == 0) {
+    31	            return line.substr(3);
+    32	        }
+    33	    }
+    34	    return "";
+    35	}
+    36	
+    37	static int do_pour(const char *src) {
+    38	    mkdir("/app/snapvat/live", 0755);
+    39	    std::string id = urn_id(src);
+    40	    if (id.empty()) {
+    41	        return 1;
+    42	    }
+    43	    std::string dst = std::string("/app/snapvat/live/") + id + ".urn";
+    44	    if (copy_file(src, dst) != 0) {
+    45	        return 1;
+    46	    }
+    47	    std::ofstream poured("/app/snapvat/poured.txt");
+    48	    poured << id << "\n";
+    49	    return 0;
+    50	}
+    51	
+    52	static int write_json() {
+    53	    std::map<std::string, int> days;
+    54	    {
+    55	        std::ifstream in("/app/snapvat/days.tmp");
+    56	        std::string d;
+    57	        int n = 0;
+    58	        while (in >> d >> n) {
+    59	            days[d] += n;
+    60	        }
+    61	    }
+    62	    std::string cover;
+    63	    {
+    64	        std::ifstream in("/app/snapvat/cover.tmp");
+    65	        in >> cover;
+    66	    }
+    67	    std::ostringstream body;
+    68	    body << "{\"days\":{";
+    69	    bool first = true;
+    70	    for (const auto &kv : days) {
+    71	        if (!first) {
+    72	            body << ",";
+    73	        }
+    74	        first = false;
+    75	        body << "\"" << kv.first << "\":" << kv.second;
+    76	    }
+    77	    body << "},\"covers\":\"" << cover << "\"}\n";
+    78	    std::ofstream out("/app/inkpit/counts.json");
+    79	    if (!out) {
+    80	        return 1;
+    81	    }
+    82	    out << body.str();
+    83	    return 0;
+    84	}
+    85	
+    86	static std::string read_text(const std::string &path) {
+    87	    std::ifstream in(path);
+    88	    std::ostringstream ss;
+    89	    ss << in.rdbuf();
+    90	    return ss.str();
+    91	}
+    92	
+    93	static int do_steep() {
+    94	    if (op_a() != 0) {
+    95	        return 0;
+    96	    }
+    97	    std::string prev = read_text("/app/snapvat/emit.prev");
+    98	    if (run_k() != 0) {
+    99	        return 1;
+   100	    }
+   101	    if (write_json() != 0) {
+   102	        return 1;
+   103	    }
+   104	    std::string emit = read_text("/app/inkpit/emit.inc");
+   105	    if (!prev.empty() && emit == prev) {
+   106	        return 1;
+   107	    }
+   108	    std::ofstream prevf("/app/snapvat/emit.prev");
+   109	    prevf << emit;
+   110	    return 0;
+   111	}
+   112	
+   113	static int do_board() {
+   114	    std::ifstream in("/app/inkpit/counts.json");
+   115	    if (!in) {
+   116	        return 1;
+   117	    }
+   118	    std::cout << in.rdbuf();
+   119	    return 0;
+   120	}
+   121	
+   122	int main(int argc, char **argv) {
+   123	    if (argc < 2) {
+   124	        return 2;
+   125	    }
+   126	    std::string cmd = argv[1];
+   127	    if (cmd == "pour") {
+   128	        if (argc < 3) {
+   129	            return 2;
+   130	        }
+   131	        return do_pour(argv[2]);
+   132	    }
+   133	    if (cmd == "steep") {
+   134	        return do_steep();
+   135	    }
+   136	    if (cmd == "board") {
+   137	        return do_board();
+   138	    }
+   139	    return 2;
+   140	}
+--- symbols/calls ---
+/app/treenote/TREE.txt:14:  /app/inkpit/emit.inc
+/app/treenote/TREE.txt:20:  /app/snapvat/busy.latch
+/app/dayfold/n_fold.cpp:46:    std::ofstream tmp("/app/snapvat/days.tmp");
+/app/dayfold/n_fold.cpp:51:    std::ofstream emit("/app/inkpit/emit.inc");
+/app/dayfold/n_fold.cpp:52:    if (!emit) {
+/app/dayfold/n_fold.cpp:55:    emit << wall << " " << total << " tick=" << tick << "\n";
+/app/stampwire/op_b.cpp:7:    std::ifstream in("/app/snapvat/last.id");
+/app/latchpit/op_a.cpp:7:int op_a(void) {
+/app/latchpit/op_a.cpp:8:    int fd = open("/app/snapvat/busy.latch", O_RDONLY);
+/app/latchpit/admit.hpp:2:int op_a(void);
+/app/ribcli/run_k.cpp:5:int run_k(void) {
+/app/ribcli/hull.hpp:2:int run_k(void);
+/app/ribcli/hull_cli.cpp:47:    std::ofstream poured("/app/snapvat/poured.txt");
+/app/ribcli/hull_cli.cpp:48:    poured << id << "\n";
+/app/ribcli/hull_cli.cpp:55:        std::ifstream in("/app/snapvat/days.tmp");
+/app/ribcli/hull_cli.cpp:93:static int do_steep() {
+/app/ribcli/hull_cli.cpp:94:    if (op_a() != 0) {
+/app/ribcli/hull_cli.cpp:97:    std::string prev = read_text("/app/snapvat/emit.prev");
+/app/ribcli/hull_cli.cpp:98:    if (run_k() != 0) {
+/app/ribcli/hull_cli.cpp:104:    std::string emit = read_text("/app/inkpit/emit.inc");
+/app/ribcli/hull_cli.cpp:105:    if (!prev.empty() && emit == prev) {
+/app/ribcli/hull_cli.cpp:108:    std::ofstream prevf("/app/snapvat/emit.prev");
+/app/ribcli/hull_cli.cpp:109:    prevf << emit;
+/app/ribcli/hull_cli.cpp:134:        return do_steep();
+[?2004hroot@6dc4f0252ff0:/app# cat > /app/latchpit/op_a.cpp <<'EOF'
+[?2004l[?2004h> #include "admit.hpp"
+[?2004l[?2004h> 
+[?2004lturn 1; for (const aut[?2004h> #include <fcntl.h>
+[?2004l[?2004h> #include <sys/file.h>
+[?2004l[?2004h> #include <unistd.h>
+[?2004l[?2004h> 
+[?2004l[?2004h> int op_a(void) {
+[?2004l/run[?2004h>     static int lock_fd = -1;
+[?2004l[?2004h>     if (lock_fd >= 0) return 0;
+[?2004l[?2004h>     int fd = open("/app/snapvat/busy.latch", O_RDWR | O_CREAT, 0664);
+[?2004l[?2004h>     if (fd < 0) return 1;
+[?2004l[?2004h>     if (flock(fd, LOCK_EX) != 0) {
+[?2004l[?2004h>         close(fd);
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     lock_fd = fd; // The kernel releases the hold when this process exits.
+[?2004l[?2004h>     return 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@6dc4f0252ff0:/app# cat > /app/stampwire/op_b.cpp <<'EOF'
+[?2004l[?2004h> #include "mark.hpp"
+[?2004l[?2004h> 
+[?2004l[?2004h> #include <fstream>
+[?2004l[?2004h> #include <string>
+[?2004l[?2004h> 
+[?2004l[?2004h> int op_b(void) {
+[?2004l[?2004h>     std::ifstream in("/app/snapvat/last.id");
+[?2004l[?2004h>     std::string id;
+[?2004l[?2004h>     if (!(in >> id) || id.empty()) return 1;
+[?2004l[?2004h>     std::ofstream out("/app/snapvat/cover.tmp", std::ios::trunc);
+[?2004l[?2004h>     if (!out) return 1;
+[?2004l[?2004h>     out << id << '\n';
+[?2004l[?2004h>     return out ? 0 : 1;
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@6dc4f0252ff0:/app# cat > /app/dayfold/n_fold.cpp <<'EOF'
+[?2004l[?2004h> #include "fold.hpp"
+[?2004l[?2004h> 
+[?2004l[?2004h> #include <algorithm>
+[?2004l[?2004h> #include <cerrno>
+[?2004l[?2004h> #include <climits>
+[?2004l[?2004h> #include <cstdlib>
+[?2004l[?2004h> #include <dirent.h>
+[?2004l[?2004h> #include <fstream>
+[?2004l[?2004h> #include <map>
+[?2004l[?2004h> #include <regex>
+[?2004l[?2004h> #include <sstream>
+[?2004l[?2004h> #include <string>
+[?2004l[?2004h> #include <vector>
+[?2004l[?2004h> #include <unistd.h>
+[?2004l[?2004h> 
+[?2004l[?2004h> struct Urn { std::string path, id, day; int n = 0; };
+[?2004l[?2004h> 
+[?2004l[?2004h> static bool parse_urn(const std::string &path, Urn &u) {
+[?2004l[?2004h>     std::ifstream in(path);
+[?2004l[?2004h>     std::string banner, a, b, c, extra;
+[?2004l[?2004h>     if (!std::getline(in, banner) || banner != "URN1" ||
+[?2004l[?2004h>         !std::getline(in, a) || !std::getline(in, b) || !std::getline(in, c) ||
+[?2004l[?2004h>         std::getline(in, extra)) return false;
+[?2004l[?2004h>     if (a.rfind("id ", 0) != 0 || b.rfind("day ", 0) != 0 || c.rfind("n ", 0) != 0) return false;
+[?2004l[?2004h>     u.path = path; u.id = a.substr(3); u.day = b.substr(4);
+[?2004l[?2004h>     if (u.id.empty() || u.id.find_first_of(" \t/\\") != std::string::npos ||
+[?2004l[?2004h>         !std::regex_match(u.day, std::regex("[0-9]{4}-[0-9]{2}-[0-9]{2}"))) return false;
+[?2004l[?2004h>     char *end = nullptr; errno = 0;
+[?2004l[?2004h>     long value = std::strtol(c.c_str() + 2, &end, 10);
+[?2004l[?2004h>     if (errno || !end || *end != '\0' || value < INT_MIN || value > INT_MAX) return false;
+[?2004l[?2004h>     u.n = static_cast<int>(value);
+[?2004l[?2004h>     return true;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> static void read_existing(std::map<std::string, long long> &days) {
+[?2004l[?2004h>     std::ifstream in("/app/inkpit/counts.json");
+[?2004l[?2004h>     std::ostringstream ss; ss << in.rdbuf();
+[?2004l[?2004h>     const std::string text = ss.str();
+[?2004l[?2004h>     const std::regex pair("\\\"([0-9]{4}-[0-9]{2}-[0-9]{2})\\\"[[:space:]]*:[[:space:]]*(-?[0-9]+)");
+[?2004l[?2004h>     for (std::sregex_iterator it(text.begin(), text.end(), pair), end; it != end; ++it)
+[?2004l[?2004h>         days[(*it)[1].str()] += std::stoll((*it)[2].str());
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> static bool replace_file(const std::string &tmp, const std::string &dst, const std::string &body) {
+[?2004l[?2004h>     { std::ofstream out(tmp, std::ios::trunc); if (!out) return false; out << body; if (!out) return false; }
+[?2004l[?2004h>     return rename(tmp.c_str(), dst.c_str()) == 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> int n_fold(void) {
+[?2004l[?2004h>     std::vector<std::string> paths;
+[?2004l[?2004h>     DIR *dir = opendir("/app/snapvat/live");
+[?2004l[?2004h>     if (!dir) return 1;
+[?2004l[?2004h>     while (dirent *ent = readdir(dir)) {
+[?2004l[?2004h>         std::string name = ent->d_name;
+[?2004l[?2004h>         if (name.size() >= 4 && name.substr(name.size() - 4) == ".urn")
+[?2004l[?2004h>             paths.push_back("/app/snapvat/live/" + name);
+[?2004l[?2004h>     }
+[?2004l[?2004h>     closedir(dir);
+[?2004l[?2004h>     std::sort(paths.begin(), paths.end());
+[?2004l[?2004h>     if (paths.empty()) return 2;
+[?2004l[?2004h> 
+[?2004l[?2004h>     std::vector<Urn> urns;
+[?2004l[?2004h>     for (const auto &path : paths) {
+[?2004l[?2004h>         Urn u;
+[?2004l[?2004h>         if (!parse_urn(path, u)) return 1;
+[?2004l[?2004h>         urns.push_back(u);
+[?2004l[?2004h>     }
+[?2004l[?2004h>     std::map<std::string, long long> days;
+[?2004l[?2004h>     read_existing(days);
+[?2004l[?2004h>     for (const auto &u : urns) days[u.day] += u.n;
+[?2004l[?2004h>     const std::string cover = urns.back().id;
+[?2004l[?2004h> 
+[?2004l[?2004h>     std::ostringstream daytext, emit;
+[?2004l[?2004h>     for (const auto &kv : days) {
+[?2004l[?2004h>         daytext << kv.first << ' ' << kv.second << '\n';
+[?2004l[?2004h>         emit << kv.first << ' ' << kv.second << '\n';
+[?2004l[?2004h>     }
+[?2004l[?2004h>     emit << "covers " << cover << '\n';
+[?2004l[?2004h>     if (!replace_file("/app/snapvat/days.new", "/app/snapvat/days.tmp", daytext.str())) return 1;
+[?2004l[?2004h>     if (!replace_file("/app/inkpit/emit.new", "/app/inkpit/emit.inc", emit.str())) return 1;
+[?2004l[?2004h>     { std::ofstream out("/app/snapvat/last.id", std::ios::trunc); if (!out) return 1; out << cover << '\n'; }
+[?2004l[?2004h>     { std::ofstream out("/app/snapvat/folded.list", std::ios::trunc); if (!out) return 1; for (const auto &u : urns) out << u.path << '\n'; }
+[?2004l[?2004h>     return 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@6dc4f0252ff0:/app# cat > /app/ribcli/run_k.cpp <<'EOF'
+[?2004l[?2004h> #include "hull.hpp"
+[?2004l[?2004h> #include "fold.hpp"
+[?2004l[?2004h> #include "mark.hpp"
+[?2004l[?2004h> 
+[?2004l[?2004h> int run_k(void) {
+[?2004l[?2004h>     int rc = n_fold();
+[?2004l[?2004h>     if (rc != 0) return rc;
+[?2004l[?2004h>     return op_b();
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@6dc4f0252ff0:/app# cat > /app/ribcli/hull_cli.cpp <<'EOF'
+[?2004l[?2004h> #include "admit.hpp"
+[?2004l[?2004h> #include "hull.hpp"
+[?2004l[?2004h> 
+[?2004l[?2004h> #include <cerrno>
+[?2004l[?2004h> #include <climits>
+[?2004l[?2004h> #include <cstdlib>
+[?2004l[?2004h> #include <fstream>
+[?2004l[?2004h> #include <iostream>
+[?2004l[?2004h> #include <map>
+[?2004l[?2004h> #include <regex>
+[?2004l[?2004h> #include <sstream>
+[?2004l[?2004h> #include <string>
+[?2004l[?2004h> #include <sys/stat.h>
+[?2004l[?2004h> #include <unistd.h>
+[?2004l[?2004h> 
+[?2004l[?2004h> struct Parsed { std::string id, day; int n = 0; };
+[?2004l[?2004h> 
+[?2004l[?2004h> static bool parse_urn(const std::string &path, Parsed &u) {
+[?2004l[?2004h>     std::ifstream in(path);
+[?2004l[?2004h>     std::string banner, a, b, c, extra;
+[?2004l[?2004h>     if (!std::getline(in, banner) || banner != "URN1" ||
+[?2004l[?2004h>         !std::getline(in, a) || !std::getline(in, b) || !std::getline(in, c) ||
+[?2004l[?2004h>         std::getline(in, extra)) return false;
+[?2004l[?2004h>     if (a.rfind("id ",0) || b.rfind("day ",0) || c.rfind("n ",0)) return false;
+[?2004l[?2004h>     u.id=a.substr(3); u.day=b.substr(4);
+[?2004l[?2004h>     if (u.id.empty() || u.id.find_first_of(" \t/\\") != std::string::npos ||
+[?2004l[?2004h>         !std::regex_match(u.day, std::regex("[0-9]{4}-[0-9]{2}-[0-9]{2}"))) return false;
+[?2004l[?2004h>     char *end=nullptr; errno=0; long v=std::strtol(c.c_str()+2,&end,10);
+[?2004l[?2004h>     if (errno || !end || *end || v<INT_MIN || v>INT_MAX) return false;
+[?2004l[?2004h>     u.n=static_cast<int>(v); return true;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> static int do_pour(const char *src) {
+[?2004l[?2004h>     if (op_a() != 0) return 1;
+[?2004l[?2004h>     Parsed u; if (!parse_urn(src, u)) return 1;
+[?2004l[?2004h>     mkdir("/app/snapvat/live", 0755);
+[?2004l[?2004h>     unsigned long long seq=0;
+[?2004l[?2004h>     { std::ifstream in("/app/snapvat/queue.seq"); in >> seq; }
+[?2004l[?2004h>     ++seq;
+[?2004l[?2004h>     { std::ofstream out("/app/snapvat/queue.seq",std::ios::trunc); if(!out) return 1; out<<seq<<'\n'; }
+[?2004l[?2004h>     std::ostringstream base; base << "/app/snapvat/live/";
+[?2004l[?2004h>     base.width(20); base.fill('0'); base << seq; base << '-' << u.id;
+[?2004l[?2004h>     std::string tmp=base.str()+".new", dst=base.str()+".urn";
+[?2004l[?2004h>     { std::ifstream in(src,std::ios::binary); std::ofstream out(tmp,std::ios::binary|std::ios::trunc);
+[?2004l[?2004h>       if(!in||!out) return 1; out<<in.rdbuf(); if(!out) { unlink(tmp.c_str()); return 1; } }
+[?2004l[?2004h>     if(rename(tmp.c_str(),dst.c_str()) != 0) { unlink(tmp.c_str()); return 1; }
+[?2004l[?2004h>     return 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> static int write_json() {
+[?2004l[?2004h>     std::map<std::string,long long> days;
+[?2004l[?2004h>     { std::ifstream in("/app/snapvat/days.tmp"); std::string d; long long n; while(in>>d>>n) days[d]+=n; }
+[?2004l[?2004h>     std::string cover; { std::ifstream in("/app/snapvat/cover.tmp"); in>>cover; }
+[?2004l[?2004h>     if(cover.empty()) return 1;
+[?2004l[?2004h>     std::ostringstream body; body<<"{\"days\":{"; bool first=true;
+[?2004l[?2004h>     for(const auto &kv:days) { if(!first) body<<','; first=false; body<<'"'<<kv.first<<"\":"<<kv.second; }
+[?2004l[?2004h>     body<<"},\"covers\":\""<<cover<<"\"}\n";
+[?2004l[?2004h>     std::string tmp="/app/inkpit/counts.new";
+[?2004l[?2004h>     { std::ofstream out(tmp,std::ios::trunc); if(!out)return 1; out<<body.str(); if(!out)return 1; }
+[?2004l[?2004h>     return rename(tmp.c_str(),"/app/inkpit/counts.json")==0 ? 0 : 1;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> static int do_steep() {
+[?2004l[?2004h>     if(op_a()!=0) return 1;
+[?2004l[?2004h>     int rc=run_k();
+[?2004l[?2004h>     if(rc!=0) return rc;
+[?2004l[?2004h>     if(write_json()!=0) return 1;
+[?2004l[?2004h>     std::ifstream list("/app/snapvat/folded.list"); std::string path;
+[?2004l[?2004h>     while(std::getline(list,path)) if(!path.empty()) unlink(path.c_str());
+[?2004l[?2004h>     unlink("/app/snapvat/folded.list");
+[?2004l[?2004h>     return 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> static int do_board() { std::ifstream in("/app/inkpit/counts.json"); if(!in)return 1; std::cout<<in.rdbuf(); return 0; }
+[?2004l[?2004h> int main(int argc,char **argv) {
+[?2004l[?2004h>     if(argc<2)return 2; std::string cmd=argv[1];
+[?2004l[?2004h>     if(cmd=="pour") return argc==3 ? do_pour(argv[2]) : 2;
+[?2004l[?2004h>     if(cmd=="steep") return argc==2 ? do_steep() : 2;
+[?2004l[?2004h>     if(cmd=="board") return argc==2 ? do_board() : 2;
+[?2004l[?2004h>     return 2;
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@6dc4f0252ff0:/app# make -C /app/ribcli -f hull.mk hull
+[?2004lmake: Entering directory '/app/ribcli'
+mkdir -p /app/bin /app/inkpit /app/snapvat/live
+g++ -O2 -Wall -Wextra -std=c++17 -I/app/ribcli -I/app/latchpit -I/app/stampwire -I/app/dayfold -I/app/holdbay -o /app/bin/oakurn /app/ribcli/hull_cli.cpp /app/ribcli/run_k.cpp /app/latchpit/op_a.cpp /app/stampwire/op_b.cpp /app/dayfold/n_fold.cpp /app/holdbay/hold.cpp
+[01m[K/app/ribcli/hull_cli.cpp:[m[K In function ‘[01m[Kint[01;32m[K do_pour[m[K(const char*)[m[K’:
+[01m[K/app/ribcli/hull_cli.cpp:45:7:[m[K [01;35m[Kwarning: [m[Kthis ‘[01m[Kif[m[K’ clause does not guard... [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wmisleading-indentation-Wmisleading-indentation]8;;[m[K]
+   45 |       [01;35m[Kif[m[K(!in||!out) return 1; out<<in.rdbuf(); if(!out) { unlink(tmp.c_str()); return 1; } }
+      |       [01;35m[K^~[m[K
+[01m[K/app/ribcli/hull_cli.cpp:45:31:[m[K [01;36m[Knote: [m[K...this statement, but the latter is misleadingly indented as if it were guarded by the ‘[01m[Kif[m[K’
+   45 |       if(!in||!out) return 1; [01;36m[Kout[m[K<<in.rdbuf(); if(!out) { unlink(tmp.c_str()); return 1; } }
+      |                               [01;36m[K^~~[m[K
+[01m[K/app/ribcli/hull_cli.cpp:[m[K In function ‘[01m[Kint[01;32m[K main[m[K(int, char**)[m[K’:
+[01m[K/app/ribcli/hull_cli.cpp:75:5:[m[K [01;35m[Kwarning: [m[Kthis ‘[01m[Kif[m[K’ clause does not guard... [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wmisleading-indentation-Wmisleading-indentation]8;;[m[K]
+   75 |     [01;35m[Kif[m[K(argc<2)return 2; std::string cmd=argv[1];
+      |     [01;35m[K^~[m[K
+[01m[K/app/ribcli/hull_cli.cpp:75:25:[m[K [01;36m[Knote: [m[K...this statement, but the latter is misleadingly indented as if it were guarded by the ‘[01m[Kif[m[K’
+   75 |     if(argc<2)return 2; [01;36m[Kstd[m[K::string cmd=argv[1];
+      |                         [01;36m[K^~~[m[K
+rm -f /app/inkpit/counts.json /app/inkpit/emit.inc /app/snapvat/days.tmp /app/snapvat/cover.tmp /app/snapvat/folded.list; /app/bin/oakurn steep; echo "initial_steep=$?"; /app/bin/oakurn board; echo '--- emit ---'; cat /app/inkpit/emit.inc; /app/bin/oakurn steep >/dev/null; echo "empty_steep=$?"
+/app/bin/oakurn pour /app/caskbay/core.urn && /app/bin/oakurn steep; echo "core_pair=$?"; /app/bin/oakurn board; cat > /app/caskbay/z9.urn <<'EOF'
+URN1
+id z9
+day 1999-01-01
+n 7
+EOF
+/app/bin/oakurn pour /app/caskbay/z9.urn && /app/bin/oakurn steep; echo "z9_pair=$?"; /app/bin/oakurn board; echo '--- emit ---'; cat /app/inkpit/emit.inc
+make: Leaving directory '/app/ribcli'
+[?2004hroot@6dc4f0252ff0:/app# rm -f /app/inkpit/counts.json /app/inkpit/emit.inc /app/snapvat/days.tmp /app/snapvat/cover.tmp /app/snapvat/folded.list; /app/bin/oakurn steep; echo "initial_steep=$?"; /app/bin/oakurn board; echo '--- emit ---'; cat /app/inkpit/emit.inc; /app/bin/oakurn steep >/dev/null; echo "empty_steep=$?"
+[?2004linitial_steep=0
+{"days":{"2024-03-10":2},"covers":"quiet"}
+--- emit ---
+2024-03-10 2
+covers quiet
+empty_steep=2
+[?2004hroot@6dc4f0252ff0:/app# /app/bin/oakurn pour /app/caskbay/core.urn && /app/bin/oakurn steep; echo "core_pair=$?"; /app/bin/oakurn board; cat > /app/caskbay/z9.urn <<'EOF'
+[?2004l[?2004h> URN1
+[?2004l[?2004h> id z9
+[?2004l[?2004h> day 1999-01-01
+[?2004l[?2004h> n 7
+[?2004l[?2004h> EOF
+[?2004lcore_pair=0
+{"days":{"2024-03-10":2,"2024-03-11":3},"covers":"core"}
+[?2004hroot@6dc4f0252ff0:/app# /app/bin/oakurn pour /app/caskbay/z9.urn && /app/bin/oakurn steep; echo "z9_pair=$?"; /app/bin/oakurn board; echo '--- emit ---'; cat /app/inkpit/emit.inc
+[?2004lz9_pair=0
+{"days":{"1999-01-01":7,"2024-03-10":2,"2024-03-11":3},"covers":"z9"}
+--- emit ---
+1999-01-01 7
+2024-03-10 2
+2024-03-11 3
+covers z9
+[?2004hroot@6dc4f0252ff0:/app# set +e; /app/bin/oakurn pour /app/caskbay/core.urn & p1=$!; /app/bin/oakurn pour /app/caskbay/z9.urn & p2=$!; wait "$p1"; r1=$?; wait "$p2"; r2=$?; /app/bin/oakurn steep; rs=$?; echo "parallel_pours=$r1,$r2 steep=$rs"; /app/bin/oakurn board; echo '--- emit.inc ---'; cat /app/inkpit/emit.inc; echo '--- pending ---'; find /app/snapvat/live -maxdepth 1 -type f -name '*.urn' -print; /app/bin/oakurn steep >/dev/null; echo "empty_steep=$?"; file /app/bin/oakurn; test "$(head -c 4 /app/bin/oakurn | od -An -tx1 | tr -d ' \n')" = 7f454c46; echo "elf_magic=$?"
+[?2004l[1] 306
+[2] 307
+[1]-  Done                    /app/bin/oakurn pour /app/caskbay/core.urn
+[2]+  Done                    /app/bin/oakurn pour /app/caskbay/z9.urn
+parallel_pours=0,0 steep=0
+{"days":{"1999-01-01":14,"2024-03-10":2,"2024-03-11":6},"covers":"z9"}
+--- emit.inc ---
+1999-01-01 14
+2024-03-10 2
+2024-03-11 6
+covers z9
+--- pending ---
+empty_steep=2
+/app/bin/oakurn: ELF 64-bit LSB executable, x86-64, version 1 (GNU/Linux), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, not stripped
+elf_magic=0
+[?2004hroot@6dc4f0252ff0:/app# rm -f /app/inkpit/counts.json /app/inkpit/emit.inc /app/snapvat/days.tmp /app/snapvat/cover.tmp /app/snapvat/last.id /app/snapvat/folded.list; find /app/snapvat/live -maxdepth 1 -type f \( -name '*.urn' -o -name '*.new' \) -delete; /app/bin/oakurn pour /app/caskbay/quiet.urn && /app/bin/oakurn steep; rc=$?; echo "reset_pair=$rc"; /app/bin/oakurn board; echo '--- emit.inc ---'; cat /app/inkpit/emit.inc; echo '--- pending ---'; find /app/snapvat/live -maxdepth 1 -type f -print; /app/bin/oakurn steep >/dev/null; echo "empty_steep=$?"
+[?2004lreset_pair=0
+{"days":{"2024-03-10":2},"covers":"quiet"}
+--- emit.inc ---
+2024-03-10 2
+covers quiet
+--- pending ---
+empty_steep=2
+[?2004hroot@6dc4f0252ff0:/app# 

@@ -1,0 +1,620 @@
+[?2004hroot@247aa64cfc21:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@247aa64cfc21:/app# clear
+[?2004l[H[J[3J[?2004hroot@247aa64cfc21:/app# cat /app/notes/LAYOUT.txt
+[?2004lkindspill mill layout
+=====================
+
+cratebin/main.rs dispatches brew and peek.
+
+Pipeline modules:
+- kindmill/  name list writer
+- emberkit/  rank table writer
+- filewell/  docket writer
+
+Sheets live in /app/sanitdesc.
+Brew refreshes /app/spillbay/kinds.ord, /app/rankbin/ranks.bin, /app/docket/filed.bin.
+Fixture copies of the sheets and cache sit at /app/seed/sanitdesc and /app/seed/warm.cache.
+Brew reads /app/endpin/KEEP_TAIL.txt as an ops sidecar.
+`/app/coldstore/prior.bin` is an archived docket from an older mill; brew must not treat it as the live file.
+
+Rebuild the binary with `/app/hull.sh` after source edits.
+[?2004hroot@247aa64cfc21:/app# find /app -maxdepth 3 -type f -printf '%p\n' | sort
+[?2004l/app/bin/kindspill
+/app/coldstore/prior.bin
+/app/cratebin/main.rs
+/app/docket/filed.bin
+/app/emberkit/bake.rs
+/app/endpin/KEEP_TAIL.txt
+/app/filewell/stamp.rs
+/app/hull.sh
+/app/kindmill/kread.rs
+/app/kindmill/roster.rs
+/app/notes/LAYOUT.txt
+/app/rankbin/ranks.bin
+/app/rankbin/warm.cache
+/app/sanitdesc/sheet_a.kind
+/app/sanitdesc/sheet_b.kind
+/app/sanitdesc/sheet_c.kind
+/app/sanitdesc/sheet_d.kind
+/app/sanitdesc/sheet_e.kind
+/app/sanitdesc/sheet_f.kind
+/app/seed/sanitdesc/sheet_a.kind
+/app/seed/sanitdesc/sheet_b.kind
+/app/seed/sanitdesc/sheet_c.kind
+/app/seed/sanitdesc/sheet_d.kind
+/app/seed/sanitdesc/sheet_e.kind
+/app/seed/sanitdesc/sheet_f.kind
+/app/seed/warm.cache
+/app/spillbay/kinds.ord
+[?2004hroot@247aa64cfc21:/app# file /app/bin/kindspill; ls -la /app
+[?2004lbash: file: command not found
+total 64
+drwxr-xr-x 1 root root 4096 Sep  7 09:48 .
+drwxr-xr-x 1 root root 4096 Sep  7 11:08 ..
+drwxr-xr-x 2 root root 4096 Sep  7 09:48 bin
+drwxr-xr-x 2 root root 4096 Sep  7 09:23 coldstore
+drwxr-xr-x 2 root root 4096 Sep  7 09:47 cratebin
+drwxr-xr-x 2 root root 4096 Sep  7 09:48 docket
+drwxr-xr-x 2 root root 4096 Sep  7 09:47 emberkit
+drwxr-xr-x 2 root root 4096 Sep  7 09:22 endpin
+drwxr-xr-x 2 root root 4096 Sep  7 09:47 filewell
+-rwxrwxr-x 1 root root  178 Sep  7 09:31 hull.sh
+drwxr-xr-x 2 root root 4096 Sep  7 09:47 kindmill
+drwxr-xr-x 2 root root 4096 Sep  7 09:47 notes
+drwxr-xr-x 1 root root 4096 Sep  7 09:48 rankbin
+drwxr-xr-x 2 root root 4096 Sep  7 09:22 sanitdesc
+drwxr-xr-x 3 root root 4096 Sep  7 09:48 seed
+drwxr-xr-x 2 root root 4096 Sep  7 09:48 spillbay
+[?2004hroot@247aa64cfc21:/app# find /app/sanitdesc -type f -maxdepth 2 -print -exec sh -c 'echo ---; cat "$1"' _ {} \;
+[?2004lfind: warning: you have specified the global option -maxdepth after the argument -type, but global options are not positional, i.e., -maxdepth affects tests specified before it as well as those specified after it.  Please specify global options before other arguments.
+/app/sanitdesc/sheet_f.kind
+---
+KIND brim_alert
+RANK 3
+/app/sanitdesc/sheet_a.kind
+---
+KIND stall_watch
+RANK 2
+/app/sanitdesc/sheet_d.kind
+---
+KIND HTTP-Pause
+RANK 1
+/app/sanitdesc/sheet_b.kind
+---
+KIND deny_gate
+RANK 4
+/app/sanitdesc/sheet_c.kind
+---
+KIND http_pause
+RANK 1
+/app/sanitdesc/sheet_e.kind
+---
+KIND vault_slip
+RANK 7
+[?2004hroot@247aa64cfc21:/app# printf '%s\n' '--- hull.sh'; cat hull.sh; for f in cratebin/main.rs kindmill/kread.rs kindmill/roster.rs emberkit/bake.rs filewell/stamp.rs; do printf '\n--- %s\n' "$f"; sed -n '1,240p' "$f"; done
+[?2004l--- hull.sh
+#!/bin/sh
+set -eu
+export PATH="/usr/local/cargo/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+mkdir -p /app/bin
+rustc --edition 2021 -O /app/cratebin/main.rs -o /app/bin/kindspill
+
+--- cratebin/main.rs
+#[path = "../kindmill/kread.rs"]
+mod sheet;
+#[path = "../kindmill/roster.rs"]
+mod roster;
+#[path = "../emberkit/bake.rs"]
+mod bake;
+#[path = "../filewell/stamp.rs"]
+mod stamp;
+
+fn main() {
+    let arg = std::env::args().nth(1).unwrap_or_default();
+    let code = match arg.as_str() {
+        "brew" => stamp::mark(),
+        "peek" => stamp::peek(),
+        _ => {
+            eprintln!("usage: kindspill brew|peek");
+            2
+        }
+    };
+    std::process::exit(code);
+}
+
+--- kindmill/kread.rs
+use std::fs;
+use std::path::{Path, PathBuf};
+
+pub struct Sheet {
+    pub raw: String,
+    pub rank: u8,
+}
+
+#[allow(dead_code)]
+pub fn fold(s: &str) -> String {
+    s.trim().to_ascii_lowercase().replace('-', "_")
+}
+
+pub fn desc_dir() -> PathBuf {
+    PathBuf::from("/app/sanitdesc")
+}
+
+pub fn load_glob() -> Vec<Sheet> {
+    let mut paths: Vec<PathBuf> = match fs::read_dir(desc_dir()) {
+        Ok(rd) => rd.filter_map(|e| e.ok()).map(|e| e.path()).collect(),
+        Err(_) => Vec::new(),
+    };
+    paths.retain(|p| p.extension().and_then(|s| s.to_str()) == Some("kind"));
+    paths.sort();
+    paths.into_iter().map(|p| parse_sheet(&p)).collect()
+}
+
+fn parse_sheet(p: &Path) -> Sheet {
+    let t = fs::read_to_string(p).unwrap_or_default();
+    let mut raw = String::new();
+    let mut rank = 0u8;
+    for line in t.lines() {
+        let line = line.trim();
+        if let Some(rest) = line.strip_prefix("KIND") {
+            raw = rest.trim().to_string();
+        }
+        if let Some(rest) = line.strip_prefix("RANK") {
+            rank = rest.trim().parse().unwrap_or(0);
+        }
+    }
+    Sheet { raw, rank }
+}
+
+pub fn put_rec(buf: &mut Vec<u8>, name: &str, rank: u8) {
+    let b = name.as_bytes();
+    let n = b.len() as u16;
+    buf.extend_from_slice(&n.to_be_bytes());
+    buf.extend_from_slice(b);
+    buf.push(rank);
+}
+
+pub fn parse_recs(bytes: &[u8]) -> Vec<(String, u8)> {
+    let mut out = Vec::new();
+    let mut i = 0usize;
+    while i + 3 <= bytes.len() {
+        let n = u16::from_be_bytes([bytes[i], bytes[i + 1]]) as usize;
+        i += 2;
+        if i + n + 1 > bytes.len() {
+            break;
+        }
+        let name = String::from_utf8_lossy(&bytes[i..i + n]).into_owned();
+        i += n;
+        let rank = bytes[i];
+        i += 1;
+        out.push((name, rank));
+    }
+    out
+}
+
+--- kindmill/roster.rs
+use crate::sheet;
+use std::fs;
+
+pub fn spill() -> Vec<String> {
+    let mut names: Vec<String> = sheet::load_glob().into_iter().map(|s| s.raw).collect();
+    names.sort();
+    fs::create_dir_all("/app/spillbay").ok();
+    let mut body = names.join("\n");
+    if !body.ends_with('\n') {
+        body.push('\n');
+    }
+    fs::write("/app/spillbay/kinds.ord", body).unwrap();
+    names
+}
+
+--- emberkit/bake.rs
+use crate::sheet;
+use std::fs;
+
+pub fn hearth(_names: &[String]) -> Vec<u8> {
+    let ranks: Vec<u8> = sheet::load_glob().into_iter().map(|s| s.rank).collect();
+    fs::create_dir_all("/app/rankbin").ok();
+    fs::write("/app/rankbin/ranks.bin", &ranks).unwrap();
+    ranks
+}
+
+#[allow(dead_code)]
+pub fn cache_names() -> Vec<String> {
+    fs::read_to_string("/app/rankbin/warm.cache")
+        .unwrap_or_default()
+        .lines()
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty())
+        .map(|l| l.to_string())
+        .collect()
+}
+
+pub fn write_cache(names: &[String]) {
+    let mut body = names.join("\n");
+    if !body.ends_with('\n') {
+        body.push('\n');
+    }
+    let _ = fs::write("/app/rankbin/warm.cache", body);
+}
+
+--- filewell/stamp.rs
+use crate::{bake, roster, sheet};
+use std::fs;
+
+pub fn mark() -> i32 {
+    let _tail = fs::read_to_string("/app/endpin/KEEP_TAIL.txt").unwrap_or_default();
+    let _ = _tail.len();
+    let names = roster::spill();
+    let ranks = bake::hearth(&names);
+    let cache = bake::cache_names();
+    let sheets = sheet::load_glob();
+    let mut filed = Vec::new();
+    for (i, name) in names.iter().enumerate() {
+        let sev = if cache.iter().any(|c| c == name) {
+            ranks.get(i).copied().unwrap_or(0)
+        } else {
+            sheets
+                .iter()
+                .find(|s| s.raw == *name)
+                .map(|s| s.rank)
+                .unwrap_or(0)
+        };
+        sheet::put_rec(&mut filed, name, sev);
+    }
+    fs::create_dir_all("/app/docket").ok();
+    fs::write("/app/docket/filed.bin", filed).unwrap();
+    bake::write_cache(&names);
+    0
+}
+
+pub fn peek() -> i32 {
+    let bytes = fs::read("/app/docket/filed.bin").unwrap_or_default();
+    let recs = sheet::parse_recs(&bytes);
+    print!("{{\"findings\":[");
+    for (i, (n, r)) in recs.iter().enumerate() {
+        if i > 0 {
+            print!(",");
+        }
+        print!("{{\"token\":\"{}\",\"severity\":{}}}", n, r);
+    }
+    print!("]}}\n");
+    0
+}
+[?2004hroot@247aa64cfc21:/app# printf '%s\n' '--- KEEP_TAIL'; cat endpin/KEEP_TAIL.txt; printf '%s\n' '--- kinds.ord'; cat spillbay/kinds.ord; printf '%s\n' '--- warm.cache'; cat rankbin/warm.cache; printf '%s\n' '--- seed warm.cache'; cat seed/warm.cache
+[?2004l--- KEEP_TAIL
+Ops note: when a new sanitiser kind arrives, append it at the tail of the
+roster so existing slots stay still. Operators have been doing this on
+busy weeks and brew still returns zero.
+--- kinds.ord
+HTTP-Pause
+brim_alert
+deny_gate
+http_pause
+stall_watch
+vault_slip
+--- warm.cache
+stall_watch
+deny_gate
+http_pause
+--- seed warm.cache
+stall_watch
+deny_gate
+http_pause
+[?2004hroot@247aa64cfc21:/app# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> for fn in ['rankbin/ranks.bin','docket/filed.bin','coldstore/prior.bin']:
+[?2004l[?2004h>  b=Path(fn).read_bytes(); p=0; out=[]
+[?2004l[?2004h>  try:
+[?2004l[?2004h>   while p<len(b):
+[?2004l[?2004h>    n=int.from_bytes(b[p:p+2],'big'); p+=2
+[?2004l[?2004h>    name=b[p:p+n].decode(); p+=n
+[?2004l[?2004h>    rank=b[p]; p+=1
+[?2004l[?2004h>    out.append((name,rank))
+[?2004l[?2004h>   print(fn, len(b), out)
+[?2004l[?2004h>  except Exception as e: print(fn, 'INVALID at',p,e,b.hex())
+[?2004l[?2004h> PY
+[?2004lrankbin/ranks.bin INVALID at 518 index out of range 020401010703
+docket/filed.bin 78 [('HTTP-Pause', 1), ('brim_alert', 3), ('deny_gate', 1), ('http_pause', 1), ('stall_watch', 7), ('vault_slip', 7)]
+coldstore/prior.bin INVALID at 24948 index out of range 617263686976656420646f636b65742066726f6d206c61737420717561727465723b20627265772073686f756c64206e6f7420636f7079207468697320617320746865206c6976652066696c652e0a
+[?2004hroot@247aa64cfc21:/app# ./bin/kindspill peek; echo peek_rc=$?; ./bin/kindspill brew; echo brew_rc=$?; ./bin/kindspill peek; echo peek2_rc=$?; od -An -tx1 -N4 ./bin/kindspill
+[?2004l{"findings":[{"token":"HTTP-Pause","severity":1},{"token":"brim_alert","severity":3},{"token":"deny_gate","severity":1},{"token":"http_pause","severity":1},{"token":"stall_watch","severity":7},{"token":"vault_slip","severity":7}]}
+peek_rc=0
+brew_rc=0
+{"findings":[{"token":"HTTP-Pause","severity":1},{"token":"brim_alert","severity":3},{"token":"deny_gate","severity":1},{"token":"http_pause","severity":1},{"token":"stall_watch","severity":7},{"token":"vault_slip","severity":7}]}
+peek2_rc=0
+ 7f 45 4c 46
+[?2004hroot@247aa64cfc21:/app# cat > kindmill/kread.rs <<'RS'
+[?2004l[?2004h> use std::fs;
+[?2004l[?2004h> use std::path::{Path, PathBuf};
+[?2004l[?2004h> 
+[?2004l[?2004h> #[derive(Clone, Debug)]
+[?2004l[?2004h> pub struct Sheet {
+[?2004l[?2004h>     pub raw: String,
+[?2004l[?2004h>     pub rank: u8,
+[?2004l[?2004h>     pub valid: bool,
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn fold(s: &str) -> String {
+[?2004l[?2004h>     s.trim().to_ascii_lowercase().replace('-', "_")
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn desc_dir() -> PathBuf {
+[?2004l[?2004h>     PathBuf::from("/app/sanitdesc")
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn load_glob() -> Vec<Sheet> {
+[?2004l[?2004h>     let mut paths: Vec<PathBuf> = match fs::read_dir(desc_dir()) {
+[?2004l[?2004h>         Ok(rd) => rd.filter_map(|e| e.ok()).map(|e| e.path()).collect(),
+[?2004l[?2004h>         Err(_) => Vec::new(),
+[?2004l[?2004h>     };
+[?2004l[?2004h>     paths.retain(|p| p.extension().and_then(|s| s.to_str()) == Some("kind"));
+[?2004l[?2004h>     paths.sort();
+[?2004l[?2004h>     paths.into_iter().map(|p| parse_sheet(&p)).collect()
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> fn parse_sheet(p: &Path) -> Sheet {
+[?2004l[?2004h>     let t = match fs::read_to_string(p) {
+[?2004l[?2004h>         Ok(t) => t,
+[?2004l[?2004h>         Err(_) => return Sheet { raw: String::new(), rank: 0, valid: false },
+[?2004l[?2004h>     };
+[?2004l[?2004h>     let mut raw: Option<String> = None;
+[?2004l[?2004h>     let mut rank: Option<u8> = None;
+[?2004l[?2004h>     let mut saw_rank = false;
+[?2004l[?2004h>     let mut valid = true;
+[?2004l[?2004h>     for line in t.lines().map(str::trim).filter(|l| !l.is_empty()) {
+[?2004l[?2004h>         let mut fields = line.split_whitespace();
+[?2004l[?2004h>         match fields.next() {
+[?2004l[?2004h>             Some("KIND") if raw.is_none() && !saw_rank => {
+[?2004l[?2004h>                 let value = fields.collect::<Vec<_>>().join(" ");
+[?2004l[?2004h>                 if value.is_empty() { valid = false; } else { raw = Some(value); }
+[?2004l[?2004h>             }
+[?2004l[?2004h>             Some("RANK") if raw.is_some() && rank.is_none() => {
+[?2004l[?2004h>                 saw_rank = true;
+[?2004l[?2004h>                 let values: Vec<_> = fields.collect();
+[?2004l[?2004h>                 if values.len() != 1 { valid = false; }
+[?2004l[?2004h>                 rank = values.first().and_then(|v| v.parse::<u8>().ok());
+[?2004l[?2004h>                 if rank.map_or(true, |r| r > 9) { valid = false; }
+[?2004l[?2004h>             }
+[?2004l[?2004h>             _ => valid = false,
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     let valid = valid && raw.is_some() && rank.is_some();
+[?2004l[?2004h>     Sheet { raw: raw.unwrap_or_default(), rank: rank.unwrap_or(0), valid }
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn put_rec(buf: &mut Vec<u8>, name: &str, rank: u8) -> bool {
+[?2004l[?2004h>     let b = name.as_bytes();
+[?2004l[?2004h>     let n = match u16::try_from(b.len()) { Ok(n) => n, Err(_) => return false };
+[?2004l[?2004h>     buf.extend_from_slice(&n.to_be_bytes());
+[?2004l[?2004h>     buf.extend_from_slice(b);
+[?2004l[?2004h>     buf.push(rank);
+[?2004l[?2004h>     true
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004ls[?2004h> pub fn parse_recs(bytes: &[u8]) -> Option<Vec<(String, u8)>> {
+[?2004l[?2004h>     let mut out = Vec::new();
+[?2004l[?2004h>     let mut i = 0usize;
+[?2004l[?2004h>     while i < bytes.len() {
+[?2004l[?2004h>         if i + 2 > bytes.len() { return None; }
+[?2004l[?2004h>         let n = u16::from_be_bytes([bytes[i], bytes[i + 1]]) as usize;
+[?2004l[?2004h>         i += 2;
+[?2004l[?2004h>         if i.checked_add(n + 1).map_or(true, |end| end > bytes.len()) { return None; }
+[?2004l[?2004h>         let name = std::str::from_utf8(&bytes[i..i + n]).ok()?.to_string();
+[?2004l[?2004h>         i += n;
+[?2004l[?2004h>         let rank = bytes[i];
+[?2004l[?2004h>         i += 1;
+[?2004l[?2004h>         if rank > 9 { return None; }
+[?2004l[?2004h>         out.push((name, rank));
+[?2004l[?2004h>     }
+[?2004l[?2004h>     Some(out)
+[?2004l[?2004h> }
+[?2004l[?2004h> RS
+[?2004l[?2004hroot@247aa64cfc21:/app# cat > kindmill/roster.rs <<'RS'
+[?2004l[?2004h> use crate::sheet;
+[?2004l[?2004h> use std::fs;
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn spill() -> Result<Vec<String>, String> {
+[?2004l[?2004h>     let sheets = sheet::load_glob();
+[?2004l[?2004h>     if sheets.is_empty() || sheets.iter().any(|s| !s.valid) {
+[?2004l[?2004h>         return Err("one or more kind sheets are invalid".into());
+[?2004l[?2004h>     }
+[?2004l[?2004h>     let mut names: Vec<String> = sheets.into_iter().map(|s| s.raw).collect();
+[?2004l[?2004h>     names.sort_by(|a, b| sheet::fold(a).cmp(&sheet::fold(b)).then(a.cmp(b)));
+[?2004l[?2004h>     fs::create_dir_all("/app/spillbay").map_err(|e| e.to_string())?;
+[?2004l[?2004h>     let body = format!("{}\n", names.join("\n"));
+[?2004l[?2004h>     fs::write("/app/spillbay/kinds.ord", body).map_err(|e| e.to_string())?;
+[?2004l[?2004h>     Ok(names)
+[?2004l[?2004h> }
+[?2004l[?2004h> RS
+[?2004l[?2004hroot@247aa64cfc21:/app# cat > emberkit/bake.rs <<'RS'
+[?2004l[?2004h> use crate::sheet;
+[?2004l[?2004h> use std::fs;
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn hearth(names: &[String]) -> Result<Vec<(String, u8)>, String> {
+[?2004l[?2004h>     let sheets = sheet::load_glob();
+[?2004l[?2004h>     if sheets.iter().any(|s| !s.valid) { return Err("invalid kind sheet".into()); }
+[?2004l[?2004h>     let mut records = Vec::new();
+[?2004l[?2004h>     let mut bytes = Vec::new();
+[?2004l[?2004h>     for name in names {
+[?2004l[?2004h>         let key = sheet::fold(name);
+[?2004l[?2004h>         let matches: Vec<_> = sheets.iter().filter(|s| sheet::fold(&s.raw) == key).collect();
+[?2004l[?2004h>         let rank = matches.first().ok_or_else(|| format!("no sheet for {name}"))?.rank;
+[?2004l[?2004h>         if matches.iter().any(|s| s.rank != rank) {
+[?2004l[?2004h>             return Err(format!("conflicting ranks for kind {name}"));
+[?2004l[?2004h>         }
+[?2004l[?2004h>         if !sheet::put_rec(&mut bytes, name, rank) { return Err(format!("kind name too long: {name}")); }
+[?2004l[?2004h>         records.push((name.clone(), rank));
+[?2004l[?2004h>     }
+[?2004l[?2004h>     fs::create_dir_all("/app/rankbin").map_err(|e| e.to_string())?;
+[?2004l[?2004h>     fs::write("/app/rankbin/ranks.bin", bytes).map_err(|e| e.to_string())?;
+[?2004l[?2004h>     Ok(records)
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn write_cache(names: &[String]) {
+[?2004l[?2004h>     let _ = fs::write("/app/rankbin/warm.cache", format!("{}\n", names.join("\n")));
+[?2004l[?2004h> }
+[?2004l[?2004h> RS
+[?2004l[?2004hroot@247aa64cfc21:/app# cat > filewell/stamp.rs <<'RS'
+[?2004l[?2004h> use crate::{bake, roster, sheet};
+[?2004l[?2004h> use std::fs;
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn mark() -> i32 {
+[?2004l[?2004h>     let _ops_sidecar = fs::read_to_string("/app/endpin/KEEP_TAIL.txt").unwrap_or_default();
+[?2004l[?2004h>     let result = (|| -> Result<(), String> {
+[?2004l[?2004h>         let names = roster::spill()?;
+[?2004l[?2004h>         let ranks = bake::hearth(&names)?;
+[?2004l[?2004h>         let sheets = sheet::load_glob();
+[?2004l[?2004h>         let mut filed = Vec::new();
+[?2004l[?2004h>         for (name, severity) in &ranks {
+[?2004l[?2004h>             let key = sheet::fold(name);
+[?2004l[?2004h>             let matches: Vec<_> = sheets.iter().filter(|s| s.valid && sheet::fold(&s.raw) == key).collect();
+[?2004l[?2004h>             if matches.is_empty() || matches.iter().any(|s| s.rank != *severity) {
+[?2004l[?2004h>                 return Err(format!("filed severity does not match sheet for {name}"));
+[?2004l[?2004h>             }
+[?2004l[?2004h>             if !sheet::put_rec(&mut filed, name, *severity) {
+[?2004l[?2004h>                 return Err(format!("kind name too long: {name}"));
+[?2004l[?2004h>             }
+[?2004l[?2004h>         }
+[?2004l[?2004h>         let parsed = sheet::parse_recs(&filed).ok_or("internal docket encoding error")?;
+[?2004l[?2004h>         if parsed != ranks { return Err("docket validation failed".into()); }
+[?2004l[?2004h>         fs::create_dir_all("/app/docket").map_err(|e| e.to_string())?;
+[?2004l[?2004h>         fs::write("/app/docket/filed.bin.tmp", &filed).map_err(|e| e.to_string())?;
+[?2004l[?2004h>         fs::rename("/app/docket/filed.bin.tmp", "/app/docket/filed.bin").map_err(|e| e.to_string())?;
+[?2004l[?2004h>         bake::write_cache(&names);
+[?2004l[?2004h>         Ok(())
+[?2004l[?2004h>     })();
+[?2004l[?2004h>     match result { Ok(()) => 0, Err(e) => { eprintln!("brew: {e}"); 1 } }
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> fn json_string(s: &str) -> String {
+[?2004l[?2004h>     let mut out = String::from("\"");
+[?2004l[?2004h>     for c in s.chars() {
+[?2004l[?2004h>         match c {
+[?2004l[?2004h>             '"' => out.push_str("\\\""), '\\' => out.push_str("\\\\"),
+[?2004l[?2004h>             '\n' => out.push_str("\\n"), '\r' => out.push_str("\\r"), '\t' => out.push_str("\\t"),
+[?2004l[?2004h>             c if c <= '\u{1f}' => out.push_str(&format!("\\u{:04x}", c as u32)),
+[?2004l[?2004h>             c => out.push(c),
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     out.push('"');
+[?2004l[?2004h>     out
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn peek() -> i32 {
+[?2004l[?2004h>     let bytes = match fs::read("/app/docket/filed.bin") { Ok(b) => b, Err(e) => { eprintln!("peek: {e}"); return 1; } };
+[?2004l[?2004h>     let recs = match sheet::parse_recs(&bytes) { Some(r) => r, None => { eprintln!("peek: malformed docket"); return 1; } };
+[?2004l[?2004h>     print!("{{\"findings\":[");
+[?2004l[?2004h>     for (i, (n, r)) in recs.iter().enumerate() {
+[?2004l[?2004h>         if i > 0 { print!(","); }
+[?2004l[?2004h>         print!("{{\"token\":{},\"severity\":{}}}", json_string(n), r);
+[?2004l[?2004h>     }
+[?2004l[?2004h>     println!("]}}");
+[?2004l[?2004h>     0
+[?2004l[?2004h> }
+[?2004l[?2004h> RS
+[?2004l[?2004hroot@247aa64cfc21:/app# ./hull.sh
+[?2004l./bin/kindspill brew; rc=$?; echo brew_rc=$rc; ./bin/kindspill peek; echo peek_rc=$?; od -An -tx1 -N4 ./bin/kindspill; python3 - <<'PY'
+import json, pathlib
+
+def recs(path):
+ b=pathlib.Path(path).read_bytes(); p=0; out=[]
+ while p < len(b):
+  assert p+2 <= len(b)
+  n=int.from_bytes(b[p:p+2],'big'); p+=2
+  assert p+n+1 <= len(b)
+  out.append((b[p:p+n].decode(),b[p+n])); p += n+1
+ return out
+for p in ('rankbin/ranks.bin','docket/filed.bin'):
+ print(p,recs(p))
+print('kinds:',pathlib.Path('spillbay/kinds.ord').read_text().splitlines())
+PY
+[?2004hroot@247aa64cfc21:/app# ./bin/kindspill brew; rc=$?; echo brew_rc=$rc; ./bin/kindspill peek; echo peek_rc=$?; od -An -tx1 -N4 ./bin/kindspill; python3 - <<'PY'
+[?2004l[?2004h> import json, pathlib
+[?2004l[?2004h> 
+[?2004l[?2004h> def recs(path):
+[?2004l[?2004h>  b=pathlib.Path(path).read_bytes(); p=0; out=[]
+[?2004l[?2004h>  while p < len(b):
+[?2004l[?2004h>   assert p+2 <= len(b)
+[?2004l[?2004h>   n=int.from_bytes(b[p:p+2],'big'); p+=2
+[?2004l[?2004h>   assert p+n+1 <= len(b)
+[?2004l[?2004h>   out.append((b[p:p+n].decode(),b[p+n])); p += n+1
+[?2004l[?2004h>  return out
+[?2004l[?2004h> for p in ('rankbin/ranks.bin','docket/filed.bin'):
+[?2004l[?2004h>  print(p,recs(p))
+[?2004l[?2004h> print('kinds:',pathlib.Path('spillbay/kinds.ord').read_text().splitlines())
+[?2004l[?2004h> PY
+[?2004lbrew_rc=0
+{"findings":[{"token":"brim_alert","severity":3},{"token":"deny_gate","severity":4},{"token":"HTTP-Pause","severity":1},{"token":"http_pause","severity":1},{"token":"stall_watch","severity":2},{"token":"vault_slip","severity":7}]}
+peek_rc=0
+ 7f 45 4c 46
+rankbin/ranks.bin [('brim_alert', 3), ('deny_gate', 4), ('HTTP-Pause', 1), ('http_pause', 1), ('stall_watch', 2), ('vault_slip', 7)]
+docket/filed.bin [('brim_alert', 3), ('deny_gate', 4), ('HTTP-Pause', 1), ('http_pause', 1), ('stall_watch', 2), ('vault_slip', 7)]
+kinds: ['brim_alert', 'deny_gate', 'HTTP-Pause', 'http_pause', 'stall_watch', 'vault_slip']
+[?2004hroot@247aa64cfc21:/app# python3 - <<'PY'
+[?2004l[?2004h> p='kindmill/roster.rs'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> s=s.replace('    names.sort_by(|a, b| sheet::fold(a).cmp(&sheet::fold(b)).then(a.cmp(b)));\n', '    names.sort_by(|a, b| sheet::fold(a).cmp(&sheet::fold(b)).then(a.cmp(b)));\n    names.dedup_by(|a, b| sheet::fold(a) == sheet::fold(b));\n')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@247aa64cfc21:/app# ./hull.sh && ./bin/kindspill brew && ./bin/kindspill peek
+[?2004lcp docket/filed.bin /tmp/filed.before; cat > sanitdesc/zz_added.kind <<'EOF'
+KIND Fresh-Probe
+RANK 9
+EOF
+./bin/kindspill brew; echo added_brew_rc=$?; ./bin/kindspill peek; python3 - <<'PY'
+import json,subprocess
+j=json.loads(subprocess.check_output(['/app/bin/kindspill','peek']))
+d={x['token'].lower().replace('-','_'):x['severity'] for x in j['findings']}
+assert d['fresh_probe']==9 and d['stall_watch']==2 and d['deny_gate']==4
+print('added-kind check: OK')
+PY
+{"findings":[{"token":"brim_alert","severity":3},{"token":"deny_gate","severity":4},{"token":"HTTP-Pause","severity":1},{"token":"stall_watch","severity":2},{"token":"vault_slip","severity":7}]}
+[?2004hroot@247aa64cfc21:/app# cp docket/filed.bin /tmp/filed.before; cat > sanitdesc/zz_added.kind <<'EOF'
+[?2004l[?2004h> KIND Fresh-Probe
+[?2004l[?2004h> RANK 9
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@247aa64cfc21:/app# ./bin/kindspill brew; echo added_brew_rc=$?; ./bin/kindspill peek; python3 - <<'PY'
+[?2004l[?2004h> import json,subprocess
+[?2004l[?2004h> j=json.loads(subprocess.check_output(['/app/bin/kindspill','peek']))
+[?2004l[?2004h> d={x['token'].lower().replace('-','_'):x['severity'] for x in j['findings']}
+[?2004l[?2004h> assert d['fresh_probe']==9 and d['stall_watch']==2 and d['deny_gate']==4
+[?2004l[?2004h> print('added-kind check: OK')
+[?2004l[?2004h> PY
+[?2004ladded_brew_rc=0
+{"findings":[{"token":"brim_alert","severity":3},{"token":"deny_gate","severity":4},{"token":"Fresh-Probe","severity":9},{"token":"HTTP-Pause","severity":1},{"token":"stall_watch","severity":2},{"token":"vault_slip","severity":7}]}
+added-kind check: OK
+[?2004hroot@247aa64cfc21:/app# cat > sanitdesc/zz_conflict.kind <<'EOF'
+[?2004l[?2004h> KIND STALL-WATCH
+[?2004l[?2004h> RANK 8
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@247aa64cfc21:/app# ./bin/kindspill brew; echo conflict_brew_rc=$?; test $? -eq 0
+[?2004lbrew: conflicting ranks for kind STALL-WATCH
+conflict_brew_rc=1
+[?2004hroot@247aa64cfc21:/app# rm -f sanitdesc/zz_conflict.kind sanitdesc/zz_added.kind
+[?2004l[?2004hroot@247aa64cfc21:/app# ./bin/kindspill brew; echo final_brew_rc=$?; ./bin/kindspill peek
+[?2004lfinal_brew_rc=0
+{"findings":[{"token":"brim_alert","severity":3},{"token":"deny_gate","severity":4},{"token":"HTTP-Pause","severity":1},{"token":"stall_watch","severity":2},{"token":"vault_slip","severity":7}]}
+[?2004hroot@247aa64cfc21:/app# python3 - <<'PY'
+[?2004l[?2004h> import json, pathlib, subprocess
+[?2004l[?2004h> assert pathlib.Path('bin/kindspill').read_bytes()[:4] == b'\x7fELF'
+[?2004l[?2004h> 
+[?2004l[?2004h> def records(path):
+[?2004l[?2004h>  b=pathlib.Path(path).read_bytes(); i=0; out=[]
+[?2004l[?2004h>  while i<len(b):
+[?2004l[?2004h>   assert i+2<=len(b); n=int.from_bytes(b[i:i+2],'big'); i+=2
+[?2004l[?2004h>   assert i+n+1<=len(b); name=b[i:i+n].decode('utf-8'); i+=n
+[?2004l[?2004h>   rank=b[i]; i+=1; assert 0<=rank<=9; out.append((name,rank))
+[?2004l[?2004h>  return out
+[?2004l[?2004h> r=records('rankbin/ranks.bin'); f=records('docket/filed.bin')
+[?2004l[?2004h> assert r==f
+[?2004l[?2004h> assert len({n.lower().replace('-','_') for n,_ in f})==len(f)
+[?2004l[?2004h> assert dict((n.lower().replace('-','_'),v) for n,v in f)=={'brim_alert':3,'deny_gate':4,'http_pause':1,'stall_watch':2,'vault_slip':7}
+[?2004l[?2004h> j=json.loads(subprocess.check_output(['./bin/kindspill','peek']))
+[?2004l[?2004h> assert [(x['token'],x['severity']) for x in j['findings']]==f
+[?2004l[?2004h> print('final validation: OK', f)
+[?2004l[?2004h> PY
+[?2004lfinal validation: OK [('brim_alert', 3), ('deny_gate', 4), ('HTTP-Pause', 1), ('stall_watch', 2), ('vault_slip', 7)]
+[?2004hroot@247aa64cfc21:/app# 

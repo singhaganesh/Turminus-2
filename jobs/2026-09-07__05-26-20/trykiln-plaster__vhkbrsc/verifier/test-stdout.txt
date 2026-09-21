@@ -1,0 +1,185 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 13 items
+
+../tests/test_outputs.py FFFFFFFFFFFFF                                   [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_k01_mold_column _____________________________
+
+    def test_k01_mold_column():
+        """Plaster vat final applied stem equals ledger sql head."""
+>       assert last_applied(PLASTER) == sql_head()
+E       AssertionError: assert '0003_base' == '0004_attempt_slot'
+E         
+E         - 0004_attempt_slot
+E         + 0003_base
+
+/tests/test_outputs.py:53: AssertionError
+____________________________ test_k02_worker_column ____________________________
+
+    def test_k02_worker_column():
+        """Worker vat final applied stem equals ledger sql head."""
+>       assert last_applied(WORKER) == sql_head()
+E       AssertionError: assert '0003_base' == '0004_attempt_slot'
+E         
+E         - 0004_attempt_slot
+E         + 0003_base
+
+/tests/test_outputs.py:58: AssertionError
+____________________________ test_k03_applied_head _____________________________
+
+    def test_k03_applied_head():
+        """Last applied stem on plaster equals ledger sql head."""
+>       assert last_applied(PLASTER) == sql_head()
+E       AssertionError: assert '0003_base' == '0004_attempt_slot'
+E         
+E         - 0004_attempt_slot
+E         + 0003_base
+
+/tests/test_outputs.py:63: AssertionError
+____________________________ test_k04_column_parity ____________________________
+
+    def test_k04_column_parity():
+        """Mold and worker column lists match and both sit on the sql head."""
+        a = parse_vat(PLASTER)
+        b = parse_vat(WORKER)
+        assert a["applied"] == b["applied"]
+>       assert last_applied(PLASTER) == sql_head()
+E       AssertionError: assert '0003_base' == '0004_attempt_slot'
+E         
+E         - 0004_attempt_slot
+E         + 0003_base
+
+/tests/test_outputs.py:71: AssertionError
+____________________________ test_k05_lag_copy_exit ____________________________
+
+    def test_k05_lag_copy_exit():
+        """Spill of a vat behind the sql head exits non-zero."""
+        orig = PLASTER.read_text()
+        worker_orig = WORKER.read_bytes()
+        try:
+            PLASTER.write_text(LAGGING)
+            proc = subprocess.run([CLI, "spill"], capture_output=True, text=True)
+>           assert proc.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/kilncli', 'spill'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:81: AssertionError
+_________________________ test_k06_lag_copy_untouched __________________________
+
+    def test_k06_lag_copy_untouched():
+        """Failed lag spill leaves a marked worker vat unchanged."""
+        orig = PLASTER.read_text()
+        worker_orig = WORKER.read_text()
+        marked = worker_orig.replace("row:1,boot", "row:9,marked")
+        if marked == worker_orig:
+            marked = worker_orig + "row:9,marked\n"
+        try:
+            WORKER.write_text(marked)
+            PLASTER.write_text(LAGGING)
+            subprocess.run([CLI, "spill"], capture_output=True, text=True)
+>           assert "marked" in WORKER.read_text()
+E           AssertionError: assert 'marked' in 'KILNVAT 1\napplied:0003_base\ntable:tries\ncols:id,label\nrow:1,boot\n'
+E            +  where 'KILNVAT 1\napplied:0003_base\ntable:tries\ncols:id,label\nrow:1,boot\n' = read_text()
+E            +    where read_text = PosixPath('/app/vats/worker.vat').read_text
+
+/tests/test_outputs.py:98: AssertionError
+__________________________ test_k07_holdout_sql_head ___________________________
+
+    def test_k07_holdout_sql_head():
+        """Extra unseen sql stem makes spill reject the current plaster."""
+        extra = MIG / "0005_holdout.sql"
+        orig_w = WORKER.read_bytes()
+        try:
+            extra.write_text("ALTER TABLE tries ADD COLUMN hold_pad;\n")
+            proc = subprocess.run([CLI, "spill"], capture_output=True, text=True)
+>           assert proc.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/kilncli', 'spill'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:111: AssertionError
+__________________________ test_k08_zz_recover_worker __________________________
+
+    def test_k08_zz_recover_worker():
+        """Corrupt worker then spill recovers columns from plaster."""
+        orig = WORKER.read_text()
+        try:
+            WORKER.write_text("KILNVAT 1\n")
+            proc = subprocess.run([CLI, "spill"], capture_output=True, text=True)
+            assert proc.returncode == 0
+            assay = subprocess.run([CLI, "assay"], capture_output=True, text=True)
+>           assert assay.returncode == 0
+E           AssertionError: assert 1 == 0
+E            +  where 1 = CompletedProcess(args=['/app/bin/kilncli', 'assay'], returncode=1, stdout='schema_version=0003_base\n', stderr='unknown-column: attempt_slot\n').returncode
+
+/tests/test_outputs.py:125: AssertionError
+______________________________ test_k09_ok_marker ______________________________
+
+    def test_k09_ok_marker():
+        """Successful assay writes assay.ok."""
+>       assert OK.is_file()
+E       AssertionError: assert False
+E        +  where False = is_file()
+E        +    where is_file = PosixPath('/app/vats/assay.ok').is_file
+
+/tests/test_outputs.py:134: AssertionError
+____________________________ test_k10_version_print ____________________________
+
+    def test_k10_version_print():
+        """Assay stdout prints schema_version equal to sql head."""
+        proc = subprocess.run([CLI, "assay"], capture_output=True, text=True)
+>       assert proc.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/app/bin/kilncli', 'assay'], returncode=1, stdout='schema_version=0003_base\n', stderr='unknown-column: attempt_slot\n').returncode
+
+/tests/test_outputs.py:141: AssertionError
+________________________ test_k11_version_matches_head _________________________
+
+    def test_k11_version_matches_head():
+        """Worker last applied independently matches ledger head."""
+>       assert last_applied(WORKER) == sql_head()
+E       AssertionError: assert '0003_base' == '0004_attempt_slot'
+E         
+E         - 0004_attempt_slot
+E         + 0003_base
+
+/tests/test_outputs.py:149: AssertionError
+_____________________________ test_k12_second_run ______________________________
+
+    def test_k12_second_run():
+        """Assay twice yields the same schema_version line."""
+        a = subprocess.run([CLI, "assay"], capture_output=True, text=True)
+        b = subprocess.run([CLI, "assay"], capture_output=True, text=True)
+>       assert a.returncode == 0 and b.returncode == 0
+E       AssertionError: assert (1 == 0)
+E        +  where 1 = CompletedProcess(args=['/app/bin/kilncli', 'assay'], returncode=1, stdout='schema_version=0003_base\n', stderr='unknown-column: attempt_slot\n').returncode
+
+/tests/test_outputs.py:156: AssertionError
+_____________________________ test_k13_clean_exit ______________________________
+
+    def test_k13_clean_exit():
+        """Assay exits zero on the repaired worker vat."""
+        proc = subprocess.run([CLI, "assay"], capture_output=True, text=True)
+>       assert proc.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/app/bin/kilncli', 'assay'], returncode=1, stdout='schema_version=0003_base\n', stderr='unknown-column: attempt_slot\n').returncode
+
+/tests/test_outputs.py:163: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_k01_mold_column - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_k02_worker_column - AssertionError: ass...
+FAILED ../tests/test_outputs.py::test_k03_applied_head - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_k04_column_parity - AssertionError: ass...
+FAILED ../tests/test_outputs.py::test_k05_lag_copy_exit - AssertionError: ass...
+FAILED ../tests/test_outputs.py::test_k06_lag_copy_untouched - AssertionError...
+FAILED ../tests/test_outputs.py::test_k07_holdout_sql_head - AssertionError: ...
+FAILED ../tests/test_outputs.py::test_k08_zz_recover_worker - AssertionError:...
+FAILED ../tests/test_outputs.py::test_k09_ok_marker - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_k10_version_print - AssertionError: ass...
+FAILED ../tests/test_outputs.py::test_k11_version_matches_head - AssertionErr...
+FAILED ../tests/test_outputs.py::test_k12_second_run - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_k13_clean_exit - AssertionError: assert...
+============================== 13 failed in 0.20s ==============================

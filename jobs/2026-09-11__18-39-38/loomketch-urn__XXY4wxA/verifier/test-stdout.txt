@@ -1,0 +1,262 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py FFFFFFFFFFFF                                    [100%]
+
+=================================== FAILURES ===================================
+___________________________ test_lk01_two_proc_bytes ___________________________
+
+    def test_lk01_two_proc_bytes():
+        """Two separate bind processes write identical bound and desk bytes."""
+        _restore()
+        r1 = _bind()
+        assert r1.returncode == 0
+        a = BOUND.read_bytes()
+        b = DESK.read_bytes()
+        r2 = _bind()
+        assert r2.returncode == 0
+>       assert BOUND.read_bytes() == a
+E       assert b'{"findings"...op_tick"}]}\n' == b'{"findings"...er_main"}]}\n'
+E         
+E         At index 22 diff: b'6' != b'1'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:77: AssertionError
+__________________________ test_lk02_dir_layout_twice __________________________
+
+    def test_lk02_dir_layout_twice():
+        """Relaying the same journals in a new directory layout keeps bytes."""
+        _restore()
+        assert _bind().returncode == 0
+        first_b = BOUND.read_bytes()
+        first_d = DESK.read_bytes()
+        names = sorted(p.name for p in VAT.glob("*.asan"))
+        blobs = {p.name: p.read_bytes() for p in VAT.glob("*.asan")}
+        for p in VAT.glob("*.asan"):
+            p.unlink()
+        for name in reversed(names):
+            (VAT / name).write_bytes(blobs[name])
+        assert _bind().returncode == 0
+>       assert BOUND.read_bytes() == first_b
+E       assert b'{"findings"...op_tick"}]}\n' == b'{"findings"...er_main"}]}\n'
+E         
+E         At index 22 diff: b'3' != b'6'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:94: AssertionError
+________________________ test_lk03_rename_worker_files _________________________
+
+    def test_lk03_rename_worker_files():
+        """Renaming worker journals without changing texts keeps issue-to-body map."""
+        _restore()
+        assert _bind().returncode == 0
+        before = {f["issue"]: f["body"] for f in _load()["findings"]}
+        mapping = []
+        for i, p in enumerate(sorted(VAT.glob("*.asan"))):
+            dest = VAT / f"w_{i}.log"
+            p.rename(dest)
+            mapping.append(dest)
+        assert _bind().returncode == 0
+        after = {f["issue"]: f["body"] for f in _load()["findings"]}
+>       assert after == before
+E       AssertionError: assert {1: '__asan::...in_slot', ...} == {1: '__asan::...op_tick', ...}
+E         
+E         Omitting 1 identical items, use -vv to show
+E         Differing items:
+E         {1: '__asan::ReportGenericError | __interceptor_memcpy | pump_read | loop_tick'} != {1: '__asan::ReportGenericError | __interceptor_memcpy | widget_free | worker_main'}
+E         {2: '__asan::ReportGenericError | __interceptor_memcpy | widget_free | worker_main'} != {2: '__asan::ReportGenericError | __interceptor_memcpy | latch_tick | drain_slot'}
+E         {3: '__asan::ReportGenericError | __interceptor_memcpy | fill_span | prep_buf'} != {3: '__asan::ReportGenericError | __interceptor_memcpy | pump_read | loop_tick'}
+E         {4: '__asan::Rep...
+E         
+E         ...Full output truncated (3 lines hidden), use '-vv' to show
+
+/tests/test_outputs.py:112: AssertionError
+_________________________ test_lk04_set_equals_corpus __________________________
+
+    def test_lk04_set_equals_corpus():
+        """Duplicate worker reports of one bug collapse to one finding body."""
+        _restore()
+        assert _bind().returncode == 0
+        data = _load()
+        bodies = [f["body"] for f in data["findings"]]
+>       assert len(bodies) == len(set(bodies))
+E       AssertionError: assert 6 == 4
+E        +  where 6 = len(['__asan::ReportGenericError | __interceptor_memcpy | pump_read | loop_tick', '__asan::ReportGenericError | __intercep...ceptor_memcpy | widget_free | worker_main', '__asan::ReportGenericError | __interceptor_memcpy | fill_span | prep_buf'])
+E        +  and   4 = len({'__asan::ReportGenericError | __interceptor_memcpy | fill_span | prep_buf', '__asan::ReportGenericError | __intercept...eptor_memcpy | pump_read | loop_tick', '__asan::ReportGenericError | __interceptor_memcpy | widget_free | worker_main'})
+E        +    where {'__asan::ReportGenericError | __interceptor_memcpy | fill_span | prep_buf', '__asan::ReportGenericError | __intercept...eptor_memcpy | pump_read | loop_tick', '__asan::ReportGenericError | __interceptor_memcpy | widget_free | worker_main'} = set(['__asan::ReportGenericError | __interceptor_memcpy | pump_read | loop_tick', '__asan::ReportGenericError | __intercep...ceptor_memcpy | widget_free | worker_main', '__asan::ReportGenericError | __interceptor_memcpy | fill_span | prep_buf'])
+
+/tests/test_outputs.py:122: AssertionError
+________________________ test_lk05_row_keeps_same_text _________________________
+
+    def test_lk05_row_keeps_same_text():
+        """Each desk issue cites the same body as the bound record."""
+        _restore()
+        assert _bind().returncode == 0
+        data = _load()
+        by_issue = {int(f["issue"]): f["body"] for f in data["findings"]}
+        for issue, _kind, body in _desk_rows():
+>           assert by_issue[int(issue)] == body
+E           AssertionError: assert '__asan::Repo...d | loop_tick' == '__asan::Repo...an | prep_buf'
+E             
+E             Skipping 42 identical leading characters in diff, use -v to show
+E             - _memcpy | fill_span | prep_buf
+E             + _memcpy | pump_read | loop_tick
+
+/tests/test_outputs.py:136: AssertionError
+____________________________ test_lk06_ids_from_one ____________________________
+
+    def test_lk06_ids_from_one():
+        """Issue numbers start at 1 and cover each finding once."""
+        _restore()
+        assert _bind().returncode == 0
+        issues = sorted(int(f["issue"]) for f in _load()["findings"])
+        assert issues[0] == 1
+        assert issues == list(range(1, len(issues) + 1))
+        ordered = [f["body"] for f in sorted(_load()["findings"], key=lambda x: int(x["issue"]))]
+>       assert ordered == sorted(ordered)
+E       AssertionError: assert ['__asan::Rep...| drain_slot'] == ['__asan::Rep... worker_main']
+E         
+E         At index 0 diff: '__asan::ReportGenericError | __interceptor_memcpy | pump_read | loop_tick' != '__asan::ReportGenericError | __interceptor_memcpy | fill_span | prep_buf'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:147: AssertionError
+_____________________________ test_lk07_empty_exit _____________________________
+
+    def test_lk07_empty_exit():
+        """Empty journal makes bind exit non-zero and omits GUARD."""
+        _restore()
+        empty = VAT / "empty.asan"
+        empty.write_text("")
+        if GUARD.exists():
+            GUARD.unlink()
+        r = _bind()
+        empty.unlink()
+>       assert r.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/loomketch', 'bind'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:159: AssertionError
+_____________________________ test_lk08_trunc_exit _____________________________
+
+    def test_lk08_trunc_exit():
+        """Truncated journal without frames exits non-zero and omits GUARD."""
+        _restore()
+        trunc = VAT / "trunc.asan"
+        trunc.write_text("==9==ERROR: AddressSanitizer: heap-use-after-free on address 0x1\n")
+        if GUARD.exists():
+            GUARD.unlink()
+        r = _bind()
+        trunc.unlink()
+>       assert r.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/loomketch', 'bind'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:172: AssertionError
+__________________________ test_lk09_outside_refused ___________________________
+
+    def test_lk09_outside_refused():
+        """A root outside /app/vatlogs fails and does not write GUARD."""
+        _restore()
+        other = Path("/tmp/loom_out")
+        if other.exists():
+            shutil.rmtree(other)
+        other.mkdir()
+        sample = next(VAT.glob("*.asan"))
+        shutil.copy(sample, other / "x.asan")
+        if GUARD.exists():
+            GUARD.unlink()
+        r = _bind(str(other))
+        shutil.rmtree(other)
+>       assert r.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/loomketch', 'bind', '/tmp/loom_out'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:189: AssertionError
+____________________________ test_lk10_marker_text _____________________________
+
+    def test_lk10_marker_text():
+        """Successful bind writes GUARD containing ok."""
+        _restore()
+        if GUARD.exists():
+            GUARD.unlink()
+        assert _bind().returncode == 0
+        assert GUARD.read_text() == "ok"
+        rows = _desk_rows()
+        data = _load()
+        assert len(rows) == len(data["findings"])
+        by_issue = {int(f["issue"]): f["body"] for f in data["findings"]}
+        for issue, _kind, body in rows:
+>           assert by_issue[int(issue)] == body
+E           AssertionError: assert '__asan::Repo...d | loop_tick' == '__asan::Repo...an | prep_buf'
+E             
+E             Skipping 42 identical leading characters in diff, use -v to show
+E             - _memcpy | fill_span | prep_buf
+E             + _memcpy | pump_read | loop_tick
+
+/tests/test_outputs.py:205: AssertionError
+___________________________ test_lk12_unseen_corpus ____________________________
+
+    def test_lk12_unseen_corpus():
+        """Held-out journals with new hex still collapse by clipped frames."""
+        _restore()
+        held = VAT / "held_z.asan"
+        held.write_text(
+            "==77==ERROR: AddressSanitizer: heap-use-after-free on address 0xfeed\n"
+            "    #0 0x1111 in __asan::ReportGenericError asan.cpp:1\n"
+            "    #1 0x2222 in __interceptor_free interceptors.cpp:8\n"
+            "    #2 0x3333 in widget_free src/widget_free.c:9\n"
+            "    #3 0x4444 in worker_main src/worker_main.c:40\n"
+        )
+        r = _bind()
+        held.unlink()
+        assert r.returncode == 0
+        bodies = _bodies(_load())
+        assert any("widget_free" in b and "worker_main" in b for b in bodies)
+        # still one uaf body, not a second copy keyed by hex
+        uaf = [b for b in bodies if "widget_free" in b]
+>       assert len(uaf) == 1
+E       AssertionError: assert 2 == 1
+E        +  where 2 = len(['__asan::ReportGenericError | __interceptor_memcpy | widget_free | worker_main', '__asan::ReportGenericError | __interceptor_free | widget_free | worker_main'])
+
+/tests/test_outputs.py:226: AssertionError
+________________________ test_lk13_zz_corrupt_then_run _________________________
+
+    def test_lk13_zz_corrupt_then_run():
+        """Corrupting outputs then rerunning bind regenerates matching desk rows."""
+        _restore()
+        assert _bind().returncode == 0
+        BOUND.write_text('{"findings":[]}')
+        DESK.write_text("issue\tkind\tbody\n")
+        GUARD.write_text("no")
+        r = _bind()
+        assert r.returncode == 0
+        assert "__ROWS__" not in BOUND.read_text()
+        data = _load()
+        assert data["findings"]
+        by_issue = {int(f["issue"]): f["body"] for f in data["findings"]}
+        for issue, _kind, body in _desk_rows():
+>           assert by_issue[int(issue)] == body
+E           AssertionError: assert '__asan::Repo...d | loop_tick' == '__asan::Repo...an | prep_buf'
+E             
+E             Skipping 42 identical leading characters in diff, use -v to show
+E             - _memcpy | fill_span | prep_buf
+E             + _memcpy | pump_read | loop_tick
+
+/tests/test_outputs.py:243: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_lk01_two_proc_bytes - assert b'{"findin...
+FAILED ../tests/test_outputs.py::test_lk02_dir_layout_twice - assert b'{"find...
+FAILED ../tests/test_outputs.py::test_lk03_rename_worker_files - AssertionErr...
+FAILED ../tests/test_outputs.py::test_lk04_set_equals_corpus - AssertionError...
+FAILED ../tests/test_outputs.py::test_lk05_row_keeps_same_text - AssertionErr...
+FAILED ../tests/test_outputs.py::test_lk06_ids_from_one - AssertionError: ass...
+FAILED ../tests/test_outputs.py::test_lk07_empty_exit - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_lk08_trunc_exit - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_lk09_outside_refused - AssertionError: ...
+FAILED ../tests/test_outputs.py::test_lk10_marker_text - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_lk12_unseen_corpus - AssertionError: as...
+FAILED ../tests/test_outputs.py::test_lk13_zz_corrupt_then_run - AssertionErr...
+============================== 12 failed in 0.34s ==============================

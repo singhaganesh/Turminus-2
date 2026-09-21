@@ -1,0 +1,783 @@
+[?2004hroot@9292d841caac:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@9292d841caac:/app# clear
+[?2004l[H[J[3J[?2004hroot@9292d841caac:/app# printf '%s\n' '--- BAYMAP ---'; cat /app/inkdocs/BAYMAP.txt; printf '%s\n' '--- FORMS ---'; cat /app/inkdocs/forms.txt; printf '%s\n' '--- RECIPES ---'; find /app/recipath -type f -maxdepth 2 -print -exec sed -n '1,240p' {} \;; printf '%s\n' '--- SOURCE TREE ---'; find /app -maxdepth 3 -type f -not -path '/app/recipath/*' -not -path '/app/ribunit/*' -printf '%p\n' | sort; printf '%s\n' '--- CURRENT MINT ---'; for f in /app/mintbay/points.reg /app/mintbay/runtime.lst /app/mintbay/scan.log; do echo "### $f"; cat "$f" 2>/dev/null || true; done; printf '%s\n' '--- BINARY ---'; file /app/bin/pinweld; xxd -l 16 /app/bin/pinweld
+[?2004l--- BAYMAP ---
+/app/bin/pinweld          linked mill
+/app/blotcli              census walk and recipe load
+/app/tapdesk             miss handling and poke
+/app/ribunit              annotated units
+/app/recipath             shipped compile recipes
+/app/mintbay              minted products
+/app/inkdocs/forms.txt      line grammar
+
+Older benches sometimes parked a salvage mark in the always-on block when
+census lagged. That note is historical; this image still ships guarded units.
+--- FORMS ---
+points.reg
+  One hook name per line, ASCII sorted, no blanks.
+
+runtime.lst
+  Same names as points.reg, same order.
+
+scan.log
+  One line per processed unit: seen <absolute-path>
+
+poke NAME
+  On success print fired:<NAME> and exit 0.
+  If NAME is absent from runtime.lst, exit non-zero and print nothing.
+  The stock salvage-path mark is salvage_drain.
+
+census
+  Exit 0 only when points.reg holds the union of WELD_HOOK names visible
+  under every recipe file in /app/recipath. Exit non-zero if any such name
+  is missing. Names only visible under recipes that do not ship must stay out.
+--- RECIPES ---
+find: warning: you have specified the global option -maxdepth after the argument -type, but global options are not positional, i.e., -maxdepth affects tests specified before it as well as those specified after it.  Please specify global options before other arguments.
+/app/recipath/core.flags
+-P -DCORE=1
+/app/recipath/load.h
+int cfg_open(char out[][512], int max);
+/app/recipath/load.c
+#include "load.h"
+#include <dirent.h>
+#include <stdio.h>
+#include <string.h>
+
+int cfg_open(char out[][512], int max) {
+    DIR *d = opendir("/app/recipath");
+    if (!d) return 0;
+    char files[16][256];
+    int nf = 0;
+    struct dirent *ent;
+    while ((ent = readdir(d)) != NULL) {
+        size_t L = strlen(ent->d_name);
+        if (L > 6 && strcmp(ent->d_name + L - 6, ".flags") == 0 && nf < 16) {
+            snprintf(files[nf], sizeof files[0], "%s", ent->d_name);
+            nf++;
+        }
+    }
+    closedir(d);
+    for (int i = 0; i < nf; i++) {
+        for (int j = i + 1; j < nf; j++) {
+            if (strcmp(files[j], files[i]) < 0) {
+                char tmp[256];
+                memcpy(tmp, files[i], 256);
+                memcpy(files[i], files[j], 256);
+                memcpy(files[j], tmp, 256);
+            }
+        }
+    }
+    /* first recipe only — core.flags after sort */
+    if (nf == 0 || max < 1) return 0;
+    char path[512];
+    snprintf(path, sizeof path, "/app/recipath/%s", files[0]);
+    FILE *fp = fopen(path, "r");
+    if (!fp) return 0;
+    if (!fgets(out[0], 512, fp)) {
+        fclose(fp);
+        return 0;
+    }
+    fclose(fp);
+    size_t n = strlen(out[0]);
+    while (n && (out[0][n - 1] == '\n' || out[0][n - 1] == '\r')) {
+        out[0][--n] = 0;
+    }
+    return 1;
+}
+/app/recipath/salvage.flags
+-P -DCORE=1 -DSALVAGE=1
+/app/recipath/night.flags
+-P -DCORE=1 -DNIGHT=1
+--- SOURCE TREE ---
+/app/bin/pinweld
+/app/blotcli/hoist.c
+/app/blotcli/hoist.h
+/app/blotcli/hull.mk
+/app/blotcli/hull_cli.c
+/app/blotcli/token.c
+/app/blotcli/token.h
+/app/blotcli/walk.c
+/app/blotcli/walk.h
+/app/inkdocs/BAYMAP.txt
+/app/inkdocs/forms.txt
+/app/mintbay/hoist.note
+/app/mintbay/points.reg
+/app/mintbay/runtime.lst
+/app/mintbay/scan.log
+/app/tapdesk/gap.c
+/app/tapdesk/gap.h
+/app/tapdesk/poke.c
+/app/tapdesk/poke.h
+--- CURRENT MINT ---
+### /app/mintbay/points.reg
+core_pump
+### /app/mintbay/runtime.lst
+core_pump
+### /app/mintbay/scan.log
+seen /app/ribunit/lab.c
+seen /app/ribunit/night.c
+seen /app/ribunit/salvage.c
+seen /app/ribunit/core.c
+--- BINARY ---
+/app/bin/pinweld: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, not stripped
+bash: xxd: command not found
+[?2004hroot@9292d841caac:/app# printf '%s\n' '--- ALL HOOK OCCURRENCES ---'; grep -RIn 'WELD_HOOK' /app/recipath /app/ribunit 2>/dev/null || true; printf '%s\n' '--- CENSUS RUN ---'; /app/bin/pinweld census; rc=$?; echo "census_rc=$rc"; printf '%s\n' '--- MINT AFTER CENSUS ---'; for f in /app/mintbay/points.reg /app/mintbay/runtime.lst /app/mintbay/scan.log; do echo "### $f"; cat "$f" 2>/dev/null || true; done
+[?2004l--- ALL HOOK OCCURRENCES ---
+/app/ribunit/stock/lab.c:4:WELD_HOOK(lab_ghost);
+/app/ribunit/stock/night.c:4:WELD_HOOK(night_lamp);
+/app/ribunit/stock/hooks.h:3:#define WELD_HOOK(n) static int weld_mark_##n = 1
+/app/ribunit/stock/salvage.c:4:WELD_HOOK(salvage_drain);
+/app/ribunit/stock/core.c:4:WELD_HOOK(dead_zero);
+/app/ribunit/stock/core.c:7:WELD_HOOK(core_pump);
+/app/ribunit/lab.c:4:WELD_HOOK(lab_ghost);
+/app/ribunit/night.c:4:WELD_HOOK(night_lamp);
+/app/ribunit/hooks.h:3:#define WELD_HOOK(n) static int weld_mark_##n = 1
+/app/ribunit/salvage.c:4:WELD_HOOK(salvage_drain);
+/app/ribunit/core.c:4:WELD_HOOK(dead_zero);
+/app/ribunit/core.c:7:WELD_HOOK(core_pump);
+--- CENSUS RUN ---
+census_rc=0
+--- MINT AFTER CENSUS ---
+### /app/mintbay/points.reg
+core_pump
+### /app/mintbay/runtime.lst
+core_pump
+### /app/mintbay/scan.log
+seen /app/ribunit/lab.c
+seen /app/ribunit/night.c
+seen /app/ribunit/salvage.c
+seen /app/ribunit/core.c
+[?2004hroot@9292d841caac:/app# printf '%s\n' '--- BLOTCLI ---'; for f in /app/blotcli/*; do echo "### $f"; sed -n '1,300p' "$f"; done; printf '%s\n' '--- TAPDESK ---'; for f in /app/tapdesk/*; do echo "### $f"; sed -n '1,300p' "$f"; done; printf '%s\n' '--- RIBUNIT ---'; find /app/ribunit -maxdepth 2 -type f -print | sort | while read -r f; do echo "### $f"; sed -n '1,200p' "$f"; done
+[?2004l--- BLOTCLI ---
+### /app/blotcli/hoist.c
+#include "hoist.h"
+#include <stdio.h>
+
+void copy_sidecar(void) {
+    FILE *fp = fopen("/app/mintbay/hoist.note", "w");
+    if (!fp) return;
+    fputs("always-on copy helper\n", fp);
+    fclose(fp);
+}
+### /app/blotcli/hoist.h
+void copy_sidecar(void);
+### /app/blotcli/hull.mk
+CC ?= gcc
+CFLAGS ?= -O2 -Wall -Wextra -I. -I/app/tapdesk -I/app/recipath
+SRC := $(wildcard *.c) $(wildcard /app/tapdesk/*.c) $(wildcard /app/recipath/*.c)
+BIN := /app/bin/pinweld
+
+.PHONY: hull
+hull:
+	mkdir -p /app/bin /app/mintbay
+	$(CC) $(CFLAGS) -o $(BIN) $(SRC)
+### /app/blotcli/hull_cli.c
+#include "walk.h"
+#include "poke.h"
+#include <stdio.h>
+#include <string.h>
+
+int main(int argc, char **argv) {
+    if (argc < 2) {
+        fprintf(stderr, "usage: pinweld census|poke NAME\n");
+        return 2;
+    }
+    if (strcmp(argv[1], "census") == 0) {
+        op_fill();
+        return 0;
+    }
+    if (strcmp(argv[1], "poke") == 0 && argc >= 3) {
+        return fire_name(argv[2]);
+    }
+    fprintf(stderr, "usage: pinweld census|poke NAME\n");
+    return 2;
+}
+### /app/blotcli/token.c
+#include "token.h"
+#include <string.h>
+#include <stdlib.h>
+
+int pull_marks(const char *text, char names[][64], int max) {
+    int n = 0;
+    const char *p = text;
+    while (p && *p && n < max) {
+        const char *hit = strstr(p, "weld_mark_");
+        if (!hit) break;
+        hit += 10;
+        int len = 0;
+        while ((hit[len] >= 'a' && hit[len] <= 'z') ||
+               (hit[len] >= 'A' && hit[len] <= 'Z') ||
+               (hit[len] >= '0' && hit[len] <= '9') ||
+               hit[len] == '_') {
+            len++;
+        }
+        if (len > 0 && len < 63) {
+            memcpy(names[n], hit, (size_t)len);
+            names[n][len] = 0;
+            n++;
+        }
+        p = hit + (len ? len : 1);
+    }
+    return n;
+}
+
+static int cmpstr(const void *a, const void *b) {
+    return strcmp((const char *)a, (const char *)b);
+}
+
+void sort_unique(char names[][64], int *n) {
+    if (*n <= 0) return;
+    qsort(names, (size_t)*n, 64, cmpstr);
+    int w = 1;
+    for (int i = 1; i < *n; i++) {
+        if (strcmp(names[i], names[w - 1]) != 0) {
+            memcpy(names[w], names[i], 64);
+            w++;
+        }
+    }
+    *n = w;
+}
+### /app/blotcli/token.h
+int pull_marks(const char *text, char names[][64], int max);
+void sort_unique(char names[][64], int *n);
+### /app/blotcli/walk.c
+#include "walk.h"
+#include "load.h"
+#include "token.h"
+#include "gap.h"
+#include "hoist.h"
+#include <dirent.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+
+static void slurp_cmd(const char *cmd, char *buf, size_t cap) {
+    buf[0] = 0;
+    FILE *fp = popen(cmd, "r");
+    if (!fp) return;
+    size_t used = 0;
+    while (used + 1 < cap) {
+        size_t got = fread(buf + used, 1, cap - 1 - used, fp);
+        if (!got) break;
+        used += got;
+    }
+    buf[used] = 0;
+    pclose(fp);
+}
+
+void op_fill(void) {
+    mkdir("/app/mintbay", 0755);
+    char flags[8][512];
+    (void)cfg_open(flags, 8);
+    /* default core recipe only */
+    const char *use = "-P -DCORE=1";
+
+    FILE *log = fopen("/app/mintbay/scan.log", "w");
+    char names[64][64];
+    int n = 0;
+
+    DIR *d = opendir("/app/ribunit");
+    if (d) {
+        struct dirent *ent;
+        while ((ent = readdir(d)) != NULL) {
+            size_t L = strlen(ent->d_name);
+            if (L < 3 || strcmp(ent->d_name + L - 2, ".c") != 0) continue;
+            char src[512];
+            snprintf(src, sizeof src, "/app/ribunit/%s", ent->d_name);
+            if (log) fprintf(log, "seen %s\n", src);
+            char cmd[768];
+            snprintf(cmd, sizeof cmd, "gcc -E %s -I/app/ribunit %s 2>/dev/null", use, src);
+            char text[65536];
+            slurp_cmd(cmd, text, sizeof text);
+            char tmp[32][64];
+            int k = pull_marks(text, tmp, 32);
+            for (int i = 0; i < k && n < 64; i++) {
+                memcpy(names[n], tmp[i], 64);
+                n++;
+            }
+        }
+        closedir(d);
+    }
+    if (log) fclose(log);
+    sort_unique(names, &n);
+
+    FILE *reg = fopen("/app/mintbay/points.reg", "w");
+    FILE *lst = fopen("/app/mintbay/runtime.lst", "w");
+    for (int i = 0; i < n; i++) {
+        if (reg) fprintf(reg, "%s\n", names[i]);
+        if (lst) fprintf(lst, "%s\n", names[i]);
+    }
+    if (reg) fclose(reg);
+    if (lst) fclose(lst);
+    copy_sidecar();
+    int rc = n_miss("/app/mintbay/points.reg", names, n);
+    if (rc != 0) exit(rc);
+}
+### /app/blotcli/walk.h
+void op_fill(void);
+--- TAPDESK ---
+### /app/tapdesk/gap.c
+#include "gap.h"
+#include "token.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int n_miss(const char *reg_path, char names[][64], int n) {
+    /* keep marks that survive the core recipe; drop the rest */
+    const char *units[] = {
+        "/app/ribunit/core.c",
+        "/app/ribunit/salvage.c",
+        "/app/ribunit/night.c",
+        "/app/ribunit/lab.c",
+        NULL,
+    };
+    char keep[32][64];
+    int nk = 0;
+    for (int u = 0; units[u]; u++) {
+        char cmd[768];
+        snprintf(cmd, sizeof cmd, "gcc -E -P -DCORE=1 -I/app/ribunit %s 2>/dev/null", units[u]);
+        FILE *fp = popen(cmd, "r");
+        if (!fp) continue;
+        char text[32768];
+        size_t used = 0;
+        while (used + 1 < sizeof text) {
+            size_t got = fread(text + used, 1, sizeof text - 1 - used, fp);
+            if (!got) break;
+            used += got;
+        }
+        text[used] = 0;
+        pclose(fp);
+        char tmp[16][64];
+        int k = pull_marks(text, tmp, 16);
+        for (int i = 0; i < k && nk < 32; i++) {
+            memcpy(keep[nk], tmp[i], 64);
+            nk++;
+        }
+    }
+    sort_unique(keep, &nk);
+
+    FILE *reg = fopen(reg_path, "w");
+    FILE *lst = fopen("/app/mintbay/runtime.lst", "w");
+    int written = 0;
+    for (int i = 0; i < n; i++) {
+        int ok = 0;
+        for (int j = 0; j < nk; j++) {
+            if (strcmp(names[i], keep[j]) == 0) ok = 1;
+        }
+        if (!ok) continue;
+        if (reg) fprintf(reg, "%s\n", names[i]);
+        if (lst) fprintf(lst, "%s\n", names[i]);
+        written++;
+    }
+    if (reg) fclose(reg);
+    if (lst) fclose(lst);
+    (void)written;
+    return 0;
+}
+### /app/tapdesk/gap.h
+int n_miss(const char *reg_path, char names[][64], int n);
+### /app/tapdesk/poke.c
+#include "poke.h"
+#include <stdio.h>
+#include <string.h>
+
+int fire_name(const char *name) {
+    FILE *fp = fopen("/app/mintbay/runtime.lst", "r");
+    if (!fp) return 1;
+    char line[128];
+    int hit = 0;
+    while (fgets(line, sizeof line, fp)) {
+        size_t n = strlen(line);
+        while (n && (line[n - 1] == '\n' || line[n - 1] == '\r')) line[--n] = 0;
+        if (strcmp(line, name) == 0) hit = 1;
+    }
+    fclose(fp);
+    if (!hit) return 1;
+    printf("fired:%s\n", name);
+    return 0;
+}
+### /app/tapdesk/poke.h
+int fire_name(const char *name);
+--- RIBUNIT ---
+### /app/ribunit/core.c
+#include "hooks.h"
+
+#if 0
+WELD_HOOK(dead_zero);
+#endif
+
+WELD_HOOK(core_pump);
+### /app/ribunit/hooks.h
+#ifndef HOOKS_H
+#define HOOKS_H
+#define WELD_HOOK(n) static int weld_mark_##n = 1
+#endif
+### /app/ribunit/lab.c
+#include "hooks.h"
+
+#ifdef LAB_ONLY
+WELD_HOOK(lab_ghost);
+#endif
+### /app/ribunit/night.c
+#include "hooks.h"
+
+#ifdef NIGHT
+WELD_HOOK(night_lamp);
+#endif
+### /app/ribunit/salvage.c
+#include "hooks.h"
+
+#ifdef SALVAGE
+WELD_HOOK(salvage_drain);
+#endif
+### /app/ribunit/stock/core.c
+#include "hooks.h"
+
+#if 0
+WELD_HOOK(dead_zero);
+#endif
+
+WELD_HOOK(core_pump);
+### /app/ribunit/stock/hooks.h
+#ifndef HOOKS_H
+#define HOOKS_H
+#define WELD_HOOK(n) static int weld_mark_##n = 1
+#endif
+### /app/ribunit/stock/lab.c
+#include "hooks.h"
+
+#ifdef LAB_ONLY
+WELD_HOOK(lab_ghost);
+#endif
+### /app/ribunit/stock/night.c
+#include "hooks.h"
+
+#ifdef NIGHT
+WELD_HOOK(night_lamp);
+#endif
+### /app/ribunit/stock/salvage.c
+#include "hooks.h"
+
+#ifdef SALVAGE
+WELD_HOOK(salvage_drain);
+#endif
+[?2004hroot@9292d841caac:/app# printf '%s\n' '--- SYMBOLS/STRINGS ---'; nm -C /app/bin/pinweld 2>/dev/null | grep -E ' cfg_open| census| poke|walk|hoist|token|gap' || true; strings /app/bin/pinweld | grep -E '/app/|points|runtime|scan|fired' | head -100
+[?2004l--- SYMBOLS/STRINGS ---
+0000000000401b90 T cfg_open
+/app/mintbay/hoist.note
+/app/mintbay
+/app/mintbay/scan.log
+/app/ribunit
+/app/ribunit/%s
+/app/mintbay/points.reg
+/app/mintbay/runtime.lst
+gcc -E %s -I/app/ribunit %s 2>/dev/null
+/app/ribunit/core.c
+/app/ribunit/salvage.c
+/app/ribunit/night.c
+/app/ribunit/lab.c
+gcc -E -P -DCORE=1 -I/app/ribunit %s 2>/dev/null
+fired:%s
+/app/recipath
+/app/recipath/%s
+[?2004hroot@9292d841caac:/app# cat > /app/recipath/load.c <<'EOF'
+[?2004l[?2004h> #include "load.h"
+[?2004l[?2004h> #include <dirent.h>
+[?2004l[?2004h> #include <stdio.h>
+[?2004l[?2004h> #include <string.h>
+[?2004l[?2004h> 
+[?2004l[?2004h> int cfg_open(char out[][512], int max) {
+[?2004l[?2004h>     DIR *d = opendir("/app/recipath");
+[?2004l[?2004h>     if (!d) return -1;
+[?2004l[?2004h>     char files[64][256];
+[?2004l[?2004h>     int nf = 0;
+[?2004l[?2004h>     struct dirent *ent;
+[?2004l[?2004h>     while ((ent = readdir(d)) != NULL) {
+[?2004l[?2004h>         size_t len = strlen(ent->d_name);
+[?2004l[?2004h>         if (len <= 6 || strcmp(ent->d_name + len - 6, ".flags") != 0)
+[?2004l[?2004h>             continue;
+[?2004l[?2004h>         if (nf >= (int)(sizeof files / sizeof files[0])) {
+[?2004l[?2004h>             closedir(d);
+[?2004l[?2004h>             return -1;
+[?2004l[?2004h>         }
+[?2004l[?2004h>         snprintf(files[nf++], sizeof files[0], "%s", ent->d_name);
+[?2004l[?2004h>     }
+[?2004l[?2004h>     closedir(d);
+[?2004l[?2004h> 
+[?2004l[?2004h>     for (int i = 0; i < nf; i++) {
+[?2004l[?2004h>         for (int j = i + 1; j < nf; j++) {
+[?2004l[?2004h>             if (strcmp(files[j], files[i]) < 0) {
+[?2004l[?2004h>                 char tmp[256];
+[?2004l[?2004h>                 memcpy(tmp, files[i], sizeof tmp);
+[?2004l[?2004h>                 memcpy(files[i], files[j], sizeof tmp);
+[?2004l[?2004h>                 memcpy(files[j], tmp, sizeof tmp);
+[?2004l[?2004h>             }
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if (nf > max) return -1;
+[?2004l[?2004h> 
+[?2004l[?2004h>     for (int i = 0; i < nf; i++) {
+[?2004l[?2004h>         char path[512];
+[?2004l[?2004h>         snprintf(path, sizeof path, "/app/recipath/%s", files[i]);
+[?2004l[?2004h>         FILE *fp = fopen(path, "r");
+[?2004l[?2004h>         if (!fp) return -1;
+[?2004l[?2004h>         size_t used = fread(out[i], 1, 511, fp);
+[?2004l[?2004h>         if (ferror(fp) || (!feof(fp) && used == 511)) {
+[?2004l[?2004h>             fclose(fp);
+[?2004l[?2004h>             return -1;
+[?2004l[?2004h>         }
+[?2004l[?2004h>         fclose(fp);
+[?2004l[?2004h>         out[i][used] = 0;
+[?2004l[?2004h>         while (used && (out[i][used - 1] == '\n' || out[i][used - 1] == '\r'))
+[?2004l[?2004h>             out[i][--used] = 0;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     return nf;
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@9292d841caac:/app# cat > /app/blotcli/walk.h <<'EOF'
+[?2004l[?2004h> int op_fill(void);
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@9292d841caac:/app# cat > /app/blotcli/hull_cli.c <<'EOF'
+[?2004l[?2004h> #include "walk.h"
+[?2004l[?2004h> #include "poke.h"
+[?2004l[?2004h> #include <stdio.h>
+[?2004l[?2004h> #include <string.h>
+[?2004l[?2004h> 
+[?2004l[?2004h> int main(int argc, char **argv) {
+[?2004l[?2004h>     if (argc < 2) {
+[?2004l[?2004h>         fprintf(stderr, "usage: pinweld census|poke NAME\n");
+[?2004l[?2004h>         return 2;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if (strcmp(argv[1], "census") == 0)
+[?2004l[?2004h>         return op_fill();
+[?2004l[?2004h>     if (strcmp(argv[1], "poke") == 0 && argc >= 3)
+[?2004l[?2004h>         return fire_name(argv[2]);
+[?2004l[?2004h>     fprintf(stderr, "usage: pinweld census|poke NAME\n");
+[?2004l[?2004h>     return 2;
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@9292d841caac:/app# cat > /app/tapdesk/gap.c <<'EOF'
+[?2004l[?2004h> #include "gap.h"
+[?2004l[?2004h> #include <stdio.h>
+[?2004l[?2004h> #include <string.h>
+[?2004l[?2004h> 
+[?2004l[?2004h> int n_miss(const char *reg_path, char names[][64], int n) {
+[?2004l[?2004h>     FILE *fp = fopen(reg_path, "r");
+[?2004l[?2004h>     if (!fp) return 1;
+[?2004l[?2004h>     char line[128];
+[?2004l[?2004h>     int i = 0;
+[?2004l[?2004h>     while (fgets(line, sizeof line, fp)) {
+[?2004l[?2004h>         size_t len = strlen(line);
+[?2004l[?2004h>         if (len == sizeof line - 1 && line[len - 1] != '\n') {
+[?2004l[?2004h>             fclose(fp);
+[?2004l[?2004h>             return 1;
+[?2004l[?2004h>         }
+[?2004l[?2004h>         while (len && (line[len - 1] == '\n' || line[len - 1] == '\r'))
+[?2004l[?2004h>             line[--len] = 0;
+[?2004l[?2004h>         if (!len || i >= n || strcmp(line, names[i]) != 0) {
+[?2004l[?2004h>             fclose(fp);
+[?2004l[?2004h>             return 1;
+[?2004l[?2004h>         }
+[?2004l[?2004h>         i++;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if (ferror(fp)) {
+[?2004l[?2004h>         fclose(fp);
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     fclose(fp);
+[?2004l[?2004h>     return i == n ? 0 : 1;
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@9292d841caac:/app# cat > /app/blotcli/walk.c <<'EOF'
+[?2004l[?2004h> #include "walk.h"
+[?2004l[?2004h> #include "load.h"
+[?2004l[?2004h> #include "token.h"
+[?2004l[?2004h> #include "gap.h"
+[?2004l[?2004h> #include "hoist.h"
+[?2004l[?2004h> #include <dirent.h>
+[?2004l[?2004h> #include <stdio.h>
+[?2004l[?2004h> #include <stdlib.h>
+[?2004l[?2004h> #include <string.h>
+[?2004l[?2004h> #include <sys/stat.h>
+[?2004l[?2004h> #include <sys/wait.h>
+[?2004l[?2004h> 
+[?2004l[?2004h> #define MAX_RECIPES 64
+[?2004l[?2004h> #define MAX_MARKS 1024
+[?2004l[?2004h> 
+[?2004l[?2004h> static int slurp_cmd(const char *cmd, char *buf, size_t cap) {
+[?2004l[?2004h>     FILE *fp = popen(cmd, "r");
+[?2004l[?2004h>     if (!fp) return -1;
+[?2004l[?2004h>     size_t used = 0;
+[?2004l[?2004h>     int overflow = 0;
+[?2004l[?2004h>     while (used + 1 < cap) {
+[?2004l[?2004h>         size_t got = fread(buf + used, 1, cap - 1 - used, fp);
+[?2004l[?2004h>         used += got;
+[?2004l[?2004h>         if (!got) break;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if (used + 1 == cap && !feof(fp)) overflow = 1;
+[?2004l[?2004h>     buf[used] = 0;
+[?2004l[?2004h>     int status = pclose(fp);
+[?2004l[?2004h>     if (overflow || status == -1 || !WIFEXITED(status) || WEXITSTATUS(status) != 0)
+[?2004l[?2004h>         return -1;
+[?2004l[?2004h>     return 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> int op_fill(void) {
+[?2004l[?2004h>     if (mkdir("/app/mintbay", 0755) != 0) {
+[?2004l[?2004h>         struct stat st;
+[?2004l[?2004h>         if (stat("/app/mintbay", &st) != 0 || !S_ISDIR(st.st_mode)) return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     char flags[MAX_RECIPES][512];
+[?2004l[?2004h>     int nr = cfg_open(flags, MAX_RECIPES);
+[?2004l[?2004h>     if (nr < 0) return 1;
+[?2004l[?2004h> 
+[?2004l[?2004h>     FILE *log = fopen("/app/mintbay/scan.log", "w");
+[?2004l[?2004h>     if (!log) return 1;
+[?2004l[?2004h>     char names[MAX_MARKS][64];
+[?2004l[?2004h>     int n = 0;
+[?2004l[?2004h>     int failed = 0;
+[?2004l[?2004h> 
+[?2004l[?2004h>     DIR *d = opendir("/app/ribunit");
+[?2004l[?2004h>     if (!d) {
+[?2004l[?2004h>         fclose(log);
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     struct dirent *ent;
+[?2004l[?2004h>     while ((ent = readdir(d)) != NULL && !failed) {
+[?2004l[?2004h>         size_t len = strlen(ent->d_name);
+[?2004l[?2004h>         if (len < 3 || strcmp(ent->d_name + len - 2, ".c") != 0) continue;
+[?2004l[?2004h> 
+[?2004l[?2004h>         char src[512];
+[?2004l[?2004h>         snprintf(src, sizeof src, "/app/ribunit/%s", ent->d_name);
+[?2004l[?2004h>         if (fprintf(log, "seen %s\n", src) < 0) {
+[?2004l[?2004h>             failed = 1;
+[?2004l[?2004h>             break;
+[?2004l[?2004h>         }
+[?2004l[?2004h> 
+[?2004l[?2004h>         for (int r = 0; r < nr && !failed; r++) {
+[?2004l[?2004h>             char cmd[1400];
+[?2004l[?2004h>             int wrote = snprintf(cmd, sizeof cmd,
+[?2004l[?2004h>                                  "gcc -E %s -I/app/ribunit %s 2>/dev/null",
+[?2004l[?2004h>                                  flags[r], src);
+[?2004l[?2004h>             if (wrote < 0 || (size_t)wrote >= sizeof cmd) {
+[?2004l[?2004h>                 failed = 1;
+[?2004l[?2004h>                 break;
+[?2004l[?2004h>             }
+[?2004l[?2004h>             char text[262144];
+[?2004l[?2004h>             if (slurp_cmd(cmd, text, sizeof text) != 0) {
+[?2004l[?2004h>                 failed = 1;
+[?2004l[?2004h>                 break;
+[?2004l[?2004h>             }
+[?2004l[?2004h>             char tmp[256][64];
+[?2004l[?2004h>             int k = pull_marks(text, tmp, 256);
+[?2004l[?2004h>             for (int i = 0; i < k; i++) {
+[?2004l[?2004h>                 if (n >= MAX_MARKS) {
+[?2004l[?2004h>                     failed = 1;
+[?2004l[?2004h>                     break;
+[?2004l[?2004h>                 }
+[?2004l[?2004h>                 memcpy(names[n++], tmp[i], 64);
+[?2004l[?2004h>             }
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     closedir(d);
+[?2004l[?2004h>     if (fclose(log) != 0) failed = 1;
+[?2004l[?2004h>     if (failed) return 1;
+[?2004l[?2004h> 
+[?2004l[?2004h>     sort_unique(names, &n);
+[?2004l[?2004h>     FILE *reg = fopen("/app/mintbay/points.reg", "w");
+[?2004l[?2004h>     FILE *lst = fopen("/app/mintbay/runtime.lst", "w");
+[?2004l[?2004h>     if (!reg || !lst) {
+[?2004l[?2004h>         if (reg) fclose(reg);
+[?2004l[?2004h>         if (lst) fclose(lst);
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     for (int i = 0; i < n; i++) {
+[?2004l[?2004h>         if (fprintf(reg, "%s\n", names[i]) < 0 ||
+[?2004l[?2004h>             fprintf(lst, "%s\n", names[i]) < 0) {
+[?2004l[?2004h>             failed = 1;
+[?2004l[?2004h>             break;
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if (fclose(reg) != 0) failed = 1;
+[?2004l[?2004h>     if (fclose(lst) != 0) failed = 1;
+[?2004l[?2004h>     if (failed) return 1;
+[?2004l[?2004h> 
+[?2004l[?2004h>     copy_sidecar();
+[?2004l[?2004h>     return n_miss("/app/mintbay/points.reg", names, n);
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@9292d841caac:/app# make -C /app/blotcli -f hull.mk hull
+[?2004lmake: Entering directory '/app/blotcli'
+mkdir -p /app/bin /app/mintbay
+cc -O2 -Wall -Wextra -I. -I/app/tapdesk -I/app/recipath -o /app/bin/pinweld hoist.c hull_cli.c token.c walk.c /app/tapdesk/gap.c /app/tapdesk/poke.c /app/recipath/load.c
+[01m[K/app/recipath/load.c:[m[K In function ‘[01m[Kcfg_open[m[K’:
+[01m[K/app/recipath/load.c:38:52:[m[K [01;35m[Kwarning: [m[K‘[01m[K%s[m[K’ directive output may be truncated writing up to 16383 bytes into a region of size 498 [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wformat-truncation=-Wformat-truncation=]8;;[m[K]
+   38 |         snprintf(path, sizeof path, "/app/recipath/[01;35m[K%s[m[K", files[i]);
+      |                                                    [01;35m[K^~[m[K
+[01m[K/app/recipath/load.c:38:9:[m[K [01;36m[Knote: [m[K‘[01m[Ksnprintf[m[K’ output between 15 and 16398 bytes into a destination of size 512
+   38 |         [01;36m[Ksnprintf(path, sizeof path, "/app/recipath/%s", files[i])[m[K;
+      |         [01;36m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+make: Leaving directory '/app/blotcli'
+[?2004hroot@9292d841caac:/app# file /app/bin/pinweld; od -An -tx1 -N4 /app/bin/pinweld; /app/bin/pinweld census; rc=$?; echo "census_rc=$rc"; echo '--- points.reg'; cat /app/mintbay/points.reg; echo '--- runtime.lst'; cat /app/mintbay/runtime.lst; echo '--- scan.log'; cat /app/mintbay/scan.log; /app/bin/pinweld poke salvage_drain; echo "salvage_poke_rc=$?"; out=$(/app/bin/pinweld poke lab_ghost); rc=$?; printf 'lab_poke_rc=%s output=<%s>\n' "$rc" "$out"
+[?2004l/app/bin/pinweld: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, not stripped
+ 7f 45 4c 46
+census_rc=0
+--- points.reg
+core_pump
+night_lamp
+salvage_drain
+--- runtime.lst
+core_pump
+night_lamp
+salvage_drain
+--- scan.log
+seen /app/ribunit/lab.c
+seen /app/ribunit/night.c
+seen /app/ribunit/salvage.c
+seen /app/ribunit/core.c
+fired:salvage_drain
+salvage_poke_rc=0
+lab_poke_rc=1 output=<>
+[?2004hroot@9292d841caac:/app# python3 - <<'PY'
+[?2004l[?2004h> p='/app/recipath/load.c'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> s=s.replace('''        char path[512];
+[?2004l[?2004h>         snprintf(path, sizeof path, "/app/recipath/%s", files[i]);
+[?2004l[?2004h>         FILE *fp = fopen(path, "r");
+[?2004l[?2004h> ''','''        char path[512];
+[?2004l[?2004h>         const char prefix[] = "/app/recipath/";
+[?2004l[?2004h>         size_t flen = strnlen(files[i], sizeof files[i]);
+[?2004l[?2004h>         if (flen == sizeof files[i] || sizeof prefix - 1 + flen >= sizeof path)
+[?2004l[?2004h>             return -1;
+[?2004l[?2004h>         memcpy(path, prefix, sizeof prefix - 1);
+[?2004l[?2004h>         memcpy(path + sizeof prefix - 1, files[i], flen + 1);
+[?2004l[?2004h>         FILE *fp = fopen(path, "r");
+[?2004l[?2004h> ''')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@9292d841caac:/app# make -C /app/blotcli -f hull.mk hull
+[?2004lmake: Entering directory '/app/blotcli'
+mkdir -p /app/bin /app/mintbay
+cc -O2 -Wall -Wextra -I. -I/app/tapdesk -I/app/recipath -o /app/bin/pinweld hoist.c hull_cli.c token.c walk.c /app/tapdesk/gap.c /app/tapdesk/poke.c /app/recipath/load.c
+make: Leaving directory '/app/blotcli'
+[?2004hroot@9292d841caac:/app# rm -f /app/mintbay/points.reg /app/mintbay/runtime.lst; /app/bin/pinweld census; rc=$?; echo "census_rc=$rc"; test -f /app/mintbay/points.reg && test -f /app/mintbay/runtime.lst && cmp -s /app/mintbay/points.reg /app/mintbay/runtime.lst; echo "products_equal_rc=$?"; printf '%s\n' '--- points.reg ---'; cat /app/mintbay/points.reg; printf '%s\n' '--- scan.log ---'; cat /app/mintbay/scan.log; /app/bin/pinweld poke salvage_drain; echo "salvage_poke_rc=$?"; od -An -tx1 -N4 /app/bin/pinweld
+[?2004lcensus_rc=0
+products_equal_rc=0
+--- points.reg ---
+core_pump
+night_lamp
+salvage_drain
+--- scan.log ---
+seen /app/ribunit/lab.c
+seen /app/ribunit/night.c
+seen /app/ribunit/salvage.c
+seen /app/ribunit/core.c
+fired:salvage_drain
+salvage_poke_rc=0
+ 7f 45 4c 46
+[?2004hroot@9292d841caac:/app# 

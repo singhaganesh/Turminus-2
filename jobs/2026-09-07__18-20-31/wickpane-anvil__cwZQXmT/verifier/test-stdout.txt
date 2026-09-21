@@ -1,0 +1,228 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 13 items
+
+../tests/test_outputs.py FFFFFFFFFFFFF                                   [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_wp00_magic_head _____________________________
+
+    def test_wp00_magic_head():
+        """Compiled mill is ELF and n7 pane matches grammar after bin."""
+        blob = Path(BIN).read_bytes()
+        assert blob[:4] == b"\x7fELF"
+        rc = _bin()
+        assert rc == 0
+        data = _load(BINS)
+        expect = _pane(LIVE / "n7.stk")
+>       assert data["n7"] == expect
+E       AssertionError: assert '+0x4400!draw...clock_gettime' == 'libwidget.so...bc.so.6!abort'
+E         
+E         - libwidget.so!draw_box|libc.so.6!abort
+E         + +0x4400!draw_box|+0x4418!draw_box_fill|+0x80!abort|+0x20!clock_gettime
+
+/tests/test_outputs.py:118: AssertionError
+_____________________________ test_wp01_pair_same ______________________________
+
+    def test_wp01_pair_same():
+        """n7 and s7 share one pane; pair.sha is sha256 of that pane."""
+        rc = _bin()
+        assert rc == 0
+        data = _load(BINS)
+>       assert data["n7"] == data["s7"]
+E       AssertionError: assert '+0x4400!draw...clock_gettime' == '+0x9aa0!draw_box|+0x80!abort'
+E         
+E         - +0x9aa0!draw_box|+0x80!abort
+E         + +0x4400!draw_box|+0x4418!draw_box_fill|+0x80!abort|+0x20!clock_gettime
+
+/tests/test_outputs.py:126: AssertionError
+_____________________________ test_wp02_ledger_obj _____________________________
+
+    def test_wp02_ledger_obj():
+        """etch.json panes match grammar for every crumbay take."""
+        data = _load(ETCH)
+        for path in sorted(CRUMB.glob("*.stk")):
+>           assert data[path.stem] == _pane(path)
+E           AssertionError: assert '+0x4400!draw...clock_gettime' == 'libwidget.so...bc.so.6!abort'
+E             
+E             - libwidget.so!draw_box|libc.so.6!abort
+E             + +0x4400!draw_box|+0x4418!draw_box_fill|+0x80!abort|+0x20!clock_gettime
+
+/tests/test_outputs.py:137: AssertionError
+_____________________________ test_wp03_filed_obj ______________________________
+
+    def test_wp03_filed_obj():
+        """bins.json panes match grammar for every live take."""
+        rc = _bin()
+        assert rc == 0
+        data = _load(BINS)
+        for path in sorted(LIVE.glob("*.stk")):
+>           assert data[path.stem] == _pane(path)
+E           AssertionError: assert '+0x4400!draw...clock_gettime' == 'libwidget.so...bc.so.6!abort'
+E             
+E             - libwidget.so!draw_box|libc.so.6!abort
+E             + +0x4400!draw_box|+0x4418!draw_box_fill|+0x80!abort|+0x20!clock_gettime
+
+/tests/test_outputs.py:146: AssertionError
+_____________________________ test_wp04_plus_gone ______________________________
+
+    def test_wp04_plus_gone():
+        """Filed panes contain no plus tails."""
+        rc = _bin()
+        assert rc == 0
+        data = _load(BINS)
+        for val in data.values():
+>           assert "+" not in val
+E           AssertionError: assert '+' not in '+0x4400!dra...lock_gettime'
+E             
+E             '+' is contained here:
+E               +0x4400!draw_box|+0x4418!draw_box_fill|+0x80!abort|+0x20!clock_gettime
+E             ? +
+
+/tests/test_outputs.py:155: AssertionError
+_____________________________ test_wp05_inner_gone _____________________________
+
+    def test_wp05_inner_gone():
+        """n7 pane matches grammar after fold rules."""
+        rc = _bin()
+        assert rc == 0
+        data = _load(BINS)
+>       assert data["n7"] == _pane(LIVE / "n7.stk")
+E       AssertionError: assert '+0x4400!draw...clock_gettime' == 'libwidget.so...bc.so.6!abort'
+E         
+E         - libwidget.so!draw_box|libc.so.6!abort
+E         + +0x4400!draw_box|+0x4418!draw_box_fill|+0x80!abort|+0x20!clock_gettime
+
+/tests/test_outputs.py:164: AssertionError
+_____________________________ test_wp06_clock_gone _____________________________
+
+    def test_wp06_clock_gone():
+        """q9 pane matches grammar after omit rules."""
+        rc = _bin()
+        assert rc == 0
+        data = _load(BINS)
+>       assert data["q9"] == _pane(LIVE / "q9.stk")
+E       AssertionError: assert '+0x50!recv_o...vsyscall_page' == 'libnet.so!recv_one'
+E         
+E         - libnet.so!recv_one
+E         + +0x50!recv_one|+0x8!vsyscall_page
+
+/tests/test_outputs.py:172: AssertionError
+_____________________________ test_wp07_fault_keep _____________________________
+
+    @pytest.mark.keep_poison
+    def test_wp07_fault_keep():
+        """poison.stk makes bin fail and leaves bins.json."""
+        parked = _park_file(POISON)
+        try:
+            rc = _bin()
+            assert rc == 0
+            prior = BINS.read_bytes()
+        finally:
+            shutil.move(str(parked), str(POISON))
+        rc2 = _bin()
+>       assert rc2 != 0
+E       assert 0 != 0
+
+/tests/test_outputs.py:186: AssertionError
+_____________________________ test_wp08_obj_shape ______________________________
+
+    def test_wp08_obj_shape():
+        """bins.json keys are take stems and values match grammar panes."""
+        rc = _bin()
+        assert rc == 0
+        data = _load(BINS)
+>       assert set(data) == _stems()
+E       AssertionError: assert {'n7', 'p3', ... 's7', 'tick'} == {'n7', 'p3', 'q9', 'r2', 's7'}
+E         
+E         Extra items in the left set:
+E         'tick'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:195: AssertionError
+_____________________________ test_wp09_extra_copy _____________________________
+
+    def test_wp09_extra_copy():
+        """Held-out take files to the same pane as n7."""
+        dest = LIVE / HOLD.name
+        shutil.copy(HOLD, dest)
+        try:
+            rc = _bin()
+            assert rc == 0
+            data = _load(BINS)
+>           assert data[HOLD.stem] == _pane(HOLD)
+E           AssertionError: assert '+0x1110!draw...l|+0x80!abort' == 'libwidget.so...bc.so.6!abort'
+E             
+E             - libwidget.so!draw_box|libc.so.6!abort
+E             + +0x1110!draw_box|+0x1128!draw_box_fill|+0x80!abort
+
+/tests/test_outputs.py:210: AssertionError
+______________________________ test_wp10_solo_key ______________________________
+
+    def test_wp10_solo_key():
+        """p3 pane is the solo grammar string."""
+        rc = _bin()
+        assert rc == 0
+        data = _load(BINS)
+>       assert data["p3"] == _pane(LIVE / "p3.stk")
+E       AssertionError: assert '+0x100!run_main' == 'libsolo.so!run_main'
+E         
+E         - libsolo.so!run_main
+E         + +0x100!run_main
+
+/tests/test_outputs.py:222: AssertionError
+_____________________________ test_wp11_twice_same _____________________________
+
+    def test_wp11_twice_same():
+        """Second bin write matches the first."""
+        rc1 = _bin()
+        a = BINS.read_bytes()
+        rc2 = _bin()
+        b = BINS.read_bytes()
+        assert rc1 == 0 and rc2 == 0
+>       assert a == b
+E       assert b'{\n  "n7": ...k": "14"\n}\n' == b'{\n  "n7": ...k": "15"\n}\n'
+E         
+E         At index 250 diff: b'4' != b'5'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:232: AssertionError
+____________________________ test_wp_zz_ledger_redo ____________________________
+
+    def test_wp_zz_ledger_redo():
+        """Corrupt etch.json then etch restores grammar panes."""
+        ETCH.write_text("{}\n")
+        rc = _etch()
+        assert rc == 0
+        data = _load(ETCH)
+        for path in sorted(CRUMB.glob("*.stk")):
+>           assert data[path.stem] == _pane(path)
+E           AssertionError: assert '+0x4400!draw...clock_gettime' == 'libwidget.so...bc.so.6!abort'
+E             
+E             - libwidget.so!draw_box|libc.so.6!abort
+E             + +0x4400!draw_box|+0x4418!draw_box_fill|+0x80!abort|+0x20!clock_gettime
+
+/tests/test_outputs.py:242: AssertionError
+=============================== warnings summary ===============================
+../tests/test_outputs.py:175
+  /tests/test_outputs.py:175: PytestUnknownMarkWarning: Unknown pytest.mark.keep_poison - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.keep_poison
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_wp00_magic_head - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_wp01_pair_same - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_wp02_ledger_obj - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_wp03_filed_obj - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_wp04_plus_gone - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_wp05_inner_gone - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_wp06_clock_gone - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_wp07_fault_keep - assert 0 != 0
+FAILED ../tests/test_outputs.py::test_wp08_obj_shape - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_wp09_extra_copy - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_wp10_solo_key - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_wp11_twice_same - assert b'{\n  "n7": ....
+FAILED ../tests/test_outputs.py::test_wp_zz_ledger_redo - AssertionError: ass...
+======================== 13 failed, 1 warning in 0.24s =========================

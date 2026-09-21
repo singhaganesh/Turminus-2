@@ -1,0 +1,48 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 13 items
+
+../tests/test_outputs.py F............                                   [100%]
+
+=================================== FAILURES ===================================
+____________________________ test_lx00_native_mill _____________________________
+
+    def test_lx00_native_mill():
+        """Mill at /app/bin/lanternix is ELF and links every generated unit."""
+        blob = Path(BIN).read_bytes()
+        assert blob[:4] == b"\x7fELF"
+        reg = REG.read_text()
+        names = sorted(p.name for p in UNITS.iterdir() if p.is_dir())
+        assert names
+        for name in names:
+            assert f"packbay/units/{name}" in reg
+        proc = subprocess.run(
+            ["go", "tool", "nm", BIN],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert proc.returncode == 0
+>       assert "oxbind.Read" in proc.stdout
+E       AssertionError: assert 'oxbind.Read' in '  5545f8 r $f32.358637bd\n  554600 r $f32.4b189680\n  5545fc r $f32.6258d727\n  554604 r $f32.80000000\n  554608 r $f... 494140 T unicode/utf8.appendRuneNonASCII\n  494000 T unicode/utf8.encodeRuneNonASCII\n  609520 D unicode/utf8.first\n'
+E        +  where '  5545f8 r $f32.358637bd\n  554600 r $f32.4b189680\n  5545fc r $f32.6258d727\n  554604 r $f32.80000000\n  554608 r $f... 494140 T unicode/utf8.appendRuneNonASCII\n  494000 T unicode/utf8.encodeRuneNonASCII\n  609520 D unicode/utf8.first\n' = CompletedProcess(args=['go', 'tool', 'nm', '/app/bin/lanternix'], returncode=0, stdout='  5545f8 r $f32.358637bd\n  55...icode/utf8.appendRuneNonASCII\n  494000 T unicode/utf8.encodeRuneNonASCII\n  609520 D unicode/utf8.first\n', stderr='').stdout
+
+/tests/test_outputs.py:79: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_lx01_id_parity
+PASSED ../tests/test_outputs.py::test_lx02_anchor_pair
+PASSED ../tests/test_outputs.py::test_lx03_held_pair
+PASSED ../tests/test_outputs.py::test_lx04_prior_pair
+PASSED ../tests/test_outputs.py::test_lx05_alien_exit
+PASSED ../tests/test_outputs.py::test_lx06_gap_abort
+PASSED ../tests/test_outputs.py::test_lx07_json_shape
+PASSED ../tests/test_outputs.py::test_lx08_index_shape
+PASSED ../tests/test_outputs.py::test_lx09_cross_bind
+PASSED ../tests/test_outputs.py::test_lx10_held_second
+PASSED ../tests/test_outputs.py::test_lx11_twice_stable
+PASSED ../tests/test_outputs.py::test_lx_zz_corrupt_recover
+FAILED ../tests/test_outputs.py::test_lx00_native_mill - AssertionError: asse...
+========================= 1 failed, 12 passed in 2.49s =========================

@@ -1,0 +1,208 @@
+{
+  "schema_version": "ATIF-v1.7",
+  "session_id": "13270fd1-3765-4c22-9dbe-6ec06f29a353",
+  "agent": {
+    "name": "terminus-2",
+    "version": "2.0.0",
+    "model_name": "openai/@openai/gpt-5.6",
+    "extra": {
+      "parser": "json"
+    }
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "timestamp": "2026-09-06T08:01:49.629530+00:00",
+      "source": "user",
+      "message": "You are an AI assistant tasked with solving command-line tasks in a Linux environment. You will be given a task description and the output from previously executed commands. Your goal is to solve the task by providing batches of shell commands.\n\nFormat your response as JSON with the following structure:\n\n{\n  \"analysis\": \"Analyze the current state based on the terminal output provided. What do you see? What has been accomplished? What still needs to be done?\",\n  \"plan\": \"Describe your plan for the next steps. What commands will you run and why? Be specific about what you expect each command to accomplish.\",\n  \"commands\": [\n    {\n      \"keystrokes\": \"ls -la\\n\",\n      \"duration\": 0.1\n    },\n    {\n      \"keystrokes\": \"cd project\\n\",\n      \"duration\": 0.1\n    }\n  ],\n  \"task_complete\": true\n}\n\nRequired fields:\n- \"analysis\": Your analysis of the current situation\n- \"plan\": Your plan for the next steps\n- \"commands\": Array of command objects to execute\n\nOptional fields:\n- \"task_complete\": Boolean indicating if the task is complete (defaults to false if not present)\n\nCommand object structure:\n- \"keystrokes\": String containing the exact keystrokes to send to the terminal (required)\n- \"duration\": Number of seconds to wait for the command to complete before the next command will be executed (defaults to 1.0 if not present)\n\nIMPORTANT: The text inside \"keystrokes\" will be used completely verbatim as keystrokes. Write commands exactly as you want them sent to the terminal:\n- You must end every command with a newline (\\n) or it will not execute.\n- For special key sequences, use tmux-style escape sequences:\n  - C-c for Ctrl+C\n  - C-d for Ctrl+D\n\nThe \"duration\" attribute specifies the number of seconds to wait for the command to complete (default: 1.0) before the next command will be executed. On immediate tasks (e.g., cd, ls, echo, cat) set a duration of 0.1 seconds. On commands (e.g., gcc, find, rustc) set a duration of 1.0 seconds. On slow commands (e.g., make, python3 [long running script], wget [file]) set an appropriate duration as you determine necessary.\n\nIt is better to set a smaller duration than a longer duration. It is always possible to wait again if the prior output has not finished, by running {\"keystrokes\": \"\", \"duration\": 10.0} on subsequent requests to wait longer. Never wait longer than 60 seconds; prefer to poll to see intermediate result status.\n\nImportant notes:\n- Each command's keystrokes are sent exactly as written to the terminal\n- Do not include extra whitespace before or after the keystrokes unless it's part of the intended command\n- Extra text before or after the JSON will generate warnings but be tolerated\n- The JSON must be valid - use proper escaping for quotes and special characters within strings\n- Commands array can be empty if you want to wait without taking action\n\nTask Description:\nAfter a roster refresh, `/app/bin/crashrail route --signature SIG_NULL_DEREF_81c2` answers `platform-core` with `source: default` even when `/app/bin/crashrail compile` finishes cleanly. That regression signature must answer `graphics-guild` with `source: table`. Roster lives at `/app/faultdata/roster.toml`; compile writes `/app/relaydesk/gen/routing_map.py` with a `SIGNATURE_OWNERS` dict mapping each signature id to a team name. Compile must finish with a complete `SIGNATURE_OWNERS` table covering every roster id even when the on-disk map is syntactically invalid or incomplete; grading includes one compile recovery check after a corrupted map is written. Route JSON always carries `team` and `source`. Every roster id must appear in `SIGNATURE_OWNERS` and import without error. Signatures absent from the roster, for example `SIG_UNKNOWN_FFFF`, must use the default fallback and exit non-zero. Auxiliary probe scripts under `/app/relaydesk/probes/` are not grading inputs. Repair the offline compile pipeline and switchboard sources, run compile, then leave the tree ready for grading. The verifier reruns `/app/bin/crashrail route` without invoking compile again.\n\n\nCurrent terminal state:\nCurrent Terminal Screen:\nroot@12ed7161f3a8:/app#\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
+    },
+    {
+      "step_id": 2,
+      "timestamp": "2026-09-06T08:01:57.373533+00:00",
+      "source": "agent",
+      "model_name": "gpt-5.6-sol",
+      "message": "Analysis: We are at an untouched shell in /app. The failure likely involves roster parsing, compile-time recovery from a malformed generated Python map, and routing imports/fallback behavior. We need inspect the repository and executable wrappers before editing.\nPlan: List relevant files, inspect the roster, crashrail launcher, compiler/switchboard source, and current generated map. Then reproduce compile/route behavior and identify why the refreshed signature is omitted or defaults.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_0_1",
+          "function_name": "bash_command",
+          "arguments": {
+            "keystrokes": "find /app/relaydesk -maxdepth 3 -type f -print | sort && printf '\\n--- bin ---\\n' && ls -l /app/bin/crashrail && printf '\\n--- roster ---\\n' && sed -n '1,240p' /app/faultdata/roster.toml\n",
+            "duration": 0.1
+          }
+        },
+        {
+          "tool_call_id": "call_0_2",
+          "function_name": "bash_command",
+          "arguments": {
+            "keystrokes": "printf '\\n--- crashrail launcher ---\\n'; sed -n '1,240p' /app/bin/crashrail; printf '\\n--- python sources ---\\n'; find /app/relaydesk -maxdepth 2 -type f -name '*.py' -not -path '*/probes/*' -exec sh -c 'echo \"### $1\"; sed -n \"1,260p\" \"$1\"' _ {} \\;\n",
+            "duration": 0.5
+          }
+        },
+        {
+          "tool_call_id": "call_0_3",
+          "function_name": "bash_command",
+          "arguments": {
+            "keystrokes": "/app/bin/crashrail compile; echo compile_rc=$?; /app/bin/crashrail route --signature SIG_NULL_DEREF_81c2; echo route_rc=$?; /app/bin/crashrail route --signature SIG_UNKNOWN_FFFF; echo unknown_rc=$?\n",
+            "duration": 1.0
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "content": "New Terminal Output:\nroot@12ed7161f3a8:/app# find /app/relaydesk -maxdepth 3 -type f -print | sort && printf '\\n--- bin ---\\n' && ls -l /app/bin/crashrail && printf '\\n--- roster --\n-\\n' && sed -n '1,240p' /app/faultdata/roster.toml\n/app/relaydesk/__init__.py\n/app/relaydesk/cli_entry.py\n/app/relaydesk/gen/__init__.py\n/app/relaydesk/gen/routing_map.py\n/app/relaydesk/probes/file_present.py\n/app/relaydesk/switchboard/__init__.py\n/app/relaydesk/switchboard/direct.py\n/app/relaydesk/switchboard/load_map.py\n\n--- bin ---\n-rwxr-xr-x 1 root root 112 Sep  6 06:52 /app/bin/crashrail\n\n--- roster ---\n[roster]\ndefault_team = \"platform-core\"\n\n[[roster.signatures]]\nid = \"SIG_NULL_DEREF_81c2\"\nowner = \"graphics-guild\"\n\n[[roster.signatures]]\nid = \"SIG_IO_TIMEOUT_4f91\"\nowner = \"storage-cell\"\n\n[[roster.signatures]]\nid = \"SIG_AUTH_LOOP_22bd\"\nowner = \"identity-ring\"\n\n[[roster.signatures]]\nid = \"SIG_NET_RESET_9e04\"\nowner = \"network-desk\"\n\n[[roster.signatures]]\nid = \"SIG_HEAP_OOM_7a3f\"\nowner = \"memory-squad\"\nroot@12ed7161f3a8:/app# printf '\\n--- crashrail launcher ---\\n'; sed -n '1,240p' /app/bin/crashrail; printf '\\n--- python sources ---\\n'; find /app/relaydesk -m\naxdepth 2 -type f -name '*.py' -not -path '*/probes/*' -exec sh -c 'echo \"### $1\"; sed -n \"1,260p\" \"$1\"' _ {} \\;\n\n--- crashrail launcher ---\n#!/bin/bash\nset -euo pipefail\nexport PYTHONPATH=\"/app:${PYTHONPATH:-}\"\nexec python3 -m relaydesk.cli_entry \"$@\"\n\n--- python sources ---\n### /app/relaydesk/switchboard/direct.py\n\"\"\"Signature to team routing.\"\"\"\n\nfrom __future__ import annotations\n\nfrom relaydesk.switchboard.load_map import DEFAULT_TEAM, fetch_map\n\n\ndef normalize(sig: str) -> str:\n    text = sig.strip().upper()\n    return text[4:]\n\n\ndef direct(sig: str) -> tuple[str, str]:\n    table = fetch_map()\n    key = normalize(sig)\n    if key in table:\n        return table[key], \"table\"\n    return DEFAULT_TEAM, \"default\"\n### /app/relaydesk/switchboard/__init__.py\n\"\"\"Switchboard routing.\"\"\"\n### /app/relaydesk/switchboard/load_map.py\n\"\"\"Load generated routing maps.\"\"\"\n\nfrom __future__ import annotations\n\nfrom typing import Dict\n\nDEFAULT_TEAM = \"platform-core\"\n\n\ndef fetch_map() -> Dict[str, str]:\n    try:\n        from relaydesk.gen.routing_map import SIGNATURE_OWNERS\n    except Exception:\n        return {}\n    if not isinstance(SIGNATURE_OWNERS, dict):\n        return {}\n    return {str(k): str(v) for k, v in SIGNATURE_OWNERS.items()}\n### /app/relaydesk/gen/__init__.py\n\"\"\"Generated routing map package.\"\"\"\n### /app/relaydesk/gen/routing_map.py\n\"\"\"Generated routing map. Do not edit.\"\"\"\n\nOWNERS = {\n    \"SIG_NULL_DEREF_81c2\": \"graphics-guild\",\n}\n### /app/relaydesk/__init__.py\n\"\"\"Relay desk crash routing.\"\"\"\n### /app/relaydesk/cli_entry.py\n\"\"\"Crashrail command-line front door.\"\"\"\n\nfrom __future__ import annotations\n\nimport argparse\nimport json\n\nfrom codemill.tablegen.driver import run_tablegen\nfrom relaydesk.switchboard.direct import direct\n\n\ndef main(argv: list[str] | None = None) -> int:\n    parser = argparse.ArgumentParser(prog=\"crashrail\")\n    sub = parser.add_subparsers(dest=\"cmd\", required=True)\n\n    route = sub.add_parser(\"route\")\n    route.add_argument(\"--signature\", required=True)\n\n    sub.add_parser(\"compile\")\n\n    args = parser.parse_args(argv)\n    if args.cmd == \"compile\":\n        return run_tablegen()\n    if args.cmd == \"route\":\n        team, source = direct(args.signature)\n        print(json.dumps({\"team\": team, \"source\": source}))\n        return 1 if source == \"default\" else 0\n    return 2\n\n\nif __name__ == \"__main__\":\n    raise SystemExit(main())\nroot@12ed7161f3a8:/app# /app/bin/crashrail compile; echo compile_rc=$?; /app/bin/crashrail route --signature SIG_NULL_DEREF_81c2; echo route_rc=$?; /app/bin/cra\nshrail route --signature SIG_UNKNOWN_FFFF; echo unknown_rc=$?\ntablegen done\ncompile_rc=0\n{\"team\": \"platform-core\", \"source\": \"default\"}\nroute_rc=1\n{\"team\": \"platform-core\", \"source\": \"default\"}\nunknown_rc=1\nroot@12ed7161f3a8:/app#\n"
+          }
+        ]
+      },
+      "metrics": {
+        "prompt_tokens": 948,
+        "completion_tokens": 365,
+        "cost_usd": 0.011092000000000001
+      }
+    },
+    {
+      "step_id": 3,
+      "timestamp": "2026-09-06T08:02:06.760918+00:00",
+      "source": "agent",
+      "model_name": "gpt-5.6-sol",
+      "message": "Analysis: The roster is correct, but two concrete defects are visible. The generated file defines `OWNERS` rather than required `SIGNATURE_OWNERS`, and routing normalization removes the `SIG_` prefix while roster/generated keys retain it. Compile reports success without repairing the map. The compiler is imported from `codemill.tablegen.driver`, so that offline pipeline must now be located and inspected, including any stale/generated-source logic.\nPlan: Locate and inspect the codemill table generator and related configuration. Check the post-compile generated file exactly. Then repair generation so it parses the roster independently of the existing map and atomically emits a complete valid `SIGNATURE_OWNERS`; repair switchboard lookup to use roster-style IDs and ensure generated modules are reloaded if compile and route ever share a process.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_1_1",
+          "function_name": "bash_command",
+          "arguments": {
+            "keystrokes": "python3 - <<'PY'\nimport codemill.tablegen.driver as d\nprint(d.__file__)\nPY\nfind /app -type f \\( -path '*/codemill/*' -o -name '*tablegen*' \\) -print | sort\nprintf '\\n--- generated after compile ---\\n'; cat /app/relaydesk/gen/routing_map.py\n",
+            "duration": 0.5
+          }
+        },
+        {
+          "tool_call_id": "call_1_2",
+          "function_name": "bash_command",
+          "arguments": {
+            "keystrokes": "python3 - <<'PY'\nimport codemill.tablegen.driver as d\nfrom pathlib import Path\np=Path(d.__file__)\nfor f in sorted(p.parent.rglob('*')):\n    if f.is_file() and f.suffix in {'.py','.toml','.json','.txt'}:\n        print(f'### {f}')\n        print(f.read_text())\nPY\n",
+            "duration": 0.5
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "content": "New Terminal Output:\n\nroot@12ed7161f3a8:/app# python3 - <<'PY'\n> import codemill.tablegen.driver as d\n> print(d.__file__)\n> PY\n/app/codemill/tablegen/driver.py\nroot@12ed7161f3a8:/app# find /app -type f \\( -path '*/codemill/*' -o -name '*tablegen*' \\) -print | sort\n/app/codemill/__init__.py\n/app/codemill/__pycache__/__init__.cpython-313.pyc\n/app/codemill/tablegen/__init__.py\n/app/codemill/tablegen/__pycache__/__init__.cpython-313.pyc\n/app/codemill/tablegen/__pycache__/ast_read.cpython-313.pyc\n/app/codemill/tablegen/__pycache__/driver.cpython-313.pyc\n/app/codemill/tablegen/__pycache__/guard.cpython-313.pyc\n/app/codemill/tablegen/__pycache__/publish.cpython-313.pyc\n/app/codemill/tablegen/__pycache__/roster_read.cpython-313.pyc\n/app/codemill/tablegen/ast_read.py\n/app/codemill/tablegen/driver.py\n/app/codemill/tablegen/guard.py\n/app/codemill/tablegen/publish.py\n/app/codemill/tablegen/roster_read.py\nroot@12ed7161f3a8:/app# printf '\\n--- generated after compile ---\\n'; cat /app/relaydesk/gen/routing_map.py\n\n--- generated after compile ---\n\"\"\"Generated routing map. Do not edit.\"\"\"\n\nOWNERS = {\n    \"SIG_NULL_DEREF_81c2\": \"graphics-guild\",\n}\nroot@12ed7161f3a8:/app# python3 - <<'PY'\n> import codemill.tablegen.driver as d\n> from pathlib import Path\n> p=Path(d.__file__)\n> for f in sorted(p.parent.rglob('*')):\n>     if f.is_file() and f.suffix in {'.py','.toml','.json','.txt'}:\n>         print(f'### {f}')\n>         print(f.read_text())\n> PY\n### /app/codemill/tablegen/__init__.py\n\"\"\"Roster-driven routing table compiler.\"\"\"\n\n### /app/codemill/tablegen/ast_read.py\n\"\"\"AST helpers for generated maps.\"\"\"\n\nfrom __future__ import annotations\n\nimport ast\nfrom typing import Dict\n\n\ndef read_map_literal(text: str) -> Dict[str, str]:\n    tree = ast.parse(text)\n    for node in tree.body:\n        if isinstance(node, ast.Assign):\n            for target in node.targets:\n                if isinstance(target, ast.Name) and target.id == \"SIGNATURE_OWNERS\":\n                    raw = ast.literal_eval(node.value)\n                    if not isinstance(raw, dict):\n                        raise ValueError(\"not a dict\")\n                    return {str(k): str(v) for k, v in raw.items()}\n    raise ValueError(\"SIGNATURE_OWNERS not found\")\n\n### /app/codemill/tablegen/driver.py\n\"\"\"Compile driver.\"\"\"\n\nfrom __future__ import annotations\n\nimport sys\n\nfrom codemill.tablegen.publish import emit_map\n\n\ndef run_tablegen() -> int:\n    emit_map()\n    print(\"tablegen done\", file=sys.stderr)\n    return 0\n\n### /app/codemill/tablegen/guard.py\n\"\"\"Skip-if-unchanged guard for routing map writes.\"\"\"\n\nfrom __future__ import annotations\n\nfrom pathlib import Path\n\nfrom codemill.tablegen.ast_read import read_map_literal\n\n\ndef should_emit(path: Path, fresh_body: str) -> bool:\n    if not path.exists():\n        return True\n    try:\n        on_disk = read_map_literal(path.read_text())\n    except (SyntaxError, ValueError):\n        on_disk = None\n    if on_disk is None:\n        return False\n    return on_disk == read_map_literal(fresh_body)\n\n### /app/codemill/tablegen/publish.py\n\"\"\"Write routing_map.py from roster rows.\"\"\"\n\nfrom __future__ import annotations\n\nfrom pathlib import Path\n\nfrom codemill.tablegen.guard import should_emit\nfrom codemill.tablegen.roster_read import load_pairs\n\nOUT = Path(\"/app/relaydesk/gen/routing_map.py\")\n\n\ndef build_source(rows: list[tuple[str, str]]) -> str:\n    lines = ['\"\"\"Generated routing map. Do not edit.\"\"\"', \"\", \"OWNERS = {\"]\n    for sig, team in sorted(rows):\n        lines.append(f'    \"{sig}\": \"{team}\",')\n    lines.append(\"}\")\n    lines.append(\"\")\n    return \"\\n\".join(lines)\n\n\ndef emit_map(path: Path | None = None) -> bool:\n    target = path or OUT\n    target.parent.mkdir(parents=True, exist_ok=True)\n    body = build_source(load_pairs())\n    if not should_emit(target, body):\n        return False\n    target.write_text(body)\n    return True\n\n### /app/codemill/tablegen/roster_read.py\n\"\"\"Read fault roster TOML.\"\"\"\n\nfrom __future__ import annotations\n\nimport tomllib\nfrom pathlib import Path\n\nROSTER = Path(\"/app/faultdata/roster.toml\")\n\n\ndef load_pairs(path: Path | None = None) -> list[tuple[str, str]]:\n    src = path or ROSTER\n    doc = tomllib.loads(src.read_text())\n    pairs: list[tuple[str, str]] = []\n    for row in doc.get(\"roster\", {}).get(\"signatures\", []):\n        sig = str(row.get(\"id\", \"\")).strip().upper()\n        team = str(row.get(\"owner\", \"\")).strip()\n        if sig and team:\n            pairs.append((sig, team))\n    if not pairs:\n        raise ValueError(\"empty roster\")\n    return pairs\n\nroot@12ed7161f3a8:/app#\n"
+          }
+        ]
+      },
+      "metrics": {
+        "prompt_tokens": 2450,
+        "completion_tokens": 410,
+        "cost_usd": 0.020446999999999996
+      }
+    },
+    {
+      "step_id": 4,
+      "timestamp": "2026-09-06T08:02:32.829789+00:00",
+      "source": "agent",
+      "model_name": "gpt-5.6-sol",
+      "message": "Analysis: The compiler has three linked bugs: `build_source` emits `OWNERS` instead of `SIGNATURE_OWNERS`; `should_emit` has inverted behavior and refuses recovery when the existing file is invalid; and roster IDs are uppercased rather than preserved exactly. Routing also strips the first four characters, so it cannot match generated full signature IDs. We should fix all of these and use an atomic write so a compile cannot leave a partial Python module.\nPlan: Rewrite the small affected modules: preserve roster IDs, generate a safely quoted complete `SIGNATURE_OWNERS` dictionary, make the guard request writes for missing/invalid/different content, atomically publish the map, and make routing look up complete stripped signature IDs. Then run syntax checks, compile, verify every roster ID is represented, test known and unknown routes, deliberately corrupt the generated map and confirm compile recovery, and finally leave a freshly compiled valid map.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_2_1",
+          "function_name": "bash_command",
+          "arguments": {
+            "keystrokes": "cat > /app/codemill/tablegen/guard.py <<'PY'\n\"\"\"Skip-if-unchanged guard for routing map writes.\"\"\"\n\nfrom __future__ import annotations\n\nfrom pathlib import Path\n\nfrom codemill.tablegen.ast_read import read_map_literal\n\n\ndef should_emit(path: Path, fresh_body: str) -> bool:\n    \"\"\"Return true when *path* must be replaced by the freshly built map.\"\"\"\n    if not path.exists():\n        return True\n    try:\n        on_disk = read_map_literal(path.read_text())\n        fresh = read_map_literal(fresh_body)\n    except (OSError, SyntaxError, ValueError, TypeError):\n        # A malformed or incomplete generated module must never block repair.\n        return True\n    return on_disk != fresh\nPY\ncat > /app/codemill/tablegen/roster_read.py <<'PY'\n\"\"\"Read fault roster TOML.\"\"\"\n\nfrom __future__ import annotations\n\nimport tomllib\nfrom pathlib import Path\n\nROSTER = Path(\"/app/faultdata/roster.toml\")\n\n\ndef load_pairs(path: Path | None = None) -> list[tuple[str, str]]:\n    src = path or ROSTER\n    doc = tomllib.loads(src.read_text())\n    pairs: list[tuple[str, str]] = []\n    seen: set[str] = set()\n    for row in doc.get(\"roster\", {}).get(\"signatures\", []):\n        sig = str(row.get(\"id\", \"\")).strip()\n        team = str(row.get(\"owner\", \"\")).strip()\n        if not sig or not team:\n            continue\n        if sig in seen:\n            raise ValueError(f\"duplicate signature id: {sig}\")\n        seen.add(sig)\n        pairs.append((sig, team))\n    if not pairs:\n        raise ValueError(\"empty roster\")\n    return pairs\nPY\ncat > /app/codemill/tablegen/publish.py <<'PY'\n\"\"\"Write routing_map.py from roster rows.\"\"\"\n\nfrom __future__ import annotations\n\nimport os\nimport tempfile\nfrom pathlib import Path\n\nfrom codemill.tablegen.guard import should_emit\nfrom codemill.tablegen.roster_read import load_pairs\n\nOUT = Path(\"/app/relaydesk/gen/routing_map.py\")\n\n\ndef build_source(rows: list[tuple[str, str]]) -> str:\n    lines = ['\"\"\"Generated routing map. Do not edit.\"\"\"', \"\", \"SIGNATURE_OWNERS = {\"]\n    for sig, team in sorted(rows):\n        lines.append(f\"    {sig!r}: {team!r},\")\n    lines.extend([\"}\", \"\"])\n    return \"\\n\".join(lines)\n\n\ndef emit_map(path: Path | None = None) -> bool:\n    target = path or OUT\n    target.parent.mkdir(parents=True, exist_ok=True)\n    body = build_source(load_pairs())\n    if not should_emit(target, body):\n        return False\n\n    # Publish atomically so readers see either the old complete module or the\n    # new complete module, never a partially written Python file.\n    fd, temporary = tempfile.mkstemp(prefix=f\".{target.name}.\", dir=target.parent)\n    try:\n        with os.fdopen(fd, \"w\") as stream:\n            stream.write(body)\n            stream.flush()\n            os.fsync(stream.fileno())\n        os.replace(temporary, target)\n    except BaseException:\n        try:\n            os.unlink(temporary)\n        except FileNotFoundError:\n            pass\n        raise\n    return True\nPY\ncat > /app/relaydesk/switchboard/direct.py <<'PY'\n\"\"\"Signature to team routing.\"\"\"\n\nfrom __future__ import annotations\n\nfrom relaydesk.switchboard.load_map import DEFAULT_TEAM, fetch_map\n\n\ndef normalize(sig: str) -> str:\n    return sig.strip()\n\n\ndef direct(sig: str) -> tuple[str, str]:\n    table = fetch_map()\n    key = normalize(sig)\n    if key in table:\n        return table[key], \"table\"\n    return DEFAULT_TEAM, \"default\"\nPY\npython3 -m py_compile /app/codemill/tablegen/*.py /app/relaydesk/switchboard/*.py /app/relaydesk/cli_entry.py\n/app/bin/crashrail compile\n",
+            "duration": 1.0
+          }
+        },
+        {
+          "tool_call_id": "call_2_2",
+          "function_name": "bash_command",
+          "arguments": {
+            "keystrokes": "printf '%s\\n' '--- generated ---'; cat /app/relaydesk/gen/routing_map.py\npython3 - <<'PY'\nimport tomllib\nfrom relaydesk.gen.routing_map import SIGNATURE_OWNERS\nwith open('/app/faultdata/roster.toml', 'rb') as f:\n    rows = tomllib.load(f)['roster']['signatures']\nexpected = {row['id']: row['owner'] for row in rows}\nassert SIGNATURE_OWNERS == expected, (SIGNATURE_OWNERS, expected)\nprint(f'verified {len(expected)} roster entries')\nPY\n/app/bin/crashrail route --signature SIG_NULL_DEREF_81c2; echo known_rc=$?\n/app/bin/crashrail route --signature SIG_UNKNOWN_FFFF; echo unknown_rc=$?\n",
+            "duration": 1.0
+          }
+        },
+        {
+          "tool_call_id": "call_2_3",
+          "function_name": "bash_command",
+          "arguments": {
+            "keystrokes": "printf 'this is not valid python = {\\n' > /app/relaydesk/gen/routing_map.py\n/app/bin/crashrail compile; echo recovery_compile_rc=$?\npython3 -m py_compile /app/relaydesk/gen/routing_map.py\npython3 - <<'PY'\nimport tomllib\nfrom relaydesk.gen.routing_map import SIGNATURE_OWNERS\nwith open('/app/faultdata/roster.toml', 'rb') as f:\n    rows = tomllib.load(f)['roster']['signatures']\nassert all(SIGNATURE_OWNERS.get(r['id']) == r['owner'] for r in rows)\nassert len(SIGNATURE_OWNERS) == len(rows)\nprint('corruption recovery and completeness verified')\nPY\n/app/bin/crashrail route --signature SIG_NULL_DEREF_81c2; echo final_route_rc=$?\n",
+            "duration": 1.0
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "content": "New Terminal Output:\n\nroot@12ed7161f3a8:/app# cat > /app/codemill/tablegen/guard.py <<'PY'\n> \"\"\"Skip-if-unchanged guard for routing map writes.\"\"\"\n>\n> from __future__ import annotations\n>\n> from pathlib import Path\n>\n> from codemill.tablegen.ast_read import read_map_literal\n>\n>\n> def should_emit(path: Path, fresh_body: str) -> bool:\n>     \"\"\"Return true when *path* must be replaced by the freshly built map.\"\"\"\n>     if not path.exists():\n>         return True\n>     try:\n>         on_disk = read_map_literal(path.read_text())\n>         fresh = read_map_literal(fresh_body)\n>     except (OSError, SyntaxError, ValueError, TypeError):\n>         # A malformed or incomplete generated module must never block repair.\n>         return True\n>     return on_disk != fresh\n> PY\nroot@12ed7161f3a8:/app# cat > /app/codemill/tablegen/roster_read.py <<'PY'\n> \"\"\"Read fault roster TOML.\"\"\"\n>\n> from __future__ import annotations\n>\n> import tomllib\n> from pathlib import Path\n>\n> ROSTER = Path(\"/app/faultdata/roster.toml\")\n>\n>\n> def load_pairs(path: Path | None = None) -> list[tuple[str, str]]:\n>     src = path or ROSTER\n>     doc = tomllib.loads(src.read_text())\n>     pairs: list[tuple[str, str]] = []\n>     seen: set[str] = set()\n>     for row in doc.get(\"roster\", {}).get(\"signatures\", []):\n>         sig = str(row.get(\"id\", \"\")).strip()\n>         team = str(row.get(\"owner\", \"\")).strip()\n>         if not sig or not team:\n>             continue\n>         if sig in seen:\n>             raise ValueError(f\"duplicate signature id: {sig}\")\n>         seen.add(sig)\n>         pairs.append((sig, team))\n>     if not pairs:\n>         raise ValueError(\"empty roster\")\n>     return pairs\n> PY\nroot@12ed7161f3a8:/app# cat > /app/codemill/tablegen/publish.py <<'PY'\n> \"\"\"Write routing_map.py from roster rows.\"\"\"\n>\n> from __future__ import annotations\n>\n> import os\n> import tempfile\n> from pathlib import Path\n>\n> from codemill.tablegen.guard import should_emit\n> from codemill.tablegen.roster_read import load_pairs\n>\n> OUT = Path(\"/app/relaydesk/gen/routing_map.py\")\n>\n>\n> def build_source(rows: list[tuple[str, str]]) -> str:\n>     lines = ['\"\"\"Generated routing map. Do not edit.\"\"\"', \"\", \"SIGNATURE_OWNERS = {\"]\n>     for sig, team in sorted(rows):\n>         lines.append(f\"    {sig!r}: {team!r},\")\n>     lines.extend([\"}\", \"\"])\n>     return \"\\n\".join(lines)\n>\n>\n> def emit_map(path: Path | None = None) -> bool:\n>     target = path or OUT\n>     target.parent.mkdir(parents=True, exist_ok=True)\n>     body = build_source(load_pairs())\n>     if not should_emit(target, body):\n>         return False\n>\n>     # Publish atomically so readers see either the old complete module or the\n>     # new complete module, never a partially written Python file.\n>     fd, temporary = tempfile.mkstemp(prefix=f\".{target.name}.\", dir=target.parent)\n>     try:\n>         with os.fdopen(fd, \"w\") as stream:\n>             stream.write(body)\n>             stream.flush()\n>             os.fsync(stream.fileno())\n>         os.replace(temporary, target)\n>     except BaseException:\n>         try:\n>             os.unlink(temporary)\n>         except FileNotFoundError:\n>             pass\n>         raise\n>     return True\n> PY\nroot@12ed7161f3a8:/app# cat > /app/relaydesk/switchboard/direct.py <<'PY'\n> \"\"\"Signature to team routing.\"\"\"\n>\n> from __future__ import annotations\n>\n> from relaydesk.switchboard.load_map import DEFAULT_TEAM, fetch_map\n>\n>\n> def normalize(sig: str) -> str:\n>     return sig.strip()\n>\n>\n> def direct(sig: str) -> tuple[str, str]:\n>     table = fetch_map()\n>     key = normalize(sig)\n>     if key in table:\n>         return table[key], \"table\"\n>     return DEFAULT_TEAM, \"default\"\n> PY\nroot@12ed7161f3a8:/app# python3 -m py_compile /app/codemill/tablegen/*.py /app/relaydesk/switchboard/*.py /app/relaydesk/cli_entry.py\nroot@12ed7161f3a8:/app# /app/bin/crashrail compile\ntablegen done\nroot@12ed7161f3a8:/app# printf '%s\\n' '--- generated ---'; cat /app/relaydesk/gen/routing_map.py\n--- generated ---\n\"\"\"Generated routing map. Do not edit.\"\"\"\n\nSIGNATURE_OWNERS = {\n    'SIG_AUTH_LOOP_22bd': 'identity-ring',\n    'SIG_HEAP_OOM_7a3f': 'memory-squad',\n    'SIG_IO_TIMEOUT_4f91': 'storage-cell',\n    'SIG_NET_RESET_9e04': 'network-desk',\n    'SIG_NULL_DEREF_81c2': 'graphics-guild',\n}\nroot@12ed7161f3a8:/app# python3 - <<'PY'\n> import tomllib\n> from relaydesk.gen.routing_map import SIGNATURE_OWNERS\n> with open('/app/faultdata/roster.toml', 'rb') as f:\n>     rows = tomllib.load(f)['roster']['signatures']\n> expected = {row['id']: row['owner'] for row in rows}\n> assert SIGNATURE_OWNERS == expected, (SIGNATURE_OWNERS, expected)\n> print(f'verified {len(expected)} roster entries')\n> PY\nverified 5 roster entries\nroot@12ed7161f3a8:/app# /app/bin/crashrail route --signature SIG_NULL_DEREF_81c2; echo known_rc=$?\n{\"team\": \"graphics-guild\", \"source\": \"table\"}\nknown_rc=0\nroot@12ed7161f3a8:/app# /app/bin/crashrail route --signature SIG_UNKNOWN_FFFF; echo unknown_rc=$?\n{\"team\": \"platform-core\", \"source\": \"default\"}\nunknown_rc=1\nroot@12ed7161f3a8:/app# printf 'this is not valid python = {\\n' > /app/relaydesk/gen/routing_map.py\nroot@12ed7161f3a8:/app# /app/bin/crashrail compile; echo recovery_compile_rc=$?\ntablegen done\nrecovery_compile_rc=0\nroot@12ed7161f3a8:/app# python3 -m py_compile /app/relaydesk/gen/routing_map.py\nroot@12ed7161f3a8:/app# python3 - <<'PY'\n> import tomllib\n> from relaydesk.gen.routing_map import SIGNATURE_OWNERS\n> with open('/app/faultdata/roster.toml', 'rb') as f:\n>     rows = tomllib.load(f)['roster']['signatures']\n> assert all(SIGNATURE_OWNERS.get(r['id']) == r['owner'] for r in rows)\n> assert len(SIGNATURE_OWNERS) == len(rows)\n> print('corruption recovery and completeness verified')\n> PY\ncorruption recovery and completeness verified\nroot@12ed7161f3a8:/app# /app/bin/crashrail route --signature SIG_NULL_DEREF_81c2; echo final_route_rc=$?\n{\"team\": \"graphics-guild\", \"source\": \"table\"}\nfinal_route_rc=0\nroot@12ed7161f3a8:/app#\n"
+          }
+        ]
+      },
+      "metrics": {
+        "prompt_tokens": 4063,
+        "completion_tokens": 1991,
+        "cached_tokens": 2447,
+        "cost_usd": 0.04887580000000001
+      }
+    },
+    {
+      "step_id": 5,
+      "timestamp": "2026-09-06T08:02:38.362826+00:00",
+      "source": "agent",
+      "model_name": "gpt-5.6-sol",
+      "message": "Analysis: The offline compiler and switchboard have been repaired. Compilation now emits a valid `SIGNATURE_OWNERS` dictionary containing all five roster IDs. The guard replaces missing, incomplete, differing, or syntactically invalid generated maps, and publication is atomic. Routing now matches complete roster signature IDs. The required signature routes to `graphics-guild` with `source: table` and exit code 0; an unknown signature routes to `platform-core` with `source: default` and exit code 1. A deliberate syntax-corruption recovery compile also completed successfully and restored the full importable map.\nPlan: No further action is required. The final generated map is valid, complete, freshly compiled, and ready for the verifier, which can rerun route without compiling.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_3_task_complete",
+          "function_name": "mark_task_complete",
+          "arguments": {}
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "content": "Current terminal state:\nNew Terminal Output:\n\nroot@12ed7161f3a8:/app#\n\n\nAre you sure you want to mark the task as complete? This will trigger your solution to be graded and you won't be able to make any further corrections. If so, include \"task_complete\": true in your JSON response again."
+          }
+        ]
+      },
+      "metrics": {
+        "prompt_tokens": 7426,
+        "completion_tokens": 238,
+        "cached_tokens": 4060,
+        "cost_usd": 0.023210999999999996
+      }
+    },
+    {
+      "step_id": 6,
+      "timestamp": "2026-09-06T08:02:41.566019+00:00",
+      "source": "agent",
+      "model_name": "gpt-5.6-sol",
+      "message": "Analysis: Yes. All required behaviors were verified: the generated module imports successfully, every roster ID is present in `SIGNATURE_OWNERS`, the regression signature routes to `graphics-guild` from the table, unknown signatures use the default and exit non-zero, and compile recovers after a syntactically corrupted map. The recovered valid map remains on disk for grading.\nPlan: Submit the completed repair for grading.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_4_task_complete",
+          "function_name": "mark_task_complete",
+          "arguments": {}
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "content": "New Terminal Output:\n\nroot@12ed7161f3a8:/app#\n"
+          }
+        ]
+      },
+      "metrics": {
+        "prompt_tokens": 7680,
+        "completion_tokens": 107,
+        "cached_tokens": 7423,
+        "cost_usd": 0.0063912
+      }
+    }
+  ],
+  "final_metrics": {
+    "total_prompt_tokens": 22567,
+    "total_completion_tokens": 3111,
+    "total_cached_tokens": 13930,
+    "total_cost_usd": 0.110017
+  }
+}

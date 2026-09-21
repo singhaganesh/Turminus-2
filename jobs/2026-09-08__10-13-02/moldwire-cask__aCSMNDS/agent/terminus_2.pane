@@ -1,0 +1,1156 @@
+[?2004hroot@2b17a946d33e:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@2b17a946d33e:/app# clear
+[?2004l[H[J[3J[?2004hroot@2b17a946d33e:/app# pwd; ls -la; printf '\n--- tree.map ---\n'; cat /app/dockotes/tree.map; printf '\n--- sheet.rules ---\n'; cat /app/dockotes/sheet.rules; printf '\n--- moldwire ---\n'; file /app/bin/moldwire
+[?2004l/app
+total 56
+drwxr-xr-x 1 root root 4096 Sep  8 04:21 .
+drwxr-xr-x 1 root root 4096 Sep  8 04:43 ..
+drwxr-xr-x 2 root root 4096 Sep  8 04:21 bin
+drwxr-xr-x 2 root root 4096 Sep  8 04:21 classes
+drwxr-xr-x 2 root root 4096 Sep  7 17:17 dockcli
+drwxr-xr-x 2 root root 4096 Sep  7 17:34 dockotes
+drwxr-xr-x 2 root root 4096 Sep  7 17:34 duskpit
+drwxr-xr-x 2 root root 4096 Sep  8 04:21 incpit
+drwxr-xr-x 2 root root 4096 Sep  8 04:21 jsonpit
+drwxr-xr-x 1 root root 4096 Sep  8 04:21 piturn
+drwxr-xr-x 2 root root 4096 Sep  7 17:05 ribwire
+-rwxrwxr-x 1 root root  403 Sep  7 17:12 riv.sh
+drwxr-xr-x 2 root root 4096 Sep  7 17:04 sheetpit
+drwxr-xr-x 2 root root 4096 Sep  7 17:04 slagbin
+
+--- tree.map ---
+Java trees
+  /app/slagbin   sheet walk and C unit emit
+  /app/slagbin/SlotEmit.java
+  /app/piturn    urn row identity
+  /app/dockcli    bake entry and serve status
+
+C trees
+  /app/dockcli    ELF trampoline
+  /app/ribwire    skim dispatcher
+
+Units
+  /app/incpit/pond.inc
+
+Frames
+  /app/duskpit/dusk.bin
+  /app/duskpit/hold.bin
+  /app/duskpit/lake.bin
+
+Rebuild is /app/riv.sh.
+Shift notes live in /app/dockotes/cold.note.
+
+--- sheet.rules ---
+Sheets under /app/sheetpit use one NAME line, FIELD lines, and optional GROUP/END blocks.
+
+FIELD kinds:
+  u8     one byte
+  u16be  two bytes, big endian
+
+A GROUP on the wire is a u16be payload length followed by that many bytes of inner FIELD values in declaration order. GROUP names are not JSON keys. Every FIELD name, including names declared inside a GROUP, appears in /app/jsonpit/skim.json as a decimal integer string.
+
+bake writes one /app/incpit/<stem>.inc per sheet, where stem is the NAME token, plus /app/incpit/reg.inc.
+
+Grade-time sheets may appear as hold.sheet or mist.sheet under /app/sheetpit (NAME hold / NAME mist). Matching units are hold.inc and mist.inc.
+
+skim:
+  /app/bin/moldwire skim
+      reads /app/duskpit/dusk.bin with stem pond
+  /app/bin/moldwire skim <frame> <stem>
+      reads that frame using the named unit; shipped extras include /app/duskpit/hold.bin (stem hold) and /app/duskpit/lake.bin (stem lake)
+
+bake:
+  /app/bin/moldwire bake
+      refreshes incpit from sheetpit, then the image relinks the ELF
+
+bake stdout lines are either "served" or "fresh" (one per sheet). If any line is served after emitter sources under /app/slagbin changed, bake exits non-zero.
+
+--- moldwire ---
+/app/bin/moldwire: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, not stripped
+[?2004hroot@2b17a946d33e:/app# find /app -maxdepth 3 -type f -printf '%p\n' | sort | sed -n '1,240p'
+[?2004l/app/bin/moldwire
+/app/classes/Bake.class
+/app/classes/Dig.class
+/app/classes/Gate.class
+/app/classes/SheetScan$Row.class
+/app/classes/SheetScan.class
+/app/classes/SlotEmit.class
+/app/classes/Store.class
+/app/dockcli/Bake.java
+/app/dockcli/Gate.java
+/app/dockcli/main.c
+/app/dockotes/cold.note
+/app/dockotes/sheet.rules
+/app/dockotes/tree.map
+/app/duskpit/dusk.bin
+/app/duskpit/hold.bin
+/app/duskpit/lake.bin
+/app/incpit/lake.inc
+/app/incpit/pond.inc
+/app/incpit/reg.inc
+/app/piturn/Dig.java
+/app/piturn/Store.java
+/app/piturn/store/721454a07dc774a595ecd6466c2dc9eea0cc54688d9711bcc11c98b192e72cb6
+/app/piturn/store/fec02de4256858b6e3088b425a5953ea55dde7c6112e5d19edaa57bc23c7d8e6
+/app/ribwire/run.c
+/app/ribwire/skip.c
+/app/riv.sh
+/app/sheetpit/lake.sheet
+/app/sheetpit/pond.sheet
+/app/slagbin/SheetScan.java
+/app/slagbin/SlotEmit.java
+[?2004hroot@2b17a946d33e:/app# printf '%s\n' '--- cold.note ---'; cat dockotes/cold.note; printf '%s\n' '--- riv.sh ---'; cat riv.sh; for f in slagbin/*.java piturn/*.java dockcli/*.java dockcli/*.c ribwire/*.c; do echo "--- $f ---"; sed -n '1,260p' "$f"; done
+[?2004l--- cold.note ---
+If bake prints served, some shifts delete /app/piturn/store and rerun bake once so units look new on this watch.
+--- riv.sh ---
+#!/bin/sh
+set -eu
+export JAVA_HOME="${JAVA_HOME:-/opt/java/openjdk}"
+export PATH="${JAVA_HOME}/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+mkdir -p /app/classes /app/bin /app/incpit /app/jsonpit /app/piturn/store
+javac -d /app/classes /app/slagbin/*.java /app/piturn/*.java /app/dockcli/*.java
+java -cp /app/classes Bake
+gcc -O2 -o /app/bin/moldwire /app/dockcli/main.c /app/ribwire/run.c -I/app/incpit
+--- slagbin/SheetScan.java ---
+import java.util.ArrayList;
+import java.util.List;
+
+public class SheetScan {
+    public static final class Row {
+        public final String name;
+        public final String kind;
+        public final boolean nested;
+
+        Row(String name, String kind, boolean nested) {
+            this.name = name;
+            this.kind = kind;
+            this.nested = nested;
+        }
+    }
+
+    public static String stem(String sheet) {
+        for (String line : sheet.split("\n")) {
+            String t = line.trim();
+            if (t.startsWith("NAME ")) {
+                return t.substring(5).trim();
+            }
+        }
+        return "";
+    }
+
+    public static List<Row> rows(String sheet) {
+        List<Row> out = new ArrayList<Row>();
+        boolean nested = false;
+        for (String line : sheet.split("\n")) {
+            String t = line.trim();
+            if (t.startsWith("GROUP ")) {
+                nested = true;
+            } else if (t.equals("END")) {
+                nested = false;
+            } else if (t.startsWith("FIELD ")) {
+                String rest = t.substring(6).trim();
+                int sp = rest.indexOf(' ');
+                if (sp <= 0) {
+                    continue;
+                }
+                out.add(new Row(rest.substring(0, sp), rest.substring(sp).trim(), nested));
+            }
+        }
+        return out;
+    }
+}
+--- slagbin/SlotEmit.java ---
+import java.util.List;
+
+public class SlotEmit {
+    public static String op_inner(String sheet) {
+        String stem = SheetScan.stem(sheet);
+        List<SheetScan.Row> rows = SheetScan.rows(sheet);
+        StringBuilder fn = new StringBuilder();
+        fn.append("static void skim_").append(stem).append("(const unsigned char *p, size_t n, FILE *out) {\n");
+        fn.append("  size_t o = 0;\n");
+        for (SheetScan.Row r : rows) {
+            fn.append("  unsigned ").append(r.name).append(" = 0;\n");
+        }
+        for (SheetScan.Row r : rows) {
+            if (r.nested) {
+                continue;
+            }
+            if ("u8".equals(r.kind)) {
+                fn.append("  if (o < n) { ").append(r.name).append(" = p[o++]; }\n");
+            } else if ("u16be".equals(r.kind)) {
+                fn.append("  if (o + 1 < n) { ").append(r.name).append(" = ((unsigned)p[o] << 8) | p[o + 1]; o += 2; }\n");
+            }
+        }
+        fn.append("  fputc('{', out);\n");
+        for (int i = 0; i < rows.size(); i++) {
+            SheetScan.Row r = rows.get(i);
+            if (i > 0) {
+                fn.append("  fputc(',', out);\n");
+            }
+            if (r.nested) {
+                fn.append("  fprintf(out, \"\\\"").append(r.name).append("\\\":\\\"\\\"\");\n");
+            } else {
+                fn.append("  fprintf(out, \"\\\"").append(r.name).append("\\\":\\\"%u\\\"\", ").append(r.name).append(");\n");
+            }
+        }
+        fn.append("  fputc('}', out);\n");
+        fn.append("}\n");
+        return fn.toString();
+    }
+}
+--- piturn/Dig.java ---
+import java.security.MessageDigest;
+
+public class Dig {
+    public static String mill_stamp() {
+        return "rel-3";
+    }
+
+    public static String mix_id(byte[] sheet) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            md.update(sheet);
+            md.update(mill_stamp().getBytes("UTF-8"));
+            byte[] d = md.digest();
+            StringBuilder sb = new StringBuilder();
+            for (byte b : d) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return "none";
+        }
+    }
+}
+--- piturn/Store.java ---
+import java.nio.charset.StandardCharsets;
+
+public class Store {
+    public static byte[] pack(String stamp, String inc) {
+        String body = stamp + "\n" + inc;
+        return body.getBytes(StandardCharsets.UTF_8);
+    }
+
+    public static String stamp_of(byte[] stored) {
+        String s = new String(stored, StandardCharsets.UTF_8);
+        int n = s.indexOf('\n');
+        if (n < 0) {
+            return "";
+        }
+        return s.substring(0, n);
+    }
+
+    public static String inc_of(byte[] stored) {
+        String s = new String(stored, StandardCharsets.UTF_8);
+        int n = s.indexOf('\n');
+        if (n < 0) {
+            return s;
+        }
+        return s.substring(n + 1);
+    }
+}
+--- dockcli/Bake.java ---
+import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+public class Bake {
+    public static void main(String[] args) throws Exception {
+        Path sheets = Paths.get("/app/sheetpit");
+        Path units = Paths.get("/app/incpit");
+        Path urn = Paths.get("/app/piturn/store");
+        Files.createDirectories(units);
+        Files.createDirectories(urn);
+        List<Path> files = new ArrayList<Path>();
+        try (DirectoryStream<Path> ds = Files.newDirectoryStream(sheets, "*.sheet")) {
+            for (Path p : ds) {
+                files.add(p);
+            }
+        }
+        Collections.sort(files);
+        if (files.isEmpty()) {
+            System.exit(2);
+        }
+        List<String> stems = new ArrayList<String>();
+        for (Path p : files) {
+            byte[] raw = Files.readAllBytes(p);
+            String text = new String(raw, StandardCharsets.UTF_8);
+            String stem = SheetScan.stem(text);
+            if (stem.isEmpty()) {
+                System.exit(2);
+            }
+            stems.add(stem);
+            String key = Dig.mix_id(raw);
+            Path row = urn.resolve(key);
+            Path incPath = units.resolve(stem + ".inc");
+            if (Files.exists(row)) {
+                byte[] stored = Files.readAllBytes(row);
+                System.out.println("served");
+                int g = Gate.n_hit(stored);
+                if (g != 0) {
+                    System.exit(g);
+                }
+                Files.write(incPath, Store.inc_of(stored).getBytes(StandardCharsets.UTF_8));
+            } else {
+                String inc = SlotEmit.op_inner(text);
+                Files.write(incPath, inc.getBytes(StandardCharsets.UTF_8));
+                Files.write(row, Store.pack(Dig.mill_stamp(), inc));
+                System.out.println("fresh");
+            }
+        }
+        StringBuilder reg = new StringBuilder();
+        for (String stem : stems) {
+            reg.append("#include \"").append(stem).append(".inc\"\n");
+        }
+        reg.append("static int call_skim(const char *stem, const unsigned char *p, size_t n, FILE *out) {\n");
+        for (String stem : stems) {
+            reg.append("  if (strcmp(stem, \"").append(stem).append("\") == 0) { skim_").append(stem).append("(p, n, out); return 0; }\n");
+        }
+        reg.append("  return 2;\n}\n");
+        Files.write(units.resolve("reg.inc"), reg.toString().getBytes(StandardCharsets.UTF_8));
+        ProcessBuilder pb = new ProcessBuilder(
+            "gcc", "-O2", "-o", "/app/bin/moldwire.new",
+            "/app/dockcli/main.c", "/app/ribwire/run.c", "-I/app/incpit");
+        pb.redirectErrorStream(true);
+        Process g = pb.start();
+        int grc = g.waitFor();
+        if (grc != 0) {
+            System.exit(2);
+        }
+        Files.move(
+            Paths.get("/app/bin/moldwire.new"),
+            Paths.get("/app/bin/moldwire"),
+            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+    }
+}
+--- dockcli/Gate.java ---
+public class Gate {
+    public static int n_hit(byte[] stored) {
+        return 0;
+    }
+}
+--- dockcli/main.c ---
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+
+int skim_run(const char *path, const char *stem);
+
+int main(int argc, char **argv) {
+    if (argc >= 2 && strcmp(argv[1], "bake") == 0) {
+        execl("/opt/java/openjdk/bin/java", "java", "-cp", "/app/classes", "Bake", (char *)0);
+        perror("java");
+        return 127;
+    }
+    if (argc >= 2 && strcmp(argv[1], "skim") == 0) {
+        const char *path = "/app/duskpit/dusk.bin";
+        const char *stem = "pond";
+        if (argc >= 3) {
+            path = argv[2];
+        }
+        if (argc >= 4) {
+            stem = argv[3];
+        }
+        return skim_run(path, stem);
+    }
+    fprintf(stderr, "usage: moldwire bake|skim\n");
+    return 2;
+}
+--- ribwire/run.c ---
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+
+#include "reg.inc"
+
+int skim_run(const char *path, const char *stem) {
+    FILE *in;
+    FILE *out;
+    unsigned char *buf;
+    long n;
+    int rc;
+
+    in = fopen(path, "rb");
+    if (in == NULL) {
+        return 2;
+    }
+    if (fseek(in, 0, SEEK_END) != 0) {
+        fclose(in);
+        return 2;
+    }
+    n = ftell(in);
+    if (n < 0) {
+        fclose(in);
+        return 2;
+    }
+    rewind(in);
+    buf = malloc((size_t)n + 1);
+    if (buf == NULL) {
+        fclose(in);
+        return 2;
+    }
+    if (fread(buf, 1, (size_t)n, in) != (size_t)n) {
+        free(buf);
+        fclose(in);
+        return 2;
+    }
+    fclose(in);
+    mkdir("/app/jsonpit", 0755);
+    out = fopen("/app/jsonpit/skim.json", "w");
+    if (out == NULL) {
+        free(buf);
+        return 2;
+    }
+    rc = call_skim(stem, buf, (size_t)n, out);
+    fclose(out);
+    free(buf);
+    return rc;
+}
+--- ribwire/skip.c ---
+/* Optional skip-list helper for unused probe rows. Not wired into skim. */
+int skip_row(const char *stem) {
+    (void)stem;
+    return 0;
+}
+[?2004hroot@2b17a946d33e:/app# for f in sheetpit/*.sheet incpit/*.inc; do echo "--- $f ---"; cat "$f"; done; printf '%s\n' '--- frames ---'; for f in duskpit/*.bin; do echo "$f"; od -An -tx1 -v "$f"; done; printf '%s\n' '--- baseline hashes ---'; sha256sum incpit/*.inc; printf '%s\n' '--- bake ---'; bin/moldwire bake; echo "bake_rc=$?"; printf '%s\n' '--- skim ---'; bin/moldwire skim; echo "skim_rc=$?"; cat jsonpit/skim.json 2>/dev/null || true
+[?2004l--- sheetpit/lake.sheet ---
+NAME lake
+FIELD depth u8
+GROUP climate
+FIELD temp u16be
+FIELD wind u8
+END
+--- sheetpit/pond.sheet ---
+NAME pond
+FIELD depth u8
+GROUP climate
+FIELD temp u16be
+END
+--- incpit/lake.inc ---
+static void skim_lake(const unsigned char *p, size_t n, FILE *out) {
+  size_t o = 0;
+  unsigned depth = 0;
+  unsigned temp = 0;
+  unsigned wind = 0;
+  if (o < n) { depth = p[o++]; }
+  fputc('{', out);
+  fprintf(out, "\"depth\":\"%u\"", depth);
+  fputc(',', out);
+  fprintf(out, "\"temp\":\"\"");
+  fputc(',', out);
+  fprintf(out, "\"wind\":\"\"");
+  fputc('}', out);
+}
+--- incpit/pond.inc ---
+static void skim_pond(const unsigned char *p, size_t n, FILE *out) {
+  size_t o = 0;
+  unsigned depth = 0;
+  unsigned temp = 0;
+  if (o < n) { depth = p[o++]; }
+  fputc('{', out);
+  fprintf(out, "\"depth\":\"%u\"", depth);
+  fputc(',', out);
+  fprintf(out, "\"temp\":\"\"");
+  fputc('}', out);
+}
+--- incpit/reg.inc ---
+#include "lake.inc"
+#include "pond.inc"
+static int call_skim(const char *stem, const unsigned char *p, size_t n, FILE *out) {
+  if (strcmp(stem, "lake") == 0) { skim_lake(p, n, out); return 0; }
+  if (strcmp(stem, "pond") == 0) { skim_pond(p, n, out); return 0; }
+  return 2;
+}
+--- frames ---
+duskpit/dusk.bin
+ 07 00 02 00 16
+duskpit/hold.bin
+ 03 00 02 00 0b
+duskpit/lake.bin
+ 04 00 03 00 09 05
+--- baseline hashes ---
+acc19ca9c112cb8bb0cb1e68af843fea07c51efb1f295d2e8127cb9b08f8907e  incpit/lake.inc
+fecb8c507a4639493a57300840d992705e417a53fcfd86b94f276c45aa58710f  incpit/pond.inc
+e6155ea6a4c369cbbc4c48edce5324b57c2e7d1dce2e8c29298f04e0055c330c  incpit/reg.inc
+--- bake ---
+served
+served
+bake_rc=0
+--- skim ---
+skim_rc=0
+{"depth":"7","temp":""}[?2004hroot@2b17a946d33e:/app# for f in dockcli/Bake.java dockcli/Gate.java piturn/Dig.java piturn/Store.java slagbin/SheetScan.java slagbin/SlotEmit.java; do echo "--- $f ---"; nl -ba "$f"; done
+[?2004l--- dockcli/Bake.java ---
+     1	import java.nio.charset.StandardCharsets;
+     2	import java.nio.file.DirectoryStream;
+     3	import java.nio.file.Files;
+     4	import java.nio.file.Path;
+     5	import java.nio.file.Paths;
+     6	import java.util.ArrayList;
+     7	import java.util.Collections;
+     8	import java.util.List;
+     9	
+    10	public class Bake {
+    11	    public static void main(String[] args) throws Exception {
+    12	        Path sheets = Paths.get("/app/sheetpit");
+    13	        Path units = Paths.get("/app/incpit");
+    14	        Path urn = Paths.get("/app/piturn/store");
+    15	        Files.createDirectories(units);
+    16	        Files.createDirectories(urn);
+    17	        List<Path> files = new ArrayList<Path>();
+    18	        try (DirectoryStream<Path> ds = Files.newDirectoryStream(sheets, "*.sheet")) {
+    19	            for (Path p : ds) {
+    20	                files.add(p);
+    21	            }
+    22	        }
+    23	        Collections.sort(files);
+    24	        if (files.isEmpty()) {
+    25	            System.exit(2);
+    26	        }
+    27	        List<String> stems = new ArrayList<String>();
+    28	        for (Path p : files) {
+    29	            byte[] raw = Files.readAllBytes(p);
+    30	            String text = new String(raw, StandardCharsets.UTF_8);
+    31	            String stem = SheetScan.stem(text);
+    32	            if (stem.isEmpty()) {
+    33	                System.exit(2);
+    34	            }
+    35	            stems.add(stem);
+    36	            String key = Dig.mix_id(raw);
+    37	            Path row = urn.resolve(key);
+    38	            Path incPath = units.resolve(stem + ".inc");
+    39	            if (Files.exists(row)) {
+    40	                byte[] stored = Files.readAllBytes(row);
+    41	                System.out.println("served");
+    42	                int g = Gate.n_hit(stored);
+    43	                if (g != 0) {
+    44	                    System.exit(g);
+    45	                }
+    46	                Files.write(incPath, Store.inc_of(stored).getBytes(StandardCharsets.UTF_8));
+    47	            } else {
+    48	                String inc = SlotEmit.op_inner(text);
+    49	                Files.write(incPath, inc.getBytes(StandardCharsets.UTF_8));
+    50	                Files.write(row, Store.pack(Dig.mill_stamp(), inc));
+    51	                System.out.println("fresh");
+    52	            }
+    53	        }
+    54	        StringBuilder reg = new StringBuilder();
+    55	        for (String stem : stems) {
+    56	            reg.append("#include \"").append(stem).append(".inc\"\n");
+    57	        }
+    58	        reg.append("static int call_skim(const char *stem, const unsigned char *p, size_t n, FILE *out) {\n");
+    59	        for (String stem : stems) {
+    60	            reg.append("  if (strcmp(stem, \"").append(stem).append("\") == 0) { skim_").append(stem).append("(p, n, out); return 0; }\n");
+    61	        }
+    62	        reg.append("  return 2;\n}\n");
+    63	        Files.write(units.resolve("reg.inc"), reg.toString().getBytes(StandardCharsets.UTF_8));
+    64	        ProcessBuilder pb = new ProcessBuilder(
+    65	            "gcc", "-O2", "-o", "/app/bin/moldwire.new",
+    66	            "/app/dockcli/main.c", "/app/ribwire/run.c", "-I/app/incpit");
+    67	        pb.redirectErrorStream(true);
+    68	        Process g = pb.start();
+    69	        int grc = g.waitFor();
+    70	        if (grc != 0) {
+    71	            System.exit(2);
+    72	        }
+    73	        Files.move(
+    74	            Paths.get("/app/bin/moldwire.new"),
+    75	            Paths.get("/app/bin/moldwire"),
+    76	            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+    77	    }
+    78	}
+--- dockcli/Gate.java ---
+     1	public class Gate {
+     2	    public static int n_hit(byte[] stored) {
+     3	        return 0;
+     4	    }
+     5	}
+--- piturn/Dig.java ---
+     1	import java.security.MessageDigest;
+     2	
+     3	public class Dig {
+     4	    public static String mill_stamp() {
+     5	        return "rel-3";
+     6	    }
+     7	
+     8	    public static String mix_id(byte[] sheet) {
+     9	        try {
+    10	            MessageDigest md = MessageDigest.getInstance("SHA-256");
+    11	            md.update(sheet);
+    12	            md.update(mill_stamp().getBytes("UTF-8"));
+    13	            byte[] d = md.digest();
+    14	            StringBuilder sb = new StringBuilder();
+    15	            for (byte b : d) {
+    16	                sb.append(String.format("%02x", b));
+    17	            }
+    18	            return sb.toString();
+    19	        } catch (Exception e) {
+    20	            return "none";
+    21	        }
+    22	    }
+    23	}
+--- piturn/Store.java ---
+     1	import java.nio.charset.StandardCharsets;
+     2	
+     3	public class Store {
+     4	    public static byte[] pack(String stamp, String inc) {
+     5	        String body = stamp + "\n" + inc;
+     6	        return body.getBytes(StandardCharsets.UTF_8);
+     7	    }
+     8	
+     9	    public static String stamp_of(byte[] stored) {
+    10	        String s = new String(stored, StandardCharsets.UTF_8);
+    11	        int n = s.indexOf('\n');
+    12	        if (n < 0) {
+    13	            return "";
+    14	        }
+    15	        return s.substring(0, n);
+    16	    }
+    17	
+    18	    public static String inc_of(byte[] stored) {
+    19	        String s = new String(stored, StandardCharsets.UTF_8);
+    20	        int n = s.indexOf('\n');
+    21	        if (n < 0) {
+    22	            return s;
+    23	        }
+    24	        return s.substring(n + 1);
+    25	    }
+    26	}
+--- slagbin/SheetScan.java ---
+     1	import java.util.ArrayList;
+     2	import java.util.List;
+     3	
+     4	public class SheetScan {
+     5	    public static final class Row {
+     6	        public final String name;
+     7	        public final String kind;
+     8	        public final boolean nested;
+     9	
+    10	        Row(String name, String kind, boolean nested) {
+    11	            this.name = name;
+    12	            this.kind = kind;
+    13	            this.nested = nested;
+    14	        }
+    15	    }
+    16	
+    17	    public static String stem(String sheet) {
+    18	        for (String line : sheet.split("\n")) {
+    19	            String t = line.trim();
+    20	            if (t.startsWith("NAME ")) {
+    21	                return t.substring(5).trim();
+    22	            }
+    23	        }
+    24	        return "";
+    25	    }
+    26	
+    27	    public static List<Row> rows(String sheet) {
+    28	        List<Row> out = new ArrayList<Row>();
+    29	        boolean nested = false;
+    30	        for (String line : sheet.split("\n")) {
+    31	            String t = line.trim();
+    32	            if (t.startsWith("GROUP ")) {
+    33	                nested = true;
+    34	            } else if (t.equals("END")) {
+    35	                nested = false;
+    36	            } else if (t.startsWith("FIELD ")) {
+    37	                String rest = t.substring(6).trim();
+    38	                int sp = rest.indexOf(' ');
+    39	                if (sp <= 0) {
+    40	                    continue;
+    41	                }
+    42	                out.add(new Row(rest.substring(0, sp), rest.substring(sp).trim(), nested));
+    43	            }
+    44	        }
+    45	        return out;
+    46	    }
+    47	}
+--- slagbin/SlotEmit.java ---
+     1	import java.util.List;
+     2	
+     3	public class SlotEmit {
+     4	    public static String op_inner(String sheet) {
+     5	        String stem = SheetScan.stem(sheet);
+     6	        List<SheetScan.Row> rows = SheetScan.rows(sheet);
+     7	        StringBuilder fn = new StringBuilder();
+     8	        fn.append("static void skim_").append(stem).append("(const unsigned char *p, size_t n, FILE *out) {\n");
+     9	        fn.append("  size_t o = 0;\n");
+    10	        for (SheetScan.Row r : rows) {
+    11	            fn.append("  unsigned ").append(r.name).append(" = 0;\n");
+    12	        }
+    13	        for (SheetScan.Row r : rows) {
+    14	            if (r.nested) {
+    15	                continue;
+    16	            }
+    17	            if ("u8".equals(r.kind)) {
+    18	                fn.append("  if (o < n) { ").append(r.name).append(" = p[o++]; }\n");
+    19	            } else if ("u16be".equals(r.kind)) {
+    20	                fn.append("  if (o + 1 < n) { ").append(r.name).append(" = ((unsigned)p[o] << 8) | p[o + 1]; o += 2; }\n");
+    21	            }
+    22	        }
+    23	        fn.append("  fputc('{', out);\n");
+    24	        for (int i = 0; i < rows.size(); i++) {
+    25	            SheetScan.Row r = rows.get(i);
+    26	            if (i > 0) {
+    27	                fn.append("  fputc(',', out);\n");
+    28	            }
+    29	            if (r.nested) {
+    30	                fn.append("  fprintf(out, \"\\\"").append(r.name).append("\\\":\\\"\\\"\");\n");
+    31	            } else {
+    32	                fn.append("  fprintf(out, \"\\\"").append(r.name).append("\\\":\\\"%u\\\"\", ").append(r.name).append(");\n");
+    33	            }
+    34	        }
+    35	        fn.append("  fputc('}', out);\n");
+    36	        fn.append("}\n");
+    37	        return fn.toString();
+    38	    }
+    39	}
+[?2004hroot@2b17a946d33e:/app# echo '--- urn rows ---'; for f in piturn/store/*; do stat -c '%n size=%s mtime=%y' "$f"; echo 'content head:'; sed -n '1,8p' "$f"; done; echo '--- source stats ---'; stat -c '%n size=%s mtime=%y' slagbin/* dockcli/* piturn/* ribwire/* | sort
+[?2004l--- urn rows ---
+piturn/store/721454a07dc774a595ecd6466c2dc9eea0cc54688d9711bcc11c98b192e72cb6 size=375 mtime=2026-09-08 04:21:09.000000000 +0000
+content head:
+rel-3
+static void skim_lake(const unsigned char *p, size_t n, FILE *out) {
+  size_t o = 0;
+  unsigned depth = 0;
+  unsigned temp = 0;
+  unsigned wind = 0;
+  if (o < n) { depth = p[o++]; }
+  fputc('{', out);
+piturn/store/fec02de4256858b6e3088b425a5953ea55dde7c6112e5d19edaa57bc23c7d8e6 size=302 mtime=2026-09-08 04:21:09.000000000 +0000
+content head:
+rel-3
+static void skim_pond(const unsigned char *p, size_t n, FILE *out) {
+  size_t o = 0;
+  unsigned depth = 0;
+  unsigned temp = 0;
+  if (o < n) { depth = p[o++]; }
+  fputc('{', out);
+  fprintf(out, "\"depth\":\"%u\"", depth);
+--- source stats ---
+dockcli/Bake.java size=3151 mtime=2026-09-07 17:12:14.000000000 +0000
+dockcli/Gate.java size=91 mtime=2026-09-07 17:04:59.000000000 +0000
+dockcli/main.c size=720 mtime=2026-09-07 17:16:16.000000000 +0000
+piturn/Dig.java size=640 mtime=2026-09-07 17:30:37.000000000 +0000
+piturn/Store.java size=708 mtime=2026-09-07 17:04:51.000000000 +0000
+piturn/store size=4096 mtime=2026-09-08 04:21:09.000000000 +0000
+ribwire/run.c size=959 mtime=2026-09-07 17:12:14.000000000 +0000
+ribwire/skip.c size=141 mtime=2026-09-07 17:05:30.000000000 +0000
+slagbin/SheetScan.java size=1380 mtime=2026-09-07 17:04:45.000000000 +0000
+slagbin/SlotEmit.java size=1579 mtime=2026-09-07 17:04:47.000000000 +0000
+[?2004hroot@2b17a946d33e:/app# cat > slagbin/SheetScan.java <<'EOF'
+[?2004l[?2004h> import java.util.ArrayList;
+[?2004l[?2004h> import java.util.List;
+[?2004l[?2004h> 
+[?2004l[?2004h> public class SheetScan {
+[?2004l[?2004h>     public static final class Row {
+[?2004l[?2004h>         public final String name;
+[?2004l[?2004h>         public final String kind;
+[?2004l[?2004h>         /* Empty for a top-level field; otherwise the enclosing GROUP name. */
+[?2004l[?2004h>         public final String group;
+[?2004l[?2004h>         public final boolean nested;
+[?2004l[?2004h> 
+[?2004l[?2004h>         Row(String name, String kind, String group) {
+[?2004l[?2004h>             this.name = name;
+[?2004l[?2004h>             this.kind = kind;
+[?2004l[?2004h>             this.group = group;
+[?2004l[?2004h>             this.nested = !group.isEmpty();
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     public static String stem(String sheet) {
+[?2004l[?2004h>         for (String line : sheet.split("\\r?\\n")) {
+[?2004l[?2004h>             String t = line.trim();
+[?2004l[?2004h>             if (t.startsWith("NAME ")) {
+[?2004l[?2004h>                 return t.substring(5).trim();
+[?2004l[?2004h>             }
+[?2004l[?2004h>         }
+[?2004l[?2004h>         return "";
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     public static List<Row> rows(String sheet) {
+[?2004l[?2004h>         List<Row> out = new ArrayList<Row>();
+[?2004l[?2004h>         String group = "";
+[?2004l[?2004h>         for (String line : sheet.split("\\r?\\n")) {
+[?2004l[?2004h>             String t = line.trim();
+[?2004l[?2004h>             if (t.startsWith("GROUP ")) {
+[?2004l[?2004h>                 group = t.substring(6).trim();
+[?2004l[?2004h>             } else if (t.equals("END")) {
+[?2004l[?2004h>                 group = "";
+[?2004l[?2004h>             } else if (t.startsWith("FIELD ")) {
+[?2004l[?2004h>                 String rest = t.substring(6).trim();
+[?2004l[?2004h>                 int sp = rest.indexOf(' ');
+[?2004l[?2004h>                 if (sp <= 0) {
+[?2004l[?2004h>                     continue;
+[?2004l[?2004h>                 }
+[?2004l[?2004h>                 out.add(new Row(rest.substring(0, sp), rest.substring(sp).trim(), group));
+[?2004l[?2004h>             }
+[?2004l[?2004h>         }
+[?2004l[?2004h>         return out;
+[?2004l[?2004h>     }
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@2b17a946d33e:/app# cat > slagbin/SlotEmit.java <<'EOF'
+[?2004l[?2004h> import java.util.List;
+[?2004l[?2004h> 
+[?2004l[?2004h> public class SlotEmit {
+[?2004l[?2004h>     private static void read(StringBuilder fn, SheetScan.Row r, String limit) {
+[?2004l[?2004h>         if ("u8".equals(r.kind)) {
+[?2004l[?2004h>             fn.append("  if (o < ").append(limit).append(") { ").append(r.name).append(" = p[o++]; }\n");
+[?2004l[?2004h>         } else if ("u16be".equals(r.kind)) {
+[?2004l[?2004h>             fn.append("  if (o + 1 < ").append(limit).append(") { ").append(r.name)
+[?2004l[?2004h>               .append(" = ((unsigned)p[o] << 8) | p[o + 1]; o += 2; }\n");
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     public static String op_inner(String sheet) {
+[?2004l[?2004h>         String stem = SheetScan.stem(sheet);
+[?2004l[?2004h>         List<SheetScan.Row> rows = SheetScan.rows(sheet);
+[?2004l[?2004h>         StringBuilder fn = new StringBuilder();
+[?2004l[?2004h>         fn.append("static void skim_").append(stem).append("(const unsigned char *p, size_t n, FILE *out) {\n");
+[?2004l[?2004h>         fn.append("  size_t o = 0;\n");
+[?2004l[?2004h>         fn.append("  size_t group_end = 0;\n");
+[?2004l[?2004h>         for (SheetScan.Row r : rows) {
+[?2004l[?2004h>             fn.append("  unsigned ").append(r.name).append(" = 0;\n");
+[?2004l[?2004h>         }
+[?2004l[?2004h> 
+[?2004l[?2004h>         String active = "";
+[?2004l[?2004h>         for (SheetScan.Row r : rows) {
+[?2004l[?2004h>             if (!active.equals(r.group)) {
+[?2004l[?2004h>                 if (!active.isEmpty()) {
+[?2004l[?2004h>                     fn.append("  o = group_end;\n");
+[?2004l[?2004h>                 }
+[?2004l[?2004h>                 active = r.group;
+[?2004l[?2004h>                 if (!active.isEmpty()) {
+[?2004l[?2004h>                     fn.append("  if (o + 1 < n) {\n");
+[?2004l[?2004h>                     fn.append("    size_t group_len = ((size_t)p[o] << 8) | p[o + 1];\n");
+[?2004l[?2004h>                     fn.append("    o += 2;\n");
+[?2004l[?2004h>                     fn.append("    group_end = group_len <= n - o ? o + group_len : n;\n");
+[?2004l[?2004h>                     fn.append("  } else { o = n; group_end = n; }\n");
+[?2004l[?2004h>                 }
+[?2004l[?2004h>             }
+[?2004l[?2004h>             read(fn, r, r.group.isEmpty() ? "n" : "group_end");
+[?2004l[?2004h>         }
+[?2004l[?2004h>         if (!active.isEmpty()) {
+[?2004l[?2004h>             fn.append("  o = group_end;\n");
+[?2004l[?2004h>         }
+[?2004l[?2004h> 
+[?2004l[?2004h>         fn.append("  fputc('{', out);\n");
+[?2004l[?2004h>         for (int i = 0; i < rows.size(); i++) {
+[?2004l[?2004h>             SheetScan.Row r = rows.get(i);
+[?2004l[?2004h>             if (i > 0) {
+[?2004l[?2004h>                 fn.append("  fputc(',', out);\n");
+[?2004l[?2004h>             }
+[?2004l[?2004h>             fn.append("  fprintf(out, \"\\\"").append(r.name)
+[?2004l[?2004h>               .append("\\\":\\\"%u\\\"\", ").append(r.name).append(");\n");
+[?2004l[?2004h>         }
+[?2004l[?2004h>         fn.append("  fputc('}', out);\n");
+[?2004l[?2004h>         fn.append("}\n");
+[?2004l[?2004h>         return fn.toString();
+[?2004l[?2004h>     }
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@2b17a946d33e:/app# cat > piturn/Dig.java <<'EOF'
+[?2004l[?2004h> import java.nio.charset.StandardCharsets;
+[?2004l[?2004h> import java.nio.file.DirectoryStream;
+[?2004l[?2004h> import java.nio.file.Files;
+[?2004l[?2004h> import java.nio.file.Path;
+[?2004l[?2004h> import java.nio.file.Paths;
+[?2004l[?2004h> import java.security.MessageDigest;
+[?2004l[?2004h> import java.util.ArrayList;
+[?2004l[?2004h> import java.util.Collections;
+[?2004l[?2004h> import java.util.List;
+[?2004l[?2004h> 
+[?2004l[?2004h> public class Dig {
+[?2004l[?2004h>     private static String hex(byte[] bytes) {
+[?2004l[?2004h>         StringBuilder sb = new StringBuilder();
+[?2004l[?2004h>         for (byte b : bytes) {
+[?2004l[?2004h>             sb.append(String.format("%02x", b));
+[?2004l[?2004h>         }
+[?2004l[?2004h>         return sb.toString();
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     /* Fingerprint both source contents and movement (mtime) on disk. */
+[?2004l[?2004h>     public static String mill_stamp() {
+[?2004l[?2004h>         try {
+[?2004l[?2004h>             MessageDigest md = MessageDigest.getInstance("SHA-256");
+[?2004l[?2004h>             List<Path> files = new ArrayList<Path>();
+[?2004l[?2004h>             try (DirectoryStream<Path> ds = Files.newDirectoryStream(Paths.get("/app/slagbin"), "*.java")) {
+[?2004l[?2004h>                 for (Path p : ds) files.add(p);
+[?2004l[?2004h>             }
+[?2004l[?2004h>             Collections.sort(files);
+[?2004l[?2004h>             for (Path p : files) {
+[?2004l[?2004h>                 md.update(p.getFileName().toString().getBytes(StandardCharsets.UTF_8));
+[?2004l[?2004h>                 md.update(Long.toString(Files.getLastModifiedTime(p).toMillis()).getBytes(StandardCharsets.UTF_8));
+[?2004l[?2004h>                 md.update(Files.readAllBytes(p));
+[?2004l[?2004h>             }
+[?2004l[?2004h>             return "rel-4:" + hex(md.digest());
+[?2004l[?2004h>         } catch (Exception e) {
+[?2004l[?2004h>             return "invalid";
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     public static String mix_id(byte[] sheet) {
+[?2004l[?2004h>         try {
+[?2004l[?2004h>             MessageDigest md = MessageDigest.getInstance("SHA-256");
+[?2004l[?2004h>             md.update(sheet);
+[?2004l[?2004h>             /* Stable schema identity: source freshness is checked by Gate. */
+[?2004l[?2004h>             md.update("rel-4".getBytes(StandardCharsets.UTF_8));
+[?2004l[?2004h>             return hex(md.digest());
+[?2004l[?2004h>         } catch (Exception e) {
+[?2004l[?2004h>             return "none";
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@2b17a946d33e:/app# cat > dockcli/Gate.java <<'EOF'
+[?2004l[?2004h> public class Gate {
+[?2004l[?2004h>     public static int n_hit(byte[] stored) {
+[?2004l[?2004h>         String storedStamp = Store.stamp_of(stored);
+[?2004l[?2004h>         String currentStamp = Dig.mill_stamp();
+[?2004l[?2004h>         if ("invalid".equals(currentStamp) || !currentStamp.equals(storedStamp)) {
+[?2004l[?2004h>             return 3;
+[?2004l[?2004h>         }
+[?2004l[?2004h>         return 0;
+[?2004l[?2004h>     }
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@2b17a946d33e:/app# cat > ribwire/run.c <<'EOF'
+[?2004l[?2004h> #include <stdio.h>
+[?2004l[?2004h> #include <stdlib.h>
+[?2004l[?2004h> #include <string.h>
+[?2004l[?2004h> #include <sys/stat.h>
+[?2004l[?2004h> #include <unistd.h>
+[?2004l[?2004h> 
+[?2004l[?2004h> #include "reg.inc"
+[?2004l[?2004h> 
+[?2004l[?2004h> int skim_run(const char *path, const char *stem) {
+[?2004l[?2004h>     FILE *in;
+[?2004l[?2004h>     FILE *out;
+[?2004l[?2004h>     unsigned char *buf;
+[?2004l[?2004h>     long n;
+[?2004l[?2004h>     int rc;
+[?2004l[?2004h>     const char *tmp = "/app/jsonpit/skim.json.tmp";
+[?2004l[?2004h>     const char *dst = "/app/jsonpit/skim.json";
+[?2004l[?2004h> 
+[?2004l[?2004h>     in = fopen(path, "rb");
+[?2004l[?2004h>     if (in == NULL) return 2;
+[?2004l[?2004h>     if (fseek(in, 0, SEEK_END) != 0 || (n = ftell(in)) < 0) {
+[?2004l[?2004h>         fclose(in);
+[?2004l[?2004h>         return 2;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     rewind(in);
+[?2004l[?2004h>     buf = malloc((size_t)n + 1);
+[?2004l[?2004h>     if (buf == NULL) {
+[?2004l[?2004h>         fclose(in);
+[?2004l[?2004h>         return 2;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if (fread(buf, 1, (size_t)n, in) != (size_t)n) {
+[?2004l[?2004h>         free(buf);
+[?2004l[?2004h>         fclose(in);
+[?2004l[?2004h>         return 2;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     fclose(in);
+[?2004l[?2004h> 
+[?2004l[?2004h>     mkdir("/app/jsonpit", 0755);
+[?2004l[?2004h>     out = fopen(tmp, "w");
+[?2004l[?2004h>     if (out == NULL) {
+[?2004l[?2004h>         free(buf);
+[?2004l[?2004h>         return 2;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     rc = call_skim(stem, buf, (size_t)n, out);
+[?2004l[?2004h>     if (rc == 0) fputc('\n', out);
+[?2004l[?2004h>     if (fclose(out) != 0 && rc == 0) rc = 2;
+[?2004l[?2004h>     free(buf);
+[?2004l[?2004h>     if (rc != 0) {
+[?2004l[?2004h>         unlink(tmp);
+[?2004l[?2004h>         return rc;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if (rename(tmp, dst) != 0) {
+[?2004l[?2004h>         unlink(tmp);
+[?2004l[?2004h>         return 2;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     return 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@2b17a946d33e:/app# ./riv.sh
+[?2004lfresh
+fresh
+[?2004hroot@2b17a946d33e:/app# echo '--- generated units ---'; cat incpit/pond.inc; cat incpit/lake.inc; echo '--- skim pond ---'; bin/moldwire skim; echo rc=$?; cat jsonpit/skim.json; echo '--- skim lake ---'; bin/moldwire skim duskpit/lake.bin lake; echo rc=$?; cat jsonpit/skim.json; file bin/moldwire
+[?2004l--- generated units ---
+static void skim_pond(const unsigned char *p, size_t n, FILE *out) {
+  size_t o = 0;
+  size_t group_end = 0;
+  unsigned depth = 0;
+  unsigned temp = 0;
+  if (o < n) { depth = p[o++]; }
+  if (o + 1 < n) {
+    size_t group_len = ((size_t)p[o] << 8) | p[o + 1];
+    o += 2;
+    group_end = group_len <= n - o ? o + group_len : n;
+  } else { o = n; group_end = n; }
+  if (o + 1 < group_end) { temp = ((unsigned)p[o] << 8) | p[o + 1]; o += 2; }
+  o = group_end;
+  fputc('{', out);
+  fprintf(out, "\"depth\":\"%u\"", depth);
+  fputc(',', out);
+  fprintf(out, "\"temp\":\"%u\"", temp);
+  fputc('}', out);
+}
+static void skim_lake(const unsigned char *p, size_t n, FILE *out) {
+  size_t o = 0;
+  size_t group_end = 0;
+  unsigned depth = 0;
+  unsigned temp = 0;
+  unsigned wind = 0;
+  if (o < n) { depth = p[o++]; }
+  if (o + 1 < n) {
+    size_t group_len = ((size_t)p[o] << 8) | p[o + 1];
+    o += 2;
+    group_end = group_len <= n - o ? o + group_len : n;
+  } else { o = n; group_end = n; }
+  if (o + 1 < group_end) { temp = ((unsigned)p[o] << 8) | p[o + 1]; o += 2; }
+  if (o < group_end) { wind = p[o++]; }
+  o = group_end;
+  fputc('{', out);
+  fprintf(out, "\"depth\":\"%u\"", depth);
+  fputc(',', out);
+  fprintf(out, "\"temp\":\"%u\"", temp);
+  fputc(',', out);
+  fprintf(out, "\"wind\":\"%u\"", wind);
+  fputc('}', out);
+}
+--- skim pond ---
+rc=0
+{"depth":"7","temp":"22"}
+--- skim lake ---
+rc=0
+{"depth":"4","temp":"9","wind":"5"}
+bin/moldwire: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, not stripped
+[?2004hroot@2b17a946d33e:/app# sha256sum incpit/*.inc > /tmp/inc.before; echo '--- cache-hit bake ---'; bin/moldwire bake; rc=$?; echo rc=$rc; sha256sum incpit/*.inc > /tmp/inc.after; diff -u /tmp/inc.before /tmp/inc.after; echo hash_diff_rc=$?
+[?2004l--- cache-hit bake ---
+served
+served
+rc=0
+hash_diff_rc=0
+[?2004hroot@2b17a946d33e:/app# cat > sheetpit/hold.sheet <<'EOF'
+[?2004l[?2004h> NAME hold
+[?2004l[?2004h> FIELD depth u8
+[?2004l[?2004h> GROUP climate
+[?2004l[?2004h> FIELD temp u16be
+[?2004l[?2004h> END
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@2b17a946d33e:/app# bin/moldwire bake; echo bake_with_new_sheet_rc=$?; test -s incpit/hold.inc; echo hold_inc_rc=$?; bin/moldwire skim duskpit/hold.bin hold; echo hold_skim_rc=$?; cat jsonpit/skim.json
+[?2004lfresh
+served
+served
+bake_with_new_sheet_rc=0
+hold_inc_rc=0
+hold_skim_rc=0
+{"depth":"3","temp":"11"}
+[?2004hroot@2b17a946d33e:/app# rm -f sheetpit/hold.sheet; bin/moldwire bake; echo final_bake_rc=$?; bin/moldwire skim; echo final_skim_rc=$?; cat jsonpit/skim.json; python3 -m json.tool jsonpit/skim.json; file bin/moldwire; grep -R '""' incpit/*.inc || true; ls -la incpit piturn/store
+[?2004lserved
+served
+final_bake_rc=0
+final_skim_rc=0
+{"depth":"7","temp":"22"}
+{
+    "depth": "7",
+    "temp": "22"
+}
+bin/moldwire: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, not stripped
+incpit/hold.inc:  fprintf(out, "\"depth\":\"%u\"", depth);
+incpit/hold.inc:  fprintf(out, "\"temp\":\"%u\"", temp);
+incpit/lake.inc:  fprintf(out, "\"depth\":\"%u\"", depth);
+incpit/lake.inc:  fprintf(out, "\"temp\":\"%u\"", temp);
+incpit/lake.inc:  fprintf(out, "\"wind\":\"%u\"", wind);
+incpit/pond.inc:  fprintf(out, "\"depth\":\"%u\"", depth);
+incpit/pond.inc:  fprintf(out, "\"temp\":\"%u\"", temp);
+incpit:
+total 32
+drwxr-xr-x 1 root root 4096 Sep  8 04:45 .
+drwxr-xr-x 1 root root 4096 Sep  8 04:21 ..
+-rw-r--r-- 1 root root  600 Sep  8 04:45 hold.inc
+-rw-r--r-- 1 root root  721 Sep  8 04:45 lake.inc
+-rw-r--r-- 1 root root  600 Sep  8 04:45 pond.inc
+-rw-r--r-- 1 root root  278 Sep  8 04:45 reg.inc
+
+piturn/store:
+total 32
+drwxr-xr-x 1 root root 4096 Sep  8 04:45 .
+drwxr-xr-x 1 root root 4096 Sep  8 04:21 ..
+-rw-r--r-- 1 root root  375 Sep  8 04:21 721454a07dc774a595ecd6466c2dc9eea0cc54688d9711bcc11c98b192e72cb6
+-rw-r--r-- 1 root root  671 Sep  8 04:44 7d90d8dc5bbc7aceeccad4162f825afa6921e31e5678111867ad39cd6c88f235
+-rw-r--r-- 1 root root  671 Sep  8 04:45 96918c3a41201031fee1e8bd18ecebf3ff38b453319c340dad0f0ce558f0f365
+-rw-r--r-- 1 root root  792 Sep  8 04:44 c35ee91bb6f19600c1d4cc4b86a02c7cf50755433a259d63e07953e4438f7c45
+-rw-r--r-- 1 root root  302 Sep  8 04:21 fec02de4256858b6e3088b425a5953ea55dde7c6112e5d19edaa57bc23c7d8e6
+[?2004hroot@2b17a946d33e:/app# python3 - <<'PY'
+[?2004l[?2004h> p='dockcli/Bake.java'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> s=s.replace('import java.util.List;\n', 'import java.util.List;\nimport java.util.HashSet;\nimport java.util.Set;\n')
+[?2004l[?2004h> needle='''        StringBuilder reg = new StringBuilder();
+[?2004l[?2004h>         for (String stem : stems) {
+[?2004l[?2004h> '''
+[?2004l[?2004h> repl='''        Set<String> expectedUnits = new HashSet<String>();
+[?2004l[?2004h>         for (String stem : stems) {
+[?2004l[?2004h>             expectedUnits.add(stem + ".inc");
+[?2004l[?2004h>         }
+[?2004l[?2004h>         expectedUnits.add("reg.inc");
+[?2004l[?2004h>         try (DirectoryStream<Path> ds = Files.newDirectoryStream(units, "*.inc")) {
+[?2004l[?2004h>             for (Path p : ds) {
+[?2004l[?2004h>                 if (!expectedUnits.contains(p.getFileName().toString())) {
+[?2004l[?2004h>                     Files.deleteIfExists(p);
+[?2004l[?2004h>                 }
+[?2004l[?2004h>             }
+[?2004l[?2004h>         }
+[?2004l[?2004h> 
+[?2004l[?2004h>         StringBuilder reg = new StringBuilder();
+[?2004l[?2004h>         for (String stem : stems) {
+[?2004l[?2004h> '''
+[?2004l[?2004h> if needle not in s:
+[?2004l[?2004h>     raise SystemExit('Bake insertion point not found')
+[?2004l[?2004h> open(p,'w').write(s.replace(needle,repl))
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@2b17a946d33e:/app# ./riv.sh; echo rebuild_rc=$?; ls incpit; test ! -e incpit/hold.inc; echo stale_unit_pruned_rc=$?
+[?2004lserved
+served
+rebuild_rc=0
+lake.inc  pond.inc  reg.inc
+stale_unit_pruned_rc=0
+[?2004hroot@2b17a946d33e:/app# stat -c '%y' slagbin/SlotEmit.java > /tmp/slot.mtime; touch slagbin/SlotEmit.java; set +e; bin/moldwire bake >/tmp/moved.out 2>/tmp/moved.err; rc=$?; set -e; echo moved_bake_rc=$rc; cat /tmp/moved.out /tmp/moved.err; touch -d "$(cat /tmp/slot.mtime)" slagbin/SlotEmit.java; bin/moldwire bake; echo restored_bake_rc=$?
+[?2004lmoved_bake_rc=3
+served
+served
+served
+restored_bake_rc=0
+[?2004hroot@2b17a946d33e:/app# bin/moldwire skim; echo skim_rc=$?; cat jsonpit/skim.json; test "$(cat jsonpit/skim.json)" = '{"depth":"7","temp":"22"}'; echo json_check_rc=$?; test -x bin/moldwire; file bin/moldwire; echo '--- units ---'; ls -1 incpit; echo '--- source changes ---'; grep -n 'expectedUnits\|mill_stamp\|group_end\|rename(tmp' dockcli/Bake.java piturn/Dig.java slagbin/SlotEmit.java ribwire/run.c
+[?2004lskim_rc=0
+{"depth":"7","temp":"22"}
+json_check_rc=0
+bin/moldwire: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, not stripped
+--- units ---
+lake.inc
+pond.inc
+reg.inc
+--- source changes ---
+dockcli/Bake.java:52:                Files.write(row, Store.pack(Dig.mill_stamp(), inc));
+dockcli/Bake.java:56:        Set<String> expectedUnits = new HashSet<String>();
+dockcli/Bake.java:58:            expectedUnits.add(stem + ".inc");
+dockcli/Bake.java:60:        expectedUnits.add("reg.inc");
+dockcli/Bake.java:63:                if (!expectedUnits.contains(p.getFileName().toString())) {
+piturn/Dig.java:21:    public static String mill_stamp() {
+slagbin/SlotEmit.java:19:        fn.append("  size_t group_end = 0;\n");
+slagbin/SlotEmit.java:28:                    fn.append("  o = group_end;\n");
+slagbin/SlotEmit.java:35:                    fn.append("    group_end = group_len <= n - o ? o + group_len : n;\n");
+slagbin/SlotEmit.java:36:                    fn.append("  } else { o = n; group_end = n; }\n");
+slagbin/SlotEmit.java:39:            read(fn, r, r.group.isEmpty() ? "n" : "group_end");
+slagbin/SlotEmit.java:42:            fn.append("  o = group_end;\n");
+ribwire/run.c:51:    if (rename(tmp, dst) != 0) {
+[?2004hroot@2b17a946d33e:/app# 

@@ -1,0 +1,87 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 11 items
+
+../tests/test_outputs.py ....F......                                     [100%]
+
+=================================== FAILURES ===================================
+_________________________ test_size_probe_insufficient _________________________
+
+    def test_size_probe_insufficient():
+        """Corpus size smoke passing must not excuse a broken archive decode."""
+        assert _forge().returncode == 0
+>       smoke = subprocess.run(
+            ["/app/tracekit/smoke/corpus_len.py"], capture_output=True, text=True
+        )
+
+/tests/test_outputs.py:117: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/local/lib/python3.13/subprocess.py:554: in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/subprocess.py:1039: in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+/usr/local/lib/python3.13/subprocess.py:1876: in _execute_child
+    self._posix_spawn(args, executable, env, restore_signals, close_fds,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Popen: returncode: None args: ['/app/tracekit/smoke/corpus_len.py']>
+args = ['/app/tracekit/smoke/corpus_len.py']
+executable = '/app/tracekit/smoke/corpus_len.py', env = None
+restore_signals = True, close_fds = True, p2cread = -1, p2cwrite = -1
+c2pread = 11, c2pwrite = 12, errread = 13, errwrite = 14
+
+    def _posix_spawn(self, args, executable, env, restore_signals, close_fds,
+                     p2cread, p2cwrite,
+                     c2pread, c2pwrite,
+                     errread, errwrite):
+        """Execute program using os.posix_spawn()."""
+        kwargs = {}
+        if restore_signals:
+            # See _Py_RestoreSignals() in Python/pylifecycle.c
+            sigset = []
+            for signame in ('SIGPIPE', 'SIGXFZ', 'SIGXFSZ'):
+                signum = getattr(signal, signame, None)
+                if signum is not None:
+                    sigset.append(signum)
+            kwargs['setsigdef'] = sigset
+    
+        file_actions = []
+        for fd in (p2cwrite, c2pread, errread):
+            if fd != -1:
+                file_actions.append((os.POSIX_SPAWN_CLOSE, fd))
+        for fd, fd2 in (
+            (p2cread, 0),
+            (c2pwrite, 1),
+            (errwrite, 2),
+        ):
+            if fd != -1:
+                file_actions.append((os.POSIX_SPAWN_DUP2, fd, fd2))
+    
+        if close_fds:
+            file_actions.append((os.POSIX_SPAWN_CLOSEFROM, 3))
+    
+        if file_actions:
+            kwargs['file_actions'] = file_actions
+    
+>       self.pid = os.posix_spawn(executable, args, env, **kwargs)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       OSError: [Errno 8] Exec format error: '/app/tracekit/smoke/corpus_len.py'
+
+/usr/local/lib/python3.13/subprocess.py:1820: OSError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_pipeline_magic_alignment
+PASSED ../tests/test_outputs.py::test_vault_payload_fields
+PASSED ../tests/test_outputs.py::test_live_emit_roundtrip
+PASSED ../tests/test_outputs.py::test_pool_samples_decode
+PASSED ../tests/test_outputs.py::test_junk_rejected_valid_persists
+PASSED ../tests/test_outputs.py::test_first_sample_fields
+PASSED ../tests/test_outputs.py::test_second_sample_fields
+PASSED ../tests/test_outputs.py::test_name_width_sixteen
+PASSED ../tests/test_outputs.py::test_emit_nonempty_blob
+PASSED ../tests/test_outputs.py::test_revision_tag_two
+FAILED ../tests/test_outputs.py::test_size_probe_insufficient - OSError: [Err...
+========================= 1 failed, 10 passed in 2.40s =========================

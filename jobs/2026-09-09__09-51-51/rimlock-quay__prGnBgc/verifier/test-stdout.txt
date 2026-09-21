@@ -1,0 +1,229 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py FFFFFFFFFFFF                                    [100%]
+
+=================================== FAILURES ===================================
+________________________________ test_rkq01_hdr ________________________________
+
+    def test_rkq01_hdr():
+        """Linked mill is ELF; agent mill matches hull from on-disk C; intern identities."""
+        _pin_shift()
+        blob = BIN.read_bytes()
+        assert blob[:4] == b"\x7fELF"
+        _link_ref()
+        ref_out = Path("/tmp/rkq-ref.plan")
+        assert _unjam_with(BIN, SHIFT, LIVE).returncode == 0
+        assert _unjam_with(REF, SHIFT, ref_out).returncode == 0
+        assert LIVE.read_bytes() == ref_out.read_bytes()
+>       assert LIVE.read_text().split() == _expected_plan_text(_shift_src())
+E       AssertionError: assert ['0x100a', '0...0a', '0x200b'] == ['5', '9', '2...', '30', '31']
+E         
+E         At index 0 diff: '0x100a' != '5'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:197: AssertionError
+_______________________________ test_rkq02_twin ________________________________
+
+    def test_rkq02_twin():
+        """Two process unjam runs of shift are byte-identical after identity emit."""
+        _pin_shift()
+        p1 = BAY / "t1.plan"
+        p2 = BAY / "t2.plan"
+        assert _assay(SHIFT, p1).returncode == 0
+        assert _assay(SHIFT, p2).returncode == 0
+        assert p1.read_bytes() == p2.read_bytes()
+>       assert all(x.isdigit() for x in p1.read_text().split())
+E       assert False
+E        +  where False = all(<generator object test_rkq02_twin.<locals>.<genexpr> at 0x7df1babfcba0>)
+
+/tests/test_outputs.py:208: AssertionError
+_______________________________ test_rkq03_peer ________________________________
+
+    def test_rkq03_peer():
+        """Dusk remapped hex unjam matches shift plan identities."""
+        _pin_shift()
+        assert _assay(SHIFT, LIVE).returncode == 0
+        assert _assay(DUSK, ALT).returncode == 0
+>       assert LIVE.read_text() == ALT.read_text()
+E       AssertionError: assert '0x100a\n0x10...00a\n0x200b\n' == '0x400a\n0x40...00a\n0x500b\n'
+E         
+E         - 0x400a
+E         ?   ^
+E         + 0x100a
+E         ?   ^
+E         - 0x400b
+E         ?   ^...
+E         
+E         ...Full output truncated (18 lines hidden), use '-vv' to show
+
+/tests/test_outputs.py:216: AssertionError
+_______________________________ test_rkq04_rows ________________________________
+
+    def test_rkq04_rows():
+        """Scroll rows are tid tag in plan order."""
+        _pin_shift()
+        assert _assay(SHIFT, LIVE).returncode == 0
+        assert _scroll(SHIFT, CHK).returncode == 0
+        plan = [ln.strip() for ln in LIVE.read_text().splitlines() if ln.strip()]
+        rows = [ln.split() for ln in CHK.read_text().splitlines() if ln.strip()]
+>       assert [r[1] for r in rows] == plan
+E       AssertionError: assert ['0x100d', '0...0b', '0x200b'] == ['0x100a', '0...0a', '0x200b']
+E         
+E         At index 0 diff: '0x100d' != '0x100a'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:227: AssertionError
+______________________________ test_rkq05_holdout ______________________________
+
+    def test_rkq05_holdout():
+        """Held-out two-source dump emits ascending identity."""
+        hd = BAY / "hold.dmp"
+        _write_dump(hd, _hold_src())
+        out = BAY / "hold.plan"
+        r = _assay(hd, out)
+        assert r.returncode == 0
+>       assert out.read_text().split() == _expected_plan_text(_hold_src())
+E       AssertionError: assert ['0x300b', '0x300a'] == ['40', '41']
+E         
+E         At index 0 diff: '0x300b' != '40'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:238: AssertionError
+_______________________________ test_rkq06_tail ________________________________
+
+    def test_rkq06_tail():
+        """Missing closer must make `unjam` exit non-zero and omits mill.ok."""
+        bad = BAY / "bad.dmp"
+        _write_dump(bad, _blk("8", "0x300a")[:-2])
+        if OK.exists():
+            OK.unlink()
+        r = _assay(bad, BAY / "bad.plan")
+>       assert r.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/rimlock', 'unjam', '/app/planbay/bad.dmp', '/app/planbay/bad.plan'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:248: AssertionError
+_______________________________ test_rkq07_mint ________________________________
+
+    def test_rkq07_mint():
+        """Corrupt live.plan then re-run unjam recovers identity lines."""
+        _pin_shift()
+        assert _assay(SHIFT, LIVE).returncode == 0
+        LIVE.write_text("junk\n")
+        r = _assay(SHIFT, LIVE)
+        assert r.returncode == 0
+>       assert LIVE.read_text().split() == _expected_plan_text(_shift_src())
+E       AssertionError: assert ['0x100a', '0...0a', '0x200b'] == ['5', '9', '2...', '30', '31']
+E         
+E         At index 0 diff: '0x100a' != '5'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:259: AssertionError
+_______________________________ test_rkq08_hush ________________________________
+
+    def test_rkq08_hush():
+        """Dusk scroll matches shift scroll (second run of the same graph)."""
+        _pin_shift()
+        a = SCR / "a.chk"
+        b = SCR / "b.chk"
+        assert _scroll(SHIFT, a).returncode == 0
+        assert _scroll(DUSK, b).returncode == 0
+>       assert a.read_text() == b.read_text()
+E       AssertionError: assert '13 0x100d\n1...\n21 0x200b\n' == '13 0x400d\n1...\n21 0x500b\n'
+E         
+E         - 13 0x400d
+E         ?      ^
+E         + 13 0x100d
+E         ?      ^
+E         - 10 0x400a
+E         ?      ^...
+E         
+E         ...Full output truncated (18 lines hidden), use '-vv' to show
+
+/tests/test_outputs.py:270: AssertionError
+_______________________________ test_rkq09_hits ________________________________
+
+    def test_rkq09_hits():
+        """Simultaneously releasable monitors appear in ascending identity."""
+        _pin_shift()
+        assert _assay(SHIFT, LIVE).returncode == 0
+        got = LIVE.read_text().split()
+        exp = _expected_plan_text(_shift_src())
+>       assert got == exp
+E       AssertionError: assert ['0x100a', '0...0a', '0x200b'] == ['5', '9', '2...', '30', '31']
+E         
+E         At index 0 diff: '0x100a' != '5'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:279: AssertionError
+_______________________________ test_rkq10_child _______________________________
+
+    def test_rkq10_child():
+        """One unjam subprocess writes decimal identities, not dump hex."""
+        _pin_shift()
+        out = BAY / "one.plan"
+        r = _assay(SHIFT, out)
+        assert r.returncode == 0
+        text = out.read_text()
+>       assert "0x" not in text
+E       AssertionError: assert '0x' not in '0x100a\n0x1...0a\n0x200b\n'
+E         
+E         '0x' is contained here:
+E           0x100a
+E         ? ++
+E           0x100b
+E           0x100c
+E           0x100d
+E           0x200a
+E           0x200b
+
+/tests/test_outputs.py:289: AssertionError
+_______________________________ test_rkq11_stay ________________________________
+
+    def test_rkq11_stay():
+        """Plan is a valid topo order of recorded wait edges under intern identity."""
+        _pin_shift()
+        assert _assay(SHIFT, LIVE).returncode == 0
+>       assert LIVE.read_text().split() == _expected_plan_text(_shift_src())
+E       AssertionError: assert ['0x100a', '0...0a', '0x200b'] == ['5', '9', '2...', '30', '31']
+E         
+E         At index 0 diff: '0x100a' != '5'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:297: AssertionError
+_______________________________ test_rkq12_peer ________________________________
+
+    def test_rkq12_peer():
+        """Two process dusk scroll files match expected identities."""
+        _pin_shift()
+        s1 = SCR / "d1.chk"
+        s2 = SCR / "d2.chk"
+        assert _scroll(DUSK, s1).returncode == 0
+        assert _scroll(DUSK, s2).returncode == 0
+        assert s1.read_bytes() == s2.read_bytes()
+        rows = [ln.split() for ln in s1.read_text().splitlines() if ln.strip()]
+>       assert [r[1] for r in rows] == _expected_plan_text(_dusk_src())
+E       AssertionError: assert ['0x400d', '0...0b', '0x500b'] == ['5', '9', '2...', '30', '31']
+E         
+E         At index 0 diff: '0x400d' != '5'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:309: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_rkq01_hdr - AssertionError: assert ['0x...
+FAILED ../tests/test_outputs.py::test_rkq02_twin - assert False
+FAILED ../tests/test_outputs.py::test_rkq03_peer - AssertionError: assert '0x...
+FAILED ../tests/test_outputs.py::test_rkq04_rows - AssertionError: assert ['0...
+FAILED ../tests/test_outputs.py::test_rkq05_holdout - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_rkq06_tail - AssertionError: assert 0 != 0
+FAILED ../tests/test_outputs.py::test_rkq07_mint - AssertionError: assert ['0...
+FAILED ../tests/test_outputs.py::test_rkq08_hush - AssertionError: assert '13...
+FAILED ../tests/test_outputs.py::test_rkq09_hits - AssertionError: assert ['0...
+FAILED ../tests/test_outputs.py::test_rkq10_child - AssertionError: assert '0...
+FAILED ../tests/test_outputs.py::test_rkq11_stay - AssertionError: assert ['0...
+FAILED ../tests/test_outputs.py::test_rkq12_peer - AssertionError: assert ['0...
+============================== 12 failed in 0.31s ==============================

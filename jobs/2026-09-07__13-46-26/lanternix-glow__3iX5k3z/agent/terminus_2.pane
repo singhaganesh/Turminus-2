@@ -1,0 +1,1412 @@
+[?2004hroot@694b6d4b8f50:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@694b6d4b8f50:/app# clear
+[?2004l[H[J[3J[?2004hroot@694b6d4b8f50:/app# cat /app/notes/ROUTE.txt && printf '\n--- GRAMMAR ---\n' && cat /app/notes/GRAMMAR.txt
+[?2004lPipeline modules live under /app/oxbind, /app/packbay, and /app/milldesk.
+Cast refreshes generated units under /app/packbay/units and rewrites /app/packbay/reg.go.
+Every directory under /app/packbay/units must be imported by /app/packbay/reg.go.
+Readout: /app/bin/lanternix readout --lamp FILE writes /app/glowbank/readout.json.
+Cast: /app/bin/lanternix cast
+/app/bin/lanternix is the ELF mill from milldesk. milldesk/Makefile has a ship target.
+Slot grammar for cards and lamps is in /app/notes/GRAMMAR.txt.
+
+--- GRAMMAR ---
+Recipe cards under /app/cardwell use:
+  id: <CODE>
+  slots: name, name
+
+Current cards: LAN_WARM_01 slots lux,hold_s; LAN_BEAM_44 slots az_deg,el_deg;
+LAN_FLASH_9C slots candela,dwell_s; LAN_GLOW_2B slots hue,period_s.
+
+Lamp files: /app/lamps/flash9c.lamp, /app/lamps/held.lamp, /app/lamps/warm.lamp,
+/app/lamps/beam.lamp, /app/lamps/alien.lamp.
+Lamp files under /app/lamps use:
+  CODE <CODE>
+  name=value
+
+Readout JSON: {"code": <str id or void>, "slots": <dict of name to str value>}
+Gap probes may write a temporary ghost.card under /app/cardwell.
+Offline Go builds use GOPROXY=off and GOFLAGS=-mod=mod.
+[?2004hroot@694b6d4b8f50:/app# printf '\n--- FILES ---\n'; find /app -maxdepth 4 -type f -printf '%p\n' | sort
+[?2004l
+--- FILES ---
+/app/bin/lanternix
+/app/cardwell/beam.card
+/app/cardwell/flare.card
+/app/cardwell/held.card
+/app/cardwell/warm.card
+/app/go.mod
+/app/lamps/alien.lamp
+/app/lamps/beam.lamp
+/app/lamps/flash9c.lamp
+/app/lamps/held.lamp
+/app/lamps/warm.lamp
+/app/milldesk/Makefile
+/app/milldesk/main.go
+/app/milldesk/play.go
+/app/milldesk/spin.go
+/app/notes/GRAMMAR.txt
+/app/notes/ROUTE.txt
+/app/oxbind/seal.go
+/app/packbay/fetch.go
+/app/packbay/reg.go
+/app/packbay/store/store.go
+/app/packbay/units/unita/pack.go
+/app/packbay/units/unitb/pack.go
+/app/packbay/units/unitc/pack.go
+/app/packbay/units/unitd/pack.go
+[?2004hroot@694b6d4b8f50:/app# printf '\n--- ELF / GO ---\n'; file /app/bin/lanternix; find /app -maxdepth 3 -name 'go.mod' -o -name '*.go' | sort
+[?2004l
+--- ELF / GO ---
+bash: file: command not found
+/app/go.mod
+/app/milldesk/main.go
+/app/milldesk/play.go
+/app/milldesk/spin.go
+/app/oxbind/seal.go
+/app/packbay/fetch.go
+/app/packbay/reg.go
+/app/packbay/store/store.go
+[?2004hroot@694b6d4b8f50:/app# printf '%s\n' '--- go.mod ---'; cat go.mod; printf '%s\n' '--- Makefile ---'; cat milldesk/Makefile; for f in oxbind/*.go packbay/*.go packbay/store/*.go milldesk/*.go packbay/units/*/*.go; do printf '\n--- %s ---\n' "$f"; sed -n '1,240p' "$f"; done
+[?2004l--- go.mod ---
+module loft.local/lanternix
+
+go 1.22
+--- Makefile ---
+.PHONY: ship
+ship:
+	GOPROXY=off GOFLAGS=-mod=mod GOCACHE=/tmp/gocache-lanternix go build -o /app/bin/lanternix loft.local/lanternix/milldesk
+
+--- oxbind/seal.go ---
+package oxbind
+
+import "loft.local/lanternix/packbay/store"
+
+var chart map[string]store.Spec
+
+func Clip(bag map[string]store.Spec) map[string]store.Spec {
+	out := make(map[string]store.Spec, len(bag))
+	for k, v := range bag {
+		out[k] = v
+	}
+	return out
+}
+
+func Boot() {
+	chart = Clip(store.Bag())
+}
+
+func Read(tag string) (store.Spec, bool) {
+	s, ok := chart[tag]
+	return s, ok
+}
+
+--- packbay/fetch.go ---
+package packbay
+
+var seed = []string{"LAN_WARM_01", "LAN_BEAM_44"}
+
+func Pull(tag string) {
+	ok := false
+	for _, s := range seed {
+		if s == tag {
+			ok = true
+			break
+		}
+	}
+	if !ok {
+		return
+	}
+	Fill()
+}
+
+--- packbay/reg.go ---
+package packbay
+
+import (
+	unita "loft.local/lanternix/packbay/units/unita"
+	unitb "loft.local/lanternix/packbay/units/unitb"
+)
+
+func Fill() {
+	unita.Load()
+	unitb.Load()
+}
+
+--- packbay/store/store.go ---
+package store
+
+type Spec struct {
+	Slots []string
+}
+
+var bag = map[string]Spec{}
+
+func Offer(id string, spec Spec) {
+	bag[id] = spec
+}
+
+func Bag() map[string]Spec {
+	out := make(map[string]Spec, len(bag))
+	for k, v := range bag {
+		out[k] = v
+	}
+	return out
+}
+
+func Reset() {
+	bag = map[string]Spec{}
+}
+
+--- milldesk/main.go ---
+package main
+
+import (
+	"os"
+
+	"loft.local/lanternix/oxbind"
+	"loft.local/lanternix/packbay"
+)
+
+func main() {
+	os.Exit(run(os.Args[1:]))
+}
+
+func run(args []string) int {
+	if len(args) == 0 {
+		return 2
+	}
+	switch args[0] {
+	case "cast":
+		packbay.Pull("LAN_WARM_01")
+		oxbind.Boot()
+		return Spin()
+	case "readout":
+		if len(args) < 3 || args[1] != "--lamp" {
+			return 2
+		}
+		return Play(args[2])
+	default:
+		return 2
+	}
+}
+
+--- milldesk/play.go ---
+package main
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"loft.local/lanternix/oxbind"
+	"loft.local/lanternix/packbay"
+)
+
+func Play(lampPath string) int {
+	oxbind.Boot()
+	code, vals, err := parseLamp(lampPath)
+	if err != nil {
+		return 2
+	}
+	packbay.Pull(code)
+	if !cardsCovered() {
+		return 2
+	}
+	spec, ok := oxbind.Read(code)
+	outPath := "/app/glowbank/readout.json"
+	if !ok {
+		_ = writeJSON(outPath, map[string]any{"code": "void", "slots": map[string]string{}})
+		return 1
+	}
+	slots := map[string]string{}
+	for _, name := range spec.Slots {
+		slots[name] = vals[name]
+	}
+	_ = writeJSON(outPath, map[string]any{"code": code, "slots": slots})
+	return 0
+}
+
+func cardsCovered() bool {
+	cards, err := loadCards("/app/cardwell")
+	if err != nil {
+		return false
+	}
+	for _, c := range cards {
+		if _, ok := oxbind.Read(c.id); !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func writeJSON(path string, doc map[string]any) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	raw, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return err
+	}
+	raw = append(raw, '\n')
+	return os.WriteFile(path, raw, 0o644)
+}
+
+func parseLamp(path string) (string, map[string]string, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return "", nil, err
+	}
+	code := ""
+	vals := map[string]string{}
+	for _, line := range strings.Split(string(raw), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if strings.HasPrefix(line, "CODE ") {
+			code = strings.TrimSpace(strings.TrimPrefix(line, "CODE "))
+			continue
+		}
+		k, v, ok := strings.Cut(line, "=")
+		if ok {
+			vals[strings.TrimSpace(k)] = strings.TrimSpace(v)
+		}
+	}
+	return code, vals, nil
+}
+
+type card struct {
+	id    string
+	slots []string
+}
+
+func loadCards(dir string) ([]card, error) {
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	var out []card
+	for _, e := range ents {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".card") {
+			continue
+		}
+		raw, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			return nil, err
+		}
+		c := card{}
+		for _, line := range strings.Split(string(raw), "\n") {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "id:") {
+				c.id = strings.TrimSpace(strings.TrimPrefix(line, "id:"))
+			}
+			if strings.HasPrefix(line, "slots:") {
+				parts := strings.Split(strings.TrimSpace(strings.TrimPrefix(line, "slots:")), ",")
+				for _, p := range parts {
+					c.slots = append(c.slots, p)
+				}
+			}
+		}
+		if c.id != "" {
+			out = append(out, c)
+		}
+	}
+	return out, nil
+}
+
+--- milldesk/spin.go ---
+package main
+
+import (
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"loft.local/lanternix/oxbind"
+	"loft.local/lanternix/packbay/store"
+)
+
+func Spin() int {
+	time.Sleep(2 * time.Second)
+	cards, err := loadCards("/app/cardwell")
+	if err != nil {
+		return 2
+	}
+	if err := writeUnits(cards); err != nil {
+		return 2
+	}
+	if err := writeFill([]string{"unita", "unitb"}); err != nil {
+		return 2
+	}
+	_ = oxbind.Clip(store.Bag())
+	if miss := missingCodes(cards, map[string]store.Spec{}); len(miss) > 0 {
+	}
+	cmd := exec.Command("go", "build", "-o", "/app/bin/lanternix.next", "loft.local/lanternix/milldesk")
+	cmd.Dir = "/app"
+	cmd.Env = append(os.Environ(),
+		"GOPROXY=off",
+		"GOFLAGS=-mod=mod",
+		"GOCACHE=/tmp/gocache-lanternix",
+		"PATH=/usr/local/go/bin:"+os.Getenv("PATH"),
+	)
+	if err := cmd.Run(); err != nil {
+		return 2
+	}
+	if err := os.Rename("/app/bin/lanternix.next", "/app/bin/lanternix"); err != nil {
+		return 2
+	}
+	return 0
+}
+
+func writeUnits(cards []card) error {
+	roots := map[string]string{
+		"LAN_WARM_01": "unita",
+		"LAN_BEAM_44": "unitb",
+		"LAN_FLASH_9C": "unitc",
+		"LAN_GLOW_2B": "unitd",
+	}
+	for _, c := range cards {
+		dir, ok := roots[c.id]
+		if !ok {
+			continue
+		}
+		body := unitSource(dir, c.id, c.slots)
+		p := filepath.Join("/app/packbay/units", dir, "pack.go")
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func unitSource(pkg, id string, slots []string) string {
+	quoted := make([]string, 0, len(slots))
+	for _, s := range slots {
+		quoted = append(quoted, `"`+s+`"`)
+	}
+	return "package " + pkg + "\n\nimport \"loft.local/lanternix/packbay/store\"\n\nfunc Load() {\n\tstore.Offer(\"" + id + "\", store.Spec{Slots: []string{" + strings.Join(quoted, ", ") + "}})\n}\n"
+}
+
+func writeFill(units []string) error {
+	var b strings.Builder
+	b.WriteString("package packbay\n\nimport (\n")
+	for _, u := range units {
+		b.WriteString("\t" + u + " \"loft.local/lanternix/packbay/units/" + u + "\"\n")
+	}
+	b.WriteString(")\n\nfunc Fill() {\n")
+	for _, u := range units {
+		b.WriteString("\t" + u + ".Load()\n")
+	}
+	b.WriteString("}\n")
+	return os.WriteFile("/app/packbay/reg.go", []byte(b.String()), 0o644)
+}
+
+func missingCodes(cards []card, chart map[string]store.Spec) []string {
+	var miss []string
+	for _, c := range cards {
+		if _, ok := chart[c.id]; !ok {
+			miss = append(miss, c.id)
+		}
+	}
+	return miss
+}
+
+--- packbay/units/unita/pack.go ---
+package unita
+
+import "loft.local/lanternix/packbay/store"
+
+func Load() {
+	store.Offer("LAN_WARM_01", store.Spec{Slots: []string{"lux", " hold_s"}})
+}
+
+--- packbay/units/unitb/pack.go ---
+package unitb
+
+import "loft.local/lanternix/packbay/store"
+
+func Load() {
+	store.Offer("LAN_BEAM_44", store.Spec{Slots: []string{"az_deg", " el_deg"}})
+}
+
+--- packbay/units/unitc/pack.go ---
+package unitc
+
+import "loft.local/lanternix/packbay/store"
+
+func Load() {
+	store.Offer("LAN_FLASH_9C", store.Spec{Slots: []string{"candela", "  dwell_s"}})
+}
+
+--- packbay/units/unitd/pack.go ---
+package unitd
+
+import "loft.local/lanternix/packbay/store"
+
+func Load() {
+	store.Offer("LAN_GLOW_2B", store.Spec{Slots: []string{"hue", "  period_s"}})
+}
+[?2004hroot@694b6d4b8f50:/app# for f in cardwell/* lamps/*; do printf '\n--- %s ---\n' "$f"; cat "$f"; done
+[?2004l
+--- cardwell/beam.card ---
+id: LAN_BEAM_44
+slots: az_deg, el_deg
+
+--- cardwell/flare.card ---
+id: LAN_FLASH_9C
+slots: candela,  dwell_s
+
+--- cardwell/held.card ---
+id: LAN_GLOW_2B
+slots: hue,  period_s
+
+--- cardwell/warm.card ---
+id: LAN_WARM_01
+slots: lux, hold_s
+
+--- lamps/alien.lamp ---
+CODE LAN_ALIEN_FF
+noise=1
+
+--- lamps/beam.lamp ---
+CODE LAN_BEAM_44
+az_deg=10
+el_deg=4
+
+--- lamps/flash9c.lamp ---
+CODE LAN_FLASH_9C
+candela=120
+dwell_s=4
+
+--- lamps/held.lamp ---
+CODE LAN_GLOW_2B
+hue=amber
+period_s=9
+
+--- lamps/warm.lamp ---
+CODE LAN_WARM_01
+lux=8
+hold_s=2
+[?2004hroot@694b6d4b8f50:/app# printf '%s' 'ELF magic: '; od -An -tx1 -N4 bin/lanternix; rm -f glowbank/readout.json; ./bin/lanternix cast; printf 'cast_rc=%s\n' "$?"; ./bin/lanternix readout --lamp /app/lamps/flash9c.lamp; printf 'readout_rc=%s\n' "$?"; ls -l glowbank 2>/dev/null || true; test ! -e glowbank/readout.json || cat glowbank/readout.json
+[?2004lELF magic:  7f 45 4c 46
+cast_rc=2
+readout_rc=2
+total 0
+[?2004hroot@694b6d4b8f50:/app# nl -ba milldesk/play.go; printf '\n--- spin.go ---\n'; nl -ba milldesk/spin.go; printf '\n--- current generated ---\n'; for f in packbay/reg.go packbay/units/*/pack.go; do echo "--- $f"; nl -ba "$f"; done
+[?2004l     1	package main
+     2	
+     3	import (
+     4		"encoding/json"
+     5		"os"
+     6		"path/filepath"
+     7		"strings"
+     8	
+     9		"loft.local/lanternix/oxbind"
+    10		"loft.local/lanternix/packbay"
+    11	)
+    12	
+    13	func Play(lampPath string) int {
+    14		oxbind.Boot()
+    15		code, vals, err := parseLamp(lampPath)
+    16		if err != nil {
+    17			return 2
+    18		}
+    19		packbay.Pull(code)
+    20		if !cardsCovered() {
+    21			return 2
+    22		}
+    23		spec, ok := oxbind.Read(code)
+    24		outPath := "/app/glowbank/readout.json"
+    25		if !ok {
+    26			_ = writeJSON(outPath, map[string]any{"code": "void", "slots": map[string]string{}})
+    27			return 1
+    28		}
+    29		slots := map[string]string{}
+    30		for _, name := range spec.Slots {
+    31			slots[name] = vals[name]
+    32		}
+    33		_ = writeJSON(outPath, map[string]any{"code": code, "slots": slots})
+    34		return 0
+    35	}
+    36	
+    37	func cardsCovered() bool {
+    38		cards, err := loadCards("/app/cardwell")
+    39		if err != nil {
+    40			return false
+    41		}
+    42		for _, c := range cards {
+    43			if _, ok := oxbind.Read(c.id); !ok {
+    44				return false
+    45			}
+    46		}
+    47		return true
+    48	}
+    49	
+    50	func writeJSON(path string, doc map[string]any) error {
+    51		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+    52			return err
+    53		}
+    54		raw, err := json.MarshalIndent(doc, "", "  ")
+    55		if err != nil {
+    56			return err
+    57		}
+    58		raw = append(raw, '\n')
+    59		return os.WriteFile(path, raw, 0o644)
+    60	}
+    61	
+    62	func parseLamp(path string) (string, map[string]string, error) {
+    63		raw, err := os.ReadFile(path)
+    64		if err != nil {
+    65			return "", nil, err
+    66		}
+    67		code := ""
+    68		vals := map[string]string{}
+    69		for _, line := range strings.Split(string(raw), "\n") {
+    70			line = strings.TrimSpace(line)
+    71			if line == "" {
+    72				continue
+    73			}
+    74			if strings.HasPrefix(line, "CODE ") {
+    75				code = strings.TrimSpace(strings.TrimPrefix(line, "CODE "))
+    76				continue
+    77			}
+    78			k, v, ok := strings.Cut(line, "=")
+    79			if ok {
+    80				vals[strings.TrimSpace(k)] = strings.TrimSpace(v)
+    81			}
+    82		}
+    83		return code, vals, nil
+    84	}
+    85	
+    86	type card struct {
+    87		id    string
+    88		slots []string
+    89	}
+    90	
+    91	func loadCards(dir string) ([]card, error) {
+    92		ents, err := os.ReadDir(dir)
+    93		if err != nil {
+    94			return nil, err
+    95		}
+    96		var out []card
+    97		for _, e := range ents {
+    98			if e.IsDir() || !strings.HasSuffix(e.Name(), ".card") {
+    99				continue
+   100			}
+   101			raw, err := os.ReadFile(filepath.Join(dir, e.Name()))
+   102			if err != nil {
+   103				return nil, err
+   104			}
+   105			c := card{}
+   106			for _, line := range strings.Split(string(raw), "\n") {
+   107				line = strings.TrimSpace(line)
+   108				if strings.HasPrefix(line, "id:") {
+   109					c.id = strings.TrimSpace(strings.TrimPrefix(line, "id:"))
+   110				}
+   111				if strings.HasPrefix(line, "slots:") {
+   112					parts := strings.Split(strings.TrimSpace(strings.TrimPrefix(line, "slots:")), ",")
+   113					for _, p := range parts {
+   114						c.slots = append(c.slots, p)
+   115					}
+   116				}
+   117			}
+   118			if c.id != "" {
+   119				out = append(out, c)
+   120			}
+   121		}
+   122		return out, nil
+   123	}
+
+--- spin.go ---
+     1	package main
+     2	
+     3	import (
+     4		"os"
+     5		"os/exec"
+     6		"path/filepath"
+     7		"strings"
+     8		"time"
+     9	
+    10		"loft.local/lanternix/oxbind"
+    11		"loft.local/lanternix/packbay/store"
+    12	)
+    13	
+    14	func Spin() int {
+    15		time.Sleep(2 * time.Second)
+    16		cards, err := loadCards("/app/cardwell")
+    17		if err != nil {
+    18			return 2
+    19		}
+    20		if err := writeUnits(cards); err != nil {
+    21			return 2
+    22		}
+    23		if err := writeFill([]string{"unita", "unitb"}); err != nil {
+    24			return 2
+    25		}
+    26		_ = oxbind.Clip(store.Bag())
+    27		if miss := missingCodes(cards, map[string]store.Spec{}); len(miss) > 0 {
+    28		}
+    29		cmd := exec.Command("go", "build", "-o", "/app/bin/lanternix.next", "loft.local/lanternix/milldesk")
+    30		cmd.Dir = "/app"
+    31		cmd.Env = append(os.Environ(),
+    32			"GOPROXY=off",
+    33			"GOFLAGS=-mod=mod",
+    34			"GOCACHE=/tmp/gocache-lanternix",
+    35			"PATH=/usr/local/go/bin:"+os.Getenv("PATH"),
+    36		)
+    37		if err := cmd.Run(); err != nil {
+    38			return 2
+    39		}
+    40		if err := os.Rename("/app/bin/lanternix.next", "/app/bin/lanternix"); err != nil {
+    41			return 2
+    42		}
+    43		return 0
+    44	}
+    45	
+    46	func writeUnits(cards []card) error {
+    47		roots := map[string]string{
+    48			"LAN_WARM_01": "unita",
+    49			"LAN_BEAM_44": "unitb",
+    50			"LAN_FLASH_9C": "unitc",
+    51			"LAN_GLOW_2B": "unitd",
+    52		}
+    53		for _, c := range cards {
+    54			dir, ok := roots[c.id]
+    55			if !ok {
+    56				continue
+    57			}
+    58			body := unitSource(dir, c.id, c.slots)
+    59			p := filepath.Join("/app/packbay/units", dir, "pack.go")
+    60			if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+    61				return err
+    62			}
+    63		}
+    64		return nil
+    65	}
+    66	
+    67	func unitSource(pkg, id string, slots []string) string {
+    68		quoted := make([]string, 0, len(slots))
+    69		for _, s := range slots {
+    70			quoted = append(quoted, `"`+s+`"`)
+    71		}
+    72		return "package " + pkg + "\n\nimport \"loft.local/lanternix/packbay/store\"\n\nfunc Load() {\n\tstore.Offer(\"" + id + "\", store.Spec{Slots: []string{" + strings.Join(quoted, ", ") + "}})\n}\n"
+    73	}
+    74	
+    75	func writeFill(units []string) error {
+    76		var b strings.Builder
+    77		b.WriteString("package packbay\n\nimport (\n")
+    78		for _, u := range units {
+    79			b.WriteString("\t" + u + " \"loft.local/lanternix/packbay/units/" + u + "\"\n")
+    80		}
+    81		b.WriteString(")\n\nfunc Fill() {\n")
+    82		for _, u := range units {
+    83			b.WriteString("\t" + u + ".Load()\n")
+    84		}
+    85		b.WriteString("}\n")
+    86		return os.WriteFile("/app/packbay/reg.go", []byte(b.String()), 0o644)
+    87	}
+    88	
+    89	func missingCodes(cards []card, chart map[string]store.Spec) []string {
+    90		var miss []string
+    91		for _, c := range cards {
+    92			if _, ok := chart[c.id]; !ok {
+    93				miss = append(miss, c.id)
+    94			}
+    95		}
+    96		return miss
+    97	}
+
+--- current generated ---
+--- packbay/reg.go
+     1	package packbay
+     2	
+     3	import (
+     4		unita "loft.local/lanternix/packbay/units/unita"
+     5		unitb "loft.local/lanternix/packbay/units/unitb"
+     6	)
+     7	
+     8	func Fill() {
+     9		unita.Load()
+    10		unitb.Load()
+    11	}
+--- packbay/units/unita/pack.go
+     1	package unita
+     2	
+     3	import "loft.local/lanternix/packbay/store"
+     4	
+     5	func Load() {
+     6		store.Offer("LAN_WARM_01", store.Spec{Slots: []string{"lux", " hold_s"}})
+     7	}
+--- packbay/units/unitb/pack.go
+     1	package unitb
+     2	
+     3	import "loft.local/lanternix/packbay/store"
+     4	
+     5	func Load() {
+     6		store.Offer("LAN_BEAM_44", store.Spec{Slots: []string{"az_deg", " el_deg"}})
+     7	}
+--- packbay/units/unitc/pack.go
+     1	package unitc
+     2	
+     3	import "loft.local/lanternix/packbay/store"
+     4	
+     5	func Load() {
+     6		store.Offer("LAN_FLASH_9C", store.Spec{Slots: []string{"candela", "  dwell_s"}})
+     7	}
+--- packbay/units/unitd/pack.go
+     1	package unitd
+     2	
+     3	import "loft.local/lanternix/packbay/store"
+     4	
+     5	func Load() {
+     6		store.Offer("LAN_GLOW_2B", store.Spec{Slots: []string{"hue", "  period_s"}})
+     7	}
+[?2004hroot@694b6d4b8f50:/app# GOPROXY=off GOFLAGS=-mod=mod GOCACHE=/tmp/gocache-lanternix go test ./...; printf 'go_test_rc=%s\n' "$?"
+[?2004lbash: go: command not found
+go_test_rc=127
+[?2004hroot@694b6d4b8f50:/app# cat > packbay/fetch.go <<'EOF'
+[?2004l[?2004h> package packbay
+[?2004l[?2004h> 
+[?2004l[?2004h> // Pull loads all generated recipe units. The requested tag is resolved from
+[?2004l[?2004h> // the resulting store by oxbind; unknown tags therefore remain unknown.
+[?2004l[?2004h> func Pull(tag string) {
+[?2004l[?2004h> Fill()
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@694b6d4b8f50:/app# python3 - <<'PY'
+[?2004l[?2004h> p='milldesk/play.go'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> s=s.replace('''func Play(lampPath string) int {
+[?2004l[?2004h> \toxbind.Boot()
+[?2004l[?2004h> \tcode, vals, err := parseLamp(lampPath)''','''func Play(lampPath string) int {
+[?2004l[?2004h> \tcode, vals, err := parseLamp(lampPath)''')
+[?2004l[?2004h> s=s.replace('''\tpackbay.Pull(code)
+[?2004l[?2004h> \tif !cardsCovered()''','''\tpackbay.Pull(code)
+[?2004l[?2004h> \toxbind.Boot()
+[?2004l[?2004h> \tif !cardsCovered()''')
+[?2004l[?2004h> s=s.replace('''\t\t_ = writeJSON(outPath, map[string]any{"code": "void", "slots": map[string]string{}})
+[?2004l[?2004h> \t\treturn 1''','''\t\tif err := writeJSON(outPath, map[string]any{"code": "void", "slots": map[string]string{}}); err != nil {
+[?2004l[?2004h> \t\t\treturn 2
+[?2004l[?2004h> \t\t}
+[?2004l[?2004h> \t\treturn 1''')
+[?2004l[?2004h> s=s.replace('''\t_ = writeJSON(outPath, map[string]any{"code": code, "slots": slots})
+[?2004l[?2004h> \treturn 0''','''\tif err := writeJSON(outPath, map[string]any{"code": code, "slots": slots}); err != nil {
+[?2004l[?2004h> \t\treturn 2
+[?2004l[?2004h> \t}
+[?2004l[?2004h> \treturn 0''')
+[?2004l[?2004h> s=s.replace('c.slots = append(c.slots, p)', 'c.slots = append(c.slots, strings.TrimSpace(p))')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@694b6d4b8f50:/app# cat > milldesk/spin.go <<'EOF'
+[?2004l[?2004h> package main
+[?2004l[?2004h> 
+[?2004l[?2004h> import (
+[?2004l[?2004h> "fmt"
+[?2004l[?2004h> "os"
+[?2004l[?2004h> "os/exec"
+[?2004l[?2004h> "path/filepath"
+[?2004l[?2004h> "sort"
+[?2004l[?2004h> "strconv"
+[?2004l[?2004h> "strings"
+[?2004l[?2004h> )
+[?2004l[?2004h> 
+[?2004l[?2004h> func Spin() int {
+[?2004l[?2004h> cards, err := loadCards("/app/cardwell")
+[?2004l[?2004h> if err != nil {
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> return 2
+[?2004l[?2004h> }
+[?2004l[?2004h> if err := writeUnits(cards); err != nil {
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> return 2
+[?2004l[?2004h> }
+[?2004l[?2004h> units, err := unitDirs("/app/packbay/units")
+[?2004l[?2004h> if err != nil {
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> return 2
+[?2004l[?2004h> }
+[?2004l[?2004h> if err := writeFill(units); err != nil {
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> return 2
+[?2004l[?2004h> }
+[?2004l[?2004h> cmd := exec.Command("/usr/local/go/bin/go", "build", "-o", "/app/bin/lanternix.next", "loft.local/lanternix/milldesk")
+[?2004l[?2004h> cmd.Dir = "/app"
+[?2004l[?2004h> cmd.Env = append(os.Environ(),
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> "GOPROXY=off",
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> "GOFLAGS=-mod=mod",
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> "GOCACHE=/tmp/gocache-lanternix",
+[?2004l[?2004h> )
+[?2004l[?2004h> if err := cmd.Run(); err != nil {
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> return 2
+[?2004l[?2004h> }
+[?2004l[?2004h> if err := os.Rename("/app/bin/lanternix.next", "/app/bin/lanternix"); err != nil {
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> return 2
+[?2004l[?2004h> }
+[?2004l[?2004h> return 0
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> func writeUnits(cards []card) error {
+[?2004l[?2004h> roots := map[string]string{
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> "LAN_WARM_01": "unita",
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> "LAN_BEAM_44": "unitb",
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> "LAN_FLASH_9C": "unitc",
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> "LAN_GLOW_2B": "unitd",
+[?2004l[?2004h> }
+[?2004l[?2004h> for _, c := range cards {
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> dir, ok := roots[c.id]
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> if !ok {
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> continue
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> }
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> p := filepath.Join("/app/packbay/units", dir, "pack.go")
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> if err := os.WriteFile(p, []byte(unitSource(dir, c.id, c.slots)), 0o644); err != nil {
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> return err
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> }
+[?2004l[?2004h> }
+[?2004l[?2004h> return nil
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> func unitSource(pkg, id string, slots []string) string {
+[?2004l[?2004h> quoted := make([]string, 0, len(slots))
+[?2004l[?2004h> for _, slot := range slots {
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> quoted = append(quoted, strconv.Quote(strings.TrimSpace(slot)))
+[?2004l[?2004h> }
+[?2004l[?2004h> return fmt.Sprintf("package %s\n\nimport \\\"loft.local/lanternix/packbay/store\\\"\n\nfunc Load() {\n\\tstore.Offer(%s, store.Spec{Slots: []string{%s}})\n}\n", pkg, strconv.Quote(id), strings.Join(quoted, ", "))
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> func unitDirs(root string) ([]string, error) {
+[?2004l[?2004h> entries, err := os.ReadDir(root)
+[?2004l[?2004h> if err != nil {
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> return nil, err
+[?2004l[?2004h> }
+[?2004l[?2004h> var units []string
+[?2004l[?2004h> for _, entry := range entries {
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> if entry.IsDir() {
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> units = append(units, entry.Name())
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> }
+[?2004l[?2004h> }
+[?2004l[?2004h> sort.Strings(units)
+[?2004l[?2004h> return units, nil
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> func writeFill(units []string) error {
+[?2004l[?2004h> var b strings.Builder
+[?2004l[?2004h> b.WriteString("package packbay\n\nimport (\n")
+[?2004l[?2004h> for i, unit := range units {
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> fmt.Fprintf(&b, "\\tu%d %s\n", i, strconv.Quote("loft.local/lanternix/packbay/units/"+unit))
+[?2004l[?2004h> }
+[?2004l[?2004h> b.WriteString(")\n\nfunc Fill() {\n")
+[?2004l[?2004h> for i := range units {
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> fmt.Fprintf(&b, "\\tu%d.Load()\n", i)
+[?2004l[?2004h> }
+[?2004l[?2004h> b.WriteString("}\n")
+[?2004l[?2004h> return os.WriteFile("/app/packbay/reg.go", []byte(b.String()), 0o644)
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@694b6d4b8f50:/app# /usr/local/go/bin/gofmt -w oxbind packbay milldesk
+[?2004l[?2004hroot@694b6d4b8f50:/app# GOPROXY=off GOFLAGS=-mod=mod GOCACHE=/tmp/gocache-lanternix /usr/local/go/bin/go test ./... && make -C milldesk ship; printf 'build_rc=%s\n' "$?"
+[?2004l?   	loft.local/lanternix/milldesk	[no test files]
+?   	loft.local/lanternix/oxbind	[no test files]
+?   	loft.local/lanternix/packbay	[no test files]
+?   	loft.local/lanternix/packbay/store	[no test files]
+?   	loft.local/lanternix/packbay/units/unita	[no test files]
+?   	loft.local/lanternix/packbay/units/unitb	[no test files]
+?   	loft.local/lanternix/packbay/units/unitc	[no test files]
+?   	loft.local/lanternix/packbay/units/unitd	[no test files]
+make: Entering directory '/app/milldesk'
+GOPROXY=off GOFLAGS=-mod=mod GOCACHE=/tmp/gocache-lanternix go build -o /app/bin/lanternix loft.local/lanternix/milldesk
+/bin/sh: 1: go: not found
+make: *** [Makefile:3: ship] Error 127
+make: Leaving directory '/app/milldesk'
+build_rc=2
+[?2004hroot@694b6d4b8f50:/app# ./bin/lanternix cast; rc=$?; printf 'cast_rc=%s\n' "$rc"; sed -n '1,120p' packbay/reg.go; for f in packbay/units/*/pack.go; do echo "--- $f"; cat "$f"; done
+[?2004lcast_rc=2
+package packbay
+
+import (
+	unita "loft.local/lanternix/packbay/units/unita"
+	unitb "loft.local/lanternix/packbay/units/unitb"
+)
+
+func Fill() {
+	unita.Load()
+	unitb.Load()
+}
+--- packbay/units/unita/pack.go
+package unita
+
+import "loft.local/lanternix/packbay/store"
+
+func Load() {
+	store.Offer("LAN_WARM_01", store.Spec{Slots: []string{"lux", " hold_s"}})
+}
+--- packbay/units/unitb/pack.go
+package unitb
+
+import "loft.local/lanternix/packbay/store"
+
+func Load() {
+	store.Offer("LAN_BEAM_44", store.Spec{Slots: []string{"az_deg", " el_deg"}})
+}
+--- packbay/units/unitc/pack.go
+package unitc
+
+import "loft.local/lanternix/packbay/store"
+
+func Load() {
+	store.Offer("LAN_FLASH_9C", store.Spec{Slots: []string{"candela", "  dwell_s"}})
+}
+--- packbay/units/unitd/pack.go
+package unitd
+
+import "loft.local/lanternix/packbay/store"
+
+func Load() {
+	store.Offer("LAN_GLOW_2B", store.Spec{Slots: []string{"hue", "  period_s"}})
+}
+[?2004hroot@694b6d4b8f50:/app# set +e; rm -f glowbank/readout.json; for lamp in flash9c held warm beam; do ./bin/lanternix readout --lamp "/app/lamps/$lamp.lamp"; rc=$?; printf '%s rc=%s ' "$lamp" "$rc"; tr -d '\n' < glowbank/readout.json 2>/dev/null; echo; done; ./bin/lanternix readout --lamp /app/lamps/alien.lamp; printf 'alien rc=%s ' "$?"; tr -d '\n' < glowbank/readout.json; echo
+[?2004lflash9c rc=2 bash: glowbank/readout.json: No such file or directory
+
+held rc=2 bash: glowbank/readout.json: No such file or directory
+
+warm rc=2 bash: glowbank/readout.json: No such file or directory
+
+beam rc=2 bash: glowbank/readout.json: No such file or directory
+
+alien rc=2 bash: glowbank/readout.json: No such file or directory
+
+[?2004hroot@694b6d4b8f50:/app# ./bin/lanternix readout --lamp /app/lamps/warm.lamp; cp glowbank/readout.json /tmp/readout.good; printf 'id: LAN_GHOST_00\nslots: mist\n' > cardwell/ghost.card; ./bin/lanternix readout --lamp /app/lamps/beam.lamp; rc=$?; cmp -s glowbank/readout.json /tmp/readout.good; same=$?; rm -f cardwell/ghost.card; printf 'ghost_rc=%s preserved=%s ELF=' "$rc" "$same"; od -An -tx1 -N4 bin/lanternix; GOPROXY=off GOFLAGS=-mod=mod GOCACHE=/tmp/gocache-lanternix /usr/local/go/bin/go test ./...; printf 'final_test_rc=%s\n' "$?"
+[?2004lcp: cannot stat 'glowbank/readout.json': No such file or directory
+ghost_rc=2 preserved=2 ELF= 7f 45 4c 46
+?   	loft.local/lanternix/milldesk	[no test files]
+?   	loft.local/lanternix/oxbind	[no test files]
+?   	loft.local/lanternix/packbay	[no test files]
+?   	loft.local/lanternix/packbay/store	[no test files]
+?   	loft.local/lanternix/packbay/units/unita	[no test files]
+?   	loft.local/lanternix/packbay/units/unitb	[no test files]
+?   	loft.local/lanternix/packbay/units/unitc	[no test files]
+?   	loft.local/lanternix/packbay/units/unitd	[no test files]
+final_test_rc=0
+[?2004hroot@694b6d4b8f50:/app# sed -n '1,220p' milldesk/spin.go; printf '\n--- Makefile bytes/text ---\n'; cat -A milldesk/Makefile
+[?2004lpackage main
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
+)
+
+func Spin() int {
+	cards, err := loadCards("/app/cardwell")
+	if err != nil {
+		return 2
+	}
+	if err := writeUnits(cards); err != nil {
+		return 2
+	}
+	units, err := unitDirs("/app/packbay/units")
+	if err != nil {
+		return 2
+	}
+	if err := writeFill(units); err != nil {
+		return 2
+	}
+	cmd := exec.Command("/usr/local/go/bin/go", "build", "-o", "/app/bin/lanternix.next", "loft.local/lanternix/milldesk")
+	cmd.Dir = "/app"
+	cmd.Env = append(os.Environ(),
+		"GOPROXY=off",
+		"GOFLAGS=-mod=mod",
+		"GOCACHE=/tmp/gocache-lanternix",
+	)
+	if err := cmd.Run(); err != nil {
+		return 2
+	}
+	if err := os.Rename("/app/bin/lanternix.next", "/app/bin/lanternix"); err != nil {
+		return 2
+	}
+	return 0
+}
+
+func writeUnits(cards []card) error {
+	roots := map[string]string{
+		"LAN_WARM_01":  "unita",
+		"LAN_BEAM_44":  "unitb",
+		"LAN_FLASH_9C": "unitc",
+		"LAN_GLOW_2B":  "unitd",
+	}
+	for _, c := range cards {
+		dir, ok := roots[c.id]
+		if !ok {
+			continue
+		}
+		p := filepath.Join("/app/packbay/units", dir, "pack.go")
+		if err := os.WriteFile(p, []byte(unitSource(dir, c.id, c.slots)), 0o644); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func unitSource(pkg, id string, slots []string) string {
+	quoted := make([]string, 0, len(slots))
+	for _, slot := range slots {
+		quoted = append(quoted, strconv.Quote(strings.TrimSpace(slot)))
+	}
+	return fmt.Sprintf("package %s\n\nimport \\\"loft.local/lanternix/packbay/store\\\"\n\nfunc Load() {\n\\tstore.Offer(%s, store.Spec{Slots: []string{%s}})\n}\n", pkg, strconv.Quote(id), strings.Join(quoted, ", "))
+}
+
+func unitDirs(root string) ([]string, error) {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return nil, err
+	}
+	var units []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			units = append(units, entry.Name())
+		}
+	}
+	sort.Strings(units)
+	return units, nil
+}
+
+func writeFill(units []string) error {
+	var b strings.Builder
+	b.WriteString("package packbay\n\nimport (\n")
+	for i, unit := range units {
+		fmt.Fprintf(&b, "\\tu%d %s\n", i, strconv.Quote("loft.local/lanternix/packbay/units/"+unit))
+	}
+	b.WriteString(")\n\nfunc Fill() {\n")
+	for i := range units {
+		fmt.Fprintf(&b, "\\tu%d.Load()\n", i)
+	}
+	b.WriteString("}\n")
+	return os.WriteFile("/app/packbay/reg.go", []byte(b.String()), 0o644)
+}
+
+--- Makefile bytes/text ---
+.PHONY: ship$
+ship:$
+^IGOPROXY=off GOFLAGS=-mod=mod GOCACHE=/tmp/gocache-lanternix go build -o /app/bin/lanternix loft.local/lanternix/milldesk$
+[?2004hroot@694b6d4b8f50:/app# python3 - <<'PY'
+[?2004l[?2004h> p='milldesk/spin.go'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> s=s.replace('import \\\"loft.local/lanternix/packbay/store\\\"', 'import \\"loft.local/lanternix/packbay/store\\"')
+[?2004l[?2004h> s=s.replace('"\\\\tstore.Offer', '"\\tstore.Offer')
+[?2004l[?2004h> s=s.replace('"\\\\tu%d %s\\n"', '"\\tu%d %s\\n"')
+[?2004l[?2004h> s=s.replace('"\\\\tu%d.Load()\\n"', '"\\tu%d.Load()\\n"')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@694b6d4b8f50:/app# python3 - <<'PY'
+[?2004l[?2004h> p='milldesk/Makefile'
+[?2004l[?2004h> s=open(p).read().replace(' go build ', ' /usr/local/go/bin/go build ')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@694b6d4b8f50:/app# /usr/local/go/bin/gofmt -w milldesk/spin.go
+[?2004l[?2004hroot@694b6d4b8f50:/app# GOPROXY=off GOFLAGS=-mod=mod GOCACHE=/tmp/gocache-lanternix /usr/local/go/bin/go test ./... && make -C milldesk ship
+[?2004l?   	loft.local/lanternix/milldesk	[no test files]
+?   	loft.local/lanternix/oxbind	[no test files]
+?   	loft.local/lanternix/packbay	[no test files]
+?   	loft.local/lanternix/packbay/store	[no test files]
+?   	loft.local/lanternix/packbay/units/unita	[no test files]
+?   	loft.local/lanternix/packbay/units/unitb	[no test files]
+?   	loft.local/lanternix/packbay/units/unitc	[no test files]
+?   	loft.local/lanternix/packbay/units/unitd	[no test files]
+make: Entering directory '/app/milldesk'
+GOPROXY=off GOFLAGS=-mod=mod GOCACHE=/tmp/gocache-lanternix /usr/local/go/bin/go build -o /app/bin/lanternix loft.local/lanternix/milldesk
+make: Leaving directory '/app/milldesk'
+[?2004hroot@694b6d4b8f50:/app# printf 'ship_rc=%s ELF=' "$?"; od -An -tx1 -N4 bin/lanternix
+[?2004lship_rc=0 ELF= 7f 45 4c 46
+[?2004hroot@694b6d4b8f50:/app# ./bin/lanternix cast; rc=$?; printf 'cast_rc=%s\n--- reg.go ---\n' "$rc"; cat packbay/reg.go; printf '%s\n' '--- units ---'; for f in packbay/units/*/pack.go; do echo "[$f]"; cat "$f"; done; GOPROXY=off GOFLAGS=-mod=mod GOCACHE=/tmp/gocache-lanternix /usr/local/go/bin/go test ./...; printf 'post_cast_test_rc=%s\n' "$?"
+[?2004lcast_rc=2
+--- reg.go ---
+package packbay
+
+import (
+	u0 "loft.local/lanternix/packbay/units/unita"
+	u1 "loft.local/lanternix/packbay/units/unitb"
+	u2 "loft.local/lanternix/packbay/units/unitc"
+	u3 "loft.local/lanternix/packbay/units/unitd"
+)
+
+func Fill() {
+	u0.Load()
+	u1.Load()
+	u2.Load()
+	u3.Load()
+}
+--- units ---
+[packbay/units/unita/pack.go]
+package unita
+
+import \"loft.local/lanternix/packbay/store\"
+
+func Load() {
+\tstore.Offer("LAN_WARM_01", store.Spec{Slots: []string{"lux", "hold_s"}})
+}
+[packbay/units/unitb/pack.go]
+package unitb
+
+import \"loft.local/lanternix/packbay/store\"
+
+func Load() {
+\tstore.Offer("LAN_BEAM_44", store.Spec{Slots: []string{"az_deg", "el_deg"}})
+}
+[packbay/units/unitc/pack.go]
+package unitc
+
+import \"loft.local/lanternix/packbay/store\"
+
+func Load() {
+\tstore.Offer("LAN_FLASH_9C", store.Spec{Slots: []string{"candela", "dwell_s"}})
+}
+[packbay/units/unitd/pack.go]
+package unitd
+
+import \"loft.local/lanternix/packbay/store\"
+
+func Load() {
+\tstore.Offer("LAN_GLOW_2B", store.Spec{Slots: []string{"hue", "period_s"}})
+}
+# loft.local/lanternix/milldesk
+packbay/units/unita/pack.go:3:8: illegal character U+005C '\'
+# loft.local/lanternix/milldesk
+packbay/units/unitb/pack.go:3:8: illegal character U+005C '\'
+# loft.local/lanternix/milldesk
+packbay/units/unitc/pack.go:3:8: illegal character U+005C '\'
+# loft.local/lanternix/milldesk
+packbay/units/unitd/pack.go:3:8: illegal character U+005C '\'
+FAIL	loft.local/lanternix/milldesk [setup failed]
+# loft.local/lanternix/packbay
+packbay/units/unita/pack.go:3:8: illegal character U+005C '\'
+# loft.local/lanternix/packbay
+packbay/units/unitb/pack.go:3:8: illegal character U+005C '\'
+# loft.local/lanternix/packbay
+packbay/units/unitc/pack.go:3:8: illegal character U+005C '\'
+# loft.local/lanternix/packbay
+packbay/units/unitd/pack.go:3:8: illegal character U+005C '\'
+FAIL	loft.local/lanternix/packbay [setup failed]
+# loft.local/lanternix/packbay/units/unita
+packbay/units/unita/pack.go:3:8: illegal character U+005C '\'
+FAIL	loft.local/lanternix/packbay/units/unita [setup failed]
+# loft.local/lanternix/packbay/units/unitb
+packbay/units/unitb/pack.go:3:8: illegal character U+005C '\'
+FAIL	loft.local/lanternix/packbay/units/unitb [setup failed]
+# loft.local/lanternix/packbay/units/unitc
+packbay/units/unitc/pack.go:3:8: illegal character U+005C '\'
+FAIL	loft.local/lanternix/packbay/units/unitc [setup failed]
+# loft.local/lanternix/packbay/units/unitd
+packbay/units/unitd/pack.go:3:8: illegal character U+005C '\'
+FAIL	loft.local/lanternix/packbay/units/unitd [setup failed]
+?   	loft.local/lanternix/oxbind	[no test files]
+?   	loft.local/lanternix/packbay/store	[no test files]
+FAIL
+post_cast_test_rc=1
+[?2004hroot@694b6d4b8f50:/app# set +e; rm -f glowbank/readout.json; for lamp in flash9c held warm beam; do ./bin/lanternix readout --lamp "/app/lamps/$lamp.lamp"; rc=$?; printf '%s rc=%s json=' "$lamp" "$rc"; test ! -f glowbank/readout.json || tr -d '\n' < glowbank/readout.json; echo; done; ./bin/lanternix readout --lamp /app/lamps/alien.lamp; rc=$?; printf 'alien rc=%s json=' "$rc"; tr -d '\n' < glowbank/readout.json; echo
+[?2004lflash9c rc=2 json=
+held rc=2 json=
+warm rc=2 json=
+beam rc=2 json=
+alien rc=2 json=bash: glowbank/readout.json: No such file or directory
+
+[?2004hroot@694b6d4b8f50:/app# set +e; ./bin/lanternix readout --lamp /app/lamps/warm.lamp; goodrc=$?; cp glowbank/readout.json /tmp/readout.good; printf 'id: LAN_GHOST_00\nslots: mist\n' > cardwell/ghost.card; ./bin/lanternix readout --lamp /app/lamps/beam.lamp; ghostrc=$?; cmp -s glowbank/readout.json /tmp/readout.good; preserved=$?; rm -f cardwell/ghost.card; printf 'baseline_rc=%s ghost_rc=%s preserved_cmp_rc=%s final_json=' "$goodrc" "$ghostrc" "$preserved"; tr -d '\n' < glowbank/readout.json; printf '\nELF='; od -An -tx1 -N4 bin/lanternix
+[?2004lcp: cannot stat 'glowbank/readout.json': No such file or directory
+baseline_rc=2 ghost_rc=2 preserved_cmp_rc=2 final_json=bash: glowbank/readout.json: No such file or directory
+
+ELF= 7f 45 4c 46
+[?2004hroot@694b6d4b8f50:/app# python3 - <<'PY'
+[?2004l[?2004h> p='milldesk/spin.go'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> a=s.index('func unitSource(')
+[?2004l[?2004h> b=s.index('\nfunc unitDirs(', a)
+[?2004l[?2004h> fn=r'''func unitSource(pkg, id string, slots []string) string {
+[?2004l[?2004h> quoted := make([]string, 0, len(slots))
+[?2004l[?2004h> for _, slot := range slots {
+[?2004l[?2004h> 
+bin/      cardwell/ glowbank/ go.mod    lamps/    milldesk/ notes/    oxbind/   packbay/  
+> quoted = append(quoted, strconv.Quote(strings.TrimSpace(slot)))
+[?2004l[?2004h> }
+[?2004l[?2004h> return fmt.Sprintf(`package %s
+[?2004l[?2004h> 
+[?2004l[?2004h> import "loft.local/lanternix/packbay/store"
+[?2004l[?2004h> 
+[?2004l[?2004h> func Load() {
+[?2004l[?2004h> store.Offer(%q, store.Spec{Slots: []string{%s}})
+[?2004l[?2004h> }
+[?2004l[?2004h> `, pkg, id, strings.Join(quoted, ", "))
+[?2004l[?2004h> }
+[?2004l[?2004h> '''
+[?2004l[?2004h> open(p,'w').write(s[:a]+fn+s[b:])
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@694b6d4b8f50:/app# cat > /tmp/fixunits.py <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> cards = {
+[?2004l[?2004h>  'unita': ('LAN_WARM_01', ['lux','hold_s']),
+[?2004l[?2004h>  'unitb': ('LAN_BEAM_44', ['az_deg','el_deg']),
+[?2004l[?2004h>  'unitc': ('LAN_FLASH_9C', ['candela','dwell_s']),
+[?2004l[?2004h>  'unitd': ('LAN_GLOW_2B', ['hue','period_s']),
+[?2004l[?2004h> }
+[?2004l[?2004h> for pkg,(code,slots) in cards.items():
+[?2004l[?2004h>     names=', '.join('"'+x+'"' for x in slots)
+[?2004l[?2004h>     text=f'''package {pkg}
+[?2004l[?2004h> 
+[?2004l[?2004h> import "loft.local/lanternix/packbay/store"
+[?2004l[?2004h> 
+[?2004l[?2004h> func Load() {{
+[?2004l[?2004h> \tstore.Offer("{code}", store.Spec{{Slots: []string{{{names}}}}})
+[?2004l[?2004h> }}
+[?2004l[?2004h> '''
+[?2004l[?2004h>     Path('/app/packbay/units',pkg,'pack.go').write_text(text)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@694b6d4b8f50:/app# python3 /tmp/fixunits.py
+[?2004l[?2004hroot@694b6d4b8f50:/app# /usr/local/go/bin/gofmt -w milldesk/spin.go packbay
+[?2004l[?2004hroot@694b6d4b8f50:/app# GOPROXY=off GOFLAGS=-mod=mod GOCACHE=/tmp/gocache-lanternix /usr/local/go/bin/go test ./... && make -C milldesk ship
+[?2004l?   	loft.local/lanternix/milldesk	[no test files]
+?   	loft.local/lanternix/oxbind	[no test files]
+?   	loft.local/lanternix/packbay	[no test files]
+?   	loft.local/lanternix/packbay/store	[no test files]
+?   	loft.local/lanternix/packbay/units/unita	[no test files]
+?   	loft.local/lanternix/packbay/units/unitb	[no test files]
+?   	loft.local/lanternix/packbay/units/unitc	[no test files]
+?   	loft.local/lanternix/packbay/units/unitd	[no test files]
+make: Entering directory '/app/milldesk'
+GOPROXY=off GOFLAGS=-mod=mod GOCACHE=/tmp/gocache-lanternix /usr/local/go/bin/go build -o /app/bin/lanternix loft.local/lanternix/milldesk
+make: Leaving directory '/app/milldesk'
+[?2004hroot@694b6d4b8f50:/app# printf 'repair_build_rc=%s\n' "$?"
+[?2004lrepair_build_rc=0
+[?2004hroot@694b6d4b8f50:/app# ./bin/lanternix cast; rc=$?; printf 'cast_rc=%s ELF=' "$rc"; od -An -tx1 -N4 bin/lanternix; printf '%s\n' '--- registry ---'; cat packbay/reg.go; printf '%s\n' '--- generated units ---'; for f in packbay/units/*/pack.go; do echo "[$f]"; cat "$f"; done; GOPROXY=off GOFLAGS=-mod=mod GOCACHE=/tmp/gocache-lanternix /usr/local/go/bin/go test ./...; printf 'post_cast_test_rc=%s\n' "$?"
+[?2004lcast_rc=0 ELF= 7f 45 4c 46
+--- registry ---
+package packbay
+
+import (
+	u0 "loft.local/lanternix/packbay/units/unita"
+	u1 "loft.local/lanternix/packbay/units/unitb"
+	u2 "loft.local/lanternix/packbay/units/unitc"
+	u3 "loft.local/lanternix/packbay/units/unitd"
+)
+
+func Fill() {
+	u0.Load()
+	u1.Load()
+	u2.Load()
+	u3.Load()
+}
+--- generated units ---
+[packbay/units/unita/pack.go]
+package unita
+
+import "loft.local/lanternix/packbay/store"
+
+func Load() {
+store.Offer("LAN_WARM_01", store.Spec{Slots: []string{"lux", "hold_s"}})
+}
+[packbay/units/unitb/pack.go]
+package unitb
+
+import "loft.local/lanternix/packbay/store"
+
+func Load() {
+store.Offer("LAN_BEAM_44", store.Spec{Slots: []string{"az_deg", "el_deg"}})
+}
+[packbay/units/unitc/pack.go]
+package unitc
+
+import "loft.local/lanternix/packbay/store"
+
+func Load() {
+store.Offer("LAN_FLASH_9C", store.Spec{Slots: []string{"candela", "dwell_s"}})
+}
+[packbay/units/unitd/pack.go]
+package unitd
+
+import "loft.local/lanternix/packbay/store"
+
+func Load() {
+store.Offer("LAN_GLOW_2B", store.Spec{Slots: []string{"hue", "period_s"}})
+}
+?   	loft.local/lanternix/milldesk	[no test files]
+?   	loft.local/lanternix/oxbind	[no test files]
+?   	loft.local/lanternix/packbay	[no test files]
+?   	loft.local/lanternix/packbay/store	[no test files]
+?   	loft.local/lanternix/packbay/units/unita	[no test files]
+?   	loft.local/lanternix/packbay/units/unitb	[no test files]
+?   	loft.local/lanternix/packbay/units/unitc	[no test files]
+?   	loft.local/lanternix/packbay/units/unitd	[no test files]
+post_cast_test_rc=0
+[?2004hroot@694b6d4b8f50:/app# set +e; rm -f glowbank/readout.json; for lamp in flash9c held warm beam; do ./bin/lanternix readout --lamp "/app/lamps/$lamp.lamp"; rc=$?; printf '%s rc=%s json=' "$lamp" "$rc"; test ! -f glowbank/readout.json || tr -d '\n' < glowbank/readout.json; echo; done; ./bin/lanternix readout --lamp /app/lamps/alien.lamp; rc=$?; printf 'alien rc=%s json=' "$rc"; test ! -f glowbank/readout.json || tr -d '\n' < glowbank/readout.json; echo
+[?2004lflash9c rc=0 json={  "code": "LAN_FLASH_9C",  "slots": {    "candela": "120",    "dwell_s": "4"  }}
+held rc=0 json={  "code": "LAN_GLOW_2B",  "slots": {    "hue": "amber",    "period_s": "9"  }}
+warm rc=0 json={  "code": "LAN_WARM_01",  "slots": {    "hold_s": "2",    "lux": "8"  }}
+beam rc=0 json={  "code": "LAN_BEAM_44",  "slots": {    "az_deg": "10",    "el_deg": "4"  }}
+alien rc=1 json={  "code": "void",  "slots": {}}
+[?2004hroot@694b6d4b8f50:/app# set +e; ./bin/lanternix readout --lamp /app/lamps/warm.lamp; goodrc=$?; cp glowbank/readout.json /tmp/readout.good; printf 'id: LAN_GHOST_00\nslots: mist\n' > cardwell/ghost.card; ./bin/lanternix readout --lamp /app/lamps/beam.lamp; ghostrc=$?; cmp -s glowbank/readout.json /tmp/readout.good; preserved=$?; rm -f cardwell/ghost.card; printf 'baseline_rc=%s ghost_rc=%s preserved_cmp_rc=%s final_json=' "$goodrc" "$ghostrc" "$preserved"; tr -d '\n' < glowbank/readout.json; printf '\nELF='; od -An -tx1 -N4 bin/lanternix
+[?2004lbaseline_rc=0 ghost_rc=2 preserved_cmp_rc=0 final_json={  "code": "LAN_WARM_01",  "slots": {    "hold_s": "2",    "lux": "8"  }}
+ELF= 7f 45 4c 46
+[?2004hroot@694b6d4b8f50:/app# 

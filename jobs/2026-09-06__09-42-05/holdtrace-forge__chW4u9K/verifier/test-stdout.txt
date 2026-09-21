@@ -1,0 +1,155 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 11 items
+
+../tests/test_outputs.py FFFFFFFFFFF                                     [100%]
+
+=================================== FAILURES ===================================
+________________________ test_pipeline_magic_alignment _________________________
+
+    def test_pipeline_magic_alignment():
+        """Forge must exit zero and the reader must accept the writer magic constant."""
+        r = _forge()
+        assert r.returncode == 0, r.stderr
+>       assert _writer_magic() in _reader_magics()
+E       AssertionError: assert b'HLT2' in {b'HLT1'}
+E        +  where b'HLT2' = _writer_magic()
+E        +  and   {b'HLT1'} = _reader_magics()
+
+/tests/test_outputs.py:80: AssertionError
+__________________________ test_vault_payload_fields ___________________________
+
+    def test_vault_payload_fields():
+        """Archived deployment trace must decode to lane_open with lane 7 and 1250 grams."""
+        assert _forge().returncode == 0
+        blob = ARCHIVE.read_bytes()
+        assert blob[:4] == b"HLT1"
+        assert _writer_magic() == b"HLT2"
+        data, code = _decode(ARCHIVE)
+>       assert code == 0
+E       assert 1 == 0
+
+/tests/test_outputs.py:90: AssertionError
+___________________________ test_live_emit_roundtrip ___________________________
+
+    def test_live_emit_roundtrip():
+        """A newly recorded trace must decode to the same event, lane, and grams."""
+        assert _forge().returncode == 0
+        assert _record(5, "sort_gate", 2200).returncode == 0
+        data, code = _decode(RECORD_OUT)
+>       assert code == 0
+E       assert 1 == 0
+
+/tests/test_outputs.py:99: AssertionError
+___________________________ test_pool_samples_decode ___________________________
+
+    def test_pool_samples_decode():
+        """Every corpus trace must decode through the CLI and use the writer magic prefix."""
+        assert _forge().returncode == 0
+        wm = _writer_magic()
+        for path in sorted(CORPUS.glob("*.trc")):
+            assert path.read_bytes()[:4] == wm
+            data, code = _decode(path)
+>           assert code == 0
+E           assert 1 == 0
+
+/tests/test_outputs.py:110: AssertionError
+_________________________ test_size_probe_insufficient _________________________
+
+    def test_size_probe_insufficient():
+        """Corpus size smoke passing must not excuse a broken archive decode."""
+        assert _forge().returncode == 0
+        smoke = subprocess.run(
+            ["/app/tracekit/smoke/corpus_len.py"], capture_output=True, text=True
+        )
+        assert smoke.returncode == 0
+        data, code = _decode(ARCHIVE)
+>       assert code == 0
+E       assert 1 == 0
+
+/tests/test_outputs.py:122: AssertionError
+______________________ test_junk_rejected_valid_persists _______________________
+
+    def test_junk_rejected_valid_persists():
+        """Random bytes must fail decode while the archive still decodes afterward."""
+        assert _forge().returncode == 0
+        junk = Path("/tmp/holdtrace_junk.trc")
+        junk.write_bytes(b"NOPE" + b"\x00" * 12)
+        data, code = _decode(junk)
+        assert code != 0
+        assert data.get("error") == "bad_trace"
+        good, gcode = _decode(ARCHIVE)
+>       assert gcode == 0
+E       assert 1 == 0
+
+/tests/test_outputs.py:135: AssertionError
+___________________________ test_first_sample_fields ___________________________
+
+    def test_first_sample_fields():
+        """First corpus sample must decode to dock_idle on lane 3 with 400 grams."""
+        assert _forge().returncode == 0
+        data, code = _decode(CORPUS / "sample_0.trc")
+>       assert code == 0
+E       assert 1 == 0
+
+/tests/test_outputs.py:143: AssertionError
+__________________________ test_second_sample_fields ___________________________
+
+    def test_second_sample_fields():
+        """Second corpus sample must decode to lift_done on lane 11 with 980 grams."""
+        assert _forge().returncode == 0
+        data, code = _decode(CORPUS / "sample_1.trc")
+>       assert code == 0
+E       assert 1 == 0
+
+/tests/test_outputs.py:151: AssertionError
+___________________________ test_name_width_sixteen ____________________________
+
+    def test_name_width_sixteen():
+        """Reader must use sixteen-bit name lengths after forge matches the schema."""
+        assert _forge().returncode == 0
+        text = READER.read_text()
+>       assert "NAME_BITS = 16" in text
+E       assert 'NAME_BITS = 16' in '"""Generated trace reader (stale layout — magic not synced)."""\n\nfrom __future__ import annotations\n\nfrom traceki...= 8\n\n\ndef ingest_blob(blob: bytes) -> tuple[int, str, int]:\n    return decode_trace(blob, LEGACY, NAME_LEN_BITS)\n'
+
+/tests/test_outputs.py:159: AssertionError
+___________________________ test_emit_nonempty_blob ____________________________
+
+    def test_emit_nonempty_blob():
+        """Record must emit a trace that decodes with the expected lane and grams."""
+        assert _forge().returncode == 0
+        assert _record(2, "weigh_in", 55).returncode == 0
+        assert RECORD_OUT.exists()
+        assert len(RECORD_OUT.read_bytes()) >= 12
+        data, code = _decode(RECORD_OUT)
+>       assert code == 0
+E       assert 1 == 0
+
+/tests/test_outputs.py:171: AssertionError
+____________________________ test_revision_tag_two _____________________________
+
+    def test_revision_tag_two():
+        """Span schema version must remain two and archive decode must stay valid."""
+        assert _forge().returncode == 0
+        schema = json.loads(Path("/app/tracekit/schema/span.json").read_text())
+        assert schema.get("version") == 2
+        data, code = _decode(ARCHIVE)
+>       assert code == 0
+E       assert 1 == 0
+
+/tests/test_outputs.py:181: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_pipeline_magic_alignment - AssertionErr...
+FAILED ../tests/test_outputs.py::test_vault_payload_fields - assert 1 == 0
+FAILED ../tests/test_outputs.py::test_live_emit_roundtrip - assert 1 == 0
+FAILED ../tests/test_outputs.py::test_pool_samples_decode - assert 1 == 0
+FAILED ../tests/test_outputs.py::test_size_probe_insufficient - assert 1 == 0
+FAILED ../tests/test_outputs.py::test_junk_rejected_valid_persists - assert 1...
+FAILED ../tests/test_outputs.py::test_first_sample_fields - assert 1 == 0
+FAILED ../tests/test_outputs.py::test_second_sample_fields - assert 1 == 0
+FAILED ../tests/test_outputs.py::test_name_width_sixteen - assert 'NAME_BITS ...
+FAILED ../tests/test_outputs.py::test_emit_nonempty_blob - assert 1 == 0
+FAILED ../tests/test_outputs.py::test_revision_tag_two - assert 1 == 0
+============================== 11 failed in 1.88s ==============================

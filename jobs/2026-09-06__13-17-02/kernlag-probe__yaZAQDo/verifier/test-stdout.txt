@@ -1,0 +1,122 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 7 items
+
+../tests/test_outputs.py FFFFF.F                                         [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_klg01_tag_live ______________________________
+
+    def test_klg01_tag_live():
+        """procance.tag must be live: plus the running.release value after synctab."""
+        tag = PROCANCE.read_text().strip()
+>       assert tag == f"live:{_release()}"
+E       AssertionError: assert 'bundle:6.8.12' == 'live:6.8.12'
+E         
+E         - live:6.8.12
+E         ?  --
+E         + bundle:6.8.12
+E         ? ++++
+
+/tests/test_outputs.py:39: AssertionError
+______________________________ test_klg02_lane_a _______________________________
+
+    def test_klg02_lane_a():
+        """lane_a inspect JSON must equal lane_a.ref."""
+>       assert _inspect(LANES / "lane_a.mem") == _card("lane_a")
+E       AssertionError: assert {'pid': 4421,...weight': 1024} == {'migration_f..._entity', ...}
+E         
+E         Omitting 3 identical items, use -vv to show
+E         Differing items:
+E         {'slice_ns': 107374182400000007} != {'slice_ns': 25000000}
+E         Right contains 1 more item:
+E         {'migration_flags': 7}
+E         Use -v to get more diff
+
+/tests/test_outputs.py:44: AssertionError
+______________________________ test_klg03_lane_b _______________________________
+
+    def test_klg03_lane_b():
+        """Held-out lane_b capture must match its reference card."""
+>       assert _inspect(LANE_B) == _card("lane_b")
+E       AssertionError: assert {'pid': 9901,...'weight': 512} == {'migration_f..._entity', ...}
+E         
+E         Omitting 3 identical items, use -vv to show
+E         Differing items:
+E         {'slice_ns': 80530636800000002} != {'slice_ns': 18750000}
+E         Right contains 1 more item:
+E         {'migration_flags': 2}
+E         Use -v to get more diff
+
+/tests/test_outputs.py:49: AssertionError
+______________________________ test_klg04_order_d ______________________________
+
+    def test_klg04_order_d():
+        """layout.tbl must include migration_flags between weight and slice_ns."""
+        body = LAYOUT.read_text()
+>       assert "FIELD migration_flags u32 8 4" in body
+E       AssertionError: assert 'FIELD migration_flags u32 8 4' in 'STRUCT sched_entity\nFIELD pid u32 0 4\nFIELD weight u32 4 4\nFIELD slice_ns u64 8 8\n'
+
+/tests/test_outputs.py:55: AssertionError
+_____________________________ test_klg05_guard_ok ______________________________
+
+    def test_klg05_guard_ok():
+        """Successful synctab must leave offline_guard.ok enforced."""
+        stamp = Path("/app/kernscribe/synctab_out/offline_guard.ok")
+>       assert stamp.read_text().strip() == "1"
+               ^^^^^^^^^^^^^^^^^
+
+/tests/test_outputs.py:62: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/local/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/app/kernscribe/synctab_out/offline_guard.ok'), mode = 'r'
+buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/app/kernscribe/synctab_out/offline_guard.ok'
+
+/usr/local/lib/python3.13/pathlib/_local.py:537: FileNotFoundError
+_____________________________ test_klg07_all_lanes _____________________________
+
+    def test_klg07_all_lanes():
+        """Every capturedeck sample must match its sibling reference card."""
+        for capture in sorted(LANES.glob("*.mem")):
+>           assert _inspect(capture) == _card(capture.stem)
+E           AssertionError: assert {'pid': 4421,...weight': 1024} == {'migration_f..._entity', ...}
+E             
+E             Omitting 3 identical items, use -vv to show
+E             Differing items:
+E             {'slice_ns': 107374182400000007} != {'slice_ns': 25000000}
+E             Right contains 1 more item:
+E             {'migration_flags': 7}
+E             Use -v to get more diff
+
+/tests/test_outputs.py:73: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_klg06_elf
+FAILED ../tests/test_outputs.py::test_klg01_tag_live - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_klg02_lane_a - AssertionError: assert {...
+FAILED ../tests/test_outputs.py::test_klg03_lane_b - AssertionError: assert {...
+FAILED ../tests/test_outputs.py::test_klg04_order_d - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_klg05_guard_ok - FileNotFoundError: [Er...
+FAILED ../tests/test_outputs.py::test_klg07_all_lanes - AssertionError: asser...
+========================= 6 failed, 1 passed in 0.16s ==========================

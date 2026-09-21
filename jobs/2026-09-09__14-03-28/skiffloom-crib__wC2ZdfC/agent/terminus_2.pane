@@ -1,0 +1,1644 @@
+[?2004hroot@7db2f97433c2:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@7db2f97433c2:/app# clear
+[?2004l[H[J[3J[?2004hroot@7db2f97433c2:/app# printf '%s\n' '--- forms ---'; cat /app/opsfold/forms.txt; printf '%s\n' '--- route ---'; cat /app/opsfold/ROUTE.txt; printf '%s\n' '--- hull ---'; cat /app/opsfold/HULL.txt
+[?2004l--- forms ---
+Change card lines:
+
+  BUDGET <integer>
+  ORIGIN <token>
+  FILE <path>
+  LINES <integers>
+  END
+
+Coverage count for a name is how many (FILE, line) pairs appear both on the change card and on that name's mesh sheet. Rank pool by that count, highest first. Equal counts: the lexicographically smaller identifier sits earlier.
+
+names is the longest prefix of pool whose durations from /app/durcards/ticks.txt sum to at most BUDGET. spent_ms is that sum.
+
+slate.json is one object: keys pool, names, spent_ms in that order, no extra whitespace inside arrays besides JSON commas.
+
+slate.bin concatenates: four bytes SLT1, uint16be pool count, then that many records of uint16be length plus UTF-8 identifier, then uint16be names count and the same record shape, then uint32be spent_ms.
+--- route ---
+Pipeline modules:
+
+- /app/heapwell
+- /app/spanurn
+- /app/tickpit
+
+CLI lives under /app/cribcli. Emit lives under /app/emitkit.
+
+`--stable-order` reorders the loaded rows by coverage count. Ops turned it on when a budgeted prefix drifted; the counts on a single cull still matched.
+--- hull ---
+Throwaway mill: make -C /app/cribcli -f driver.mk OUT=/tmp/skiffloom.ref
+Desk rebuild: /app/kindle.sh
+[?2004hroot@7db2f97433c2:/app# find /app -maxdepth 3 -type f -printf '%p\n' | sort
+[?2004l/app/bin/skiffloom
+/app/cribcli/driver.mk
+/app/cribcli/flow.c
+/app/cribcli/flow.h
+/app/cribcli/flow.o
+/app/cribcli/hull.c
+/app/cribcli/hull.o
+/app/cribcli/latch.c
+/app/cribcli/latch.h
+/app/cribcli/latch.o
+/app/cribcli/load.c
+/app/cribcli/load.h
+/app/cribcli/load.o
+/app/cribcli/wire.h
+/app/deltabay/eve.chg
+/app/deltabay/morn.chg
+/app/deltabay/void.chg
+/app/durcards/ticks.txt
+/app/emitkit/pour.c
+/app/emitkit/pour.h
+/app/emitkit/pour.o
+/app/heapwell/rank.c
+/app/heapwell/rank.h
+/app/heapwell/rank.o
+/app/kindle.sh
+/app/meshcards/q_ab.mesh
+/app/meshcards/q_cd.mesh
+/app/meshcards/q_ef.mesh
+/app/meshcards/q_gh.mesh
+/app/meshcards/q_ij.mesh
+/app/meshcards/q_kl.mesh
+/app/meshcards/q_mn.mesh
+/app/meshcards/q_op.mesh
+/app/meshcards/q_qr.mesh
+/app/meshcards/q_st.mesh
+/app/opsfold/HULL.txt
+/app/opsfold/ROUTE.txt
+/app/opsfold/forms.txt
+/app/slatewell/cull.ok
+/app/slatewell/slate.bin
+/app/slatewell/slate.json
+/app/spanurn/fold.c
+/app/spanurn/fold.h
+/app/spanurn/fold.o
+/app/tickpit/trim.c
+/app/tickpit/trim.h
+/app/tickpit/trim.o
+[?2004hroot@7db2f97433c2:/app# file /app/bin/skiffloom; od -An -tx1 -N4 /app/bin/skiffloom; printf '%s\n' '--- cards ---'; cat /app/deltabay/eve.chg; cat /app/deltabay/morn.chg; printf '%s\n' '--- ticks ---'; cat /app/durcards/ticks.txt
+[?2004l/app/bin/skiffloom: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, not stripped
+ 7f 45 4c 46
+--- cards ---
+BUDGET 120
+ORIGIN live
+FILE rib.c
+LINES 1 2 3 4 5 6 7 8 9
+END
+BUDGET 90
+ORIGIN live
+FILE rib.c
+LINES 10 11 12
+FILE keel.c
+LINES 10 11
+END
+--- ticks ---
+q_ab 40
+q_cd 40
+q_ef 40
+q_gh 40
+q_ij 40
+q_kl 40
+q_mn 40
+q_op 40
+q_qr 40
+q_st 40
+[?2004hroot@7db2f97433c2:/app# for f in /app/heapwell/*.[ch] /app/spanurn/*.[ch] /app/tickpit/*.[ch] /app/cribcli/*.[ch] /app/emitkit/*.[ch]; do echo "===== $f ====="; sed -n '1,260p' "$f"; done
+[?2004l===== /app/heapwell/rank.c =====
+#include "rank.h"
+
+#include "../cribcli/wire.h"
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define BKT 8
+
+typedef struct Node {
+	int idx;
+	struct Node *next;
+} Node;
+
+static int cmp_w(const void *a, const void *b)
+{
+	int ia = *(const int *)a;
+	int ib = *(const int *)b;
+
+	if (g_rows[ia].w != g_rows[ib].w)
+		return g_rows[ib].w - g_rows[ia].w;
+	return 0;
+}
+
+void op_lift(void)
+{
+	Node *bk[BKT];
+	int stamp;
+	unsigned mix = (unsigned)(uintptr_t)&stamp;
+	int i, m = 0;
+
+	memset(bk, 0, sizeof bk);
+	for (i = 0; i < g_n; i++) {
+		unsigned h = 2166136261u;
+		const char *p;
+		unsigned b;
+		Node *n;
+
+		for (p = g_rows[i].id; *p; p++)
+			h = (h ^ (unsigned char)*p) * 16777619u;
+		b = (h ^ mix) % BKT;
+		n = malloc(sizeof *n);
+		if (!n)
+			continue;
+		n->idx = i;
+		n->next = bk[b];
+		bk[b] = n;
+	}
+	for (i = 0; i < BKT; i++) {
+		Node *n;
+
+		for (n = bk[i]; n; n = n->next)
+			g_ord[m++] = n->idx;
+	}
+	qsort(g_ord, (size_t)m, sizeof(int), cmp_w);
+	if (g_latch)
+		qsort(g_ord, (size_t)m, sizeof(int), cmp_w);
+}
+===== /app/heapwell/rank.h =====
+#ifndef RANK_H
+#define RANK_H
+
+void op_lift(void);
+
+#endif
+===== /app/spanurn/fold.c =====
+#include "fold.h"
+
+#include "../cribcli/wire.h"
+
+#include <string.h>
+
+static int has_line(const int *lines, int n, int v)
+{
+	int i;
+
+	for (i = 0; i < n; i++) {
+		if (lines[i] == v)
+			return 1;
+	}
+	return 0;
+}
+
+int cfg_span(void)
+{
+	int i, f, h, ln;
+
+	for (i = 0; i < g_n; i++)
+		g_rows[i].w = 0;
+	for (f = 0; f < g_nchgf; f++) {
+		for (i = 0; i < g_n; i++) {
+			int w = 0;
+			Sheet *sh = &g_sheets[i];
+
+			for (h = 0; h < sh->nfiles; h++) {
+				if (strcmp(sh->files[h].path, g_chgf[f].path) != 0)
+					continue;
+				for (ln = 0; ln < g_chgf[f].nlines; ln++) {
+					if (has_line(sh->files[h].lines, sh->files[h].nlines,
+						     g_chgf[f].lines[ln]))
+						w++;
+				}
+			}
+			g_rows[i].w = w;
+		}
+	}
+	{
+		int k = 0;
+
+		for (i = 0; i < g_n; i++) {
+			if (g_rows[i].w <= 0)
+				continue;
+			if (k != i) {
+				g_rows[k] = g_rows[i];
+				g_sheets[k] = g_sheets[i];
+			}
+			k++;
+		}
+		g_n = k;
+	}
+	return 0;
+}
+===== /app/spanurn/fold.h =====
+#ifndef FOLD_H
+#define FOLD_H
+
+int cfg_span(void);
+
+#endif
+===== /app/tickpit/trim.c =====
+#include "trim.h"
+
+#include "../cribcli/wire.h"
+
+int n_trim(void)
+{
+	int i, cap = 4;
+
+	g_sel_n = 0;
+	g_spent = 0;
+	if (cap > g_n)
+		cap = g_n;
+	for (i = 0; i < cap; i++) {
+		int idx = g_ord[i];
+
+		g_sel[g_sel_n++] = idx;
+		g_spent += g_rows[idx].dur;
+	}
+	return 0;
+}
+===== /app/tickpit/trim.h =====
+#ifndef TRIM_H
+#define TRIM_H
+
+int n_trim(void);
+
+#endif
+===== /app/cribcli/flow.c =====
+#include "flow.h"
+
+#include "../heapwell/rank.h"
+#include "../tickpit/trim.h"
+#include "../emitkit/pour.h"
+
+int run_flow(const char *dest)
+{
+	op_lift();
+	if (n_trim() != 0)
+		return 1;
+	return n_pour(dest);
+}
+===== /app/cribcli/flow.h =====
+#ifndef FLOW_H
+#define FLOW_H
+
+int run_flow(const char *dest);
+
+#endif
+===== /app/cribcli/hull.c =====
+#include "latch.h"
+#include "load.h"
+#include "flow.h"
+#include "../spanurn/fold.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+static void mark_ok(void)
+{
+	FILE *fp;
+
+	mkdir("/app/slatewell", 0755);
+	fp = fopen("/app/slatewell/cull.ok", "w");
+	if (fp) {
+		fputs("ok\n", fp);
+		fclose(fp);
+	}
+}
+
+static void clear_ok(void)
+{
+	unlink("/app/slatewell/cull.ok");
+}
+
+int main(int argc, char **argv)
+{
+	const char *card;
+	const char *dest;
+
+	take_latch(argc, argv);
+	if (argc < 2) {
+		fputs("usage\n", stderr);
+		return 2;
+	}
+	if (strcmp(argv[1], "cull") != 0)
+		return 2;
+	if (argc < 4)
+		return 2;
+	card = argv[2];
+	dest = argv[3];
+	mkdir("/app/slatewell", 0755);
+	clear_ok();
+	if (load_card(card) != 0)
+		return 1;
+	if (cfg_span() != 0)
+		return 1;
+	if (run_flow(dest) != 0)
+		return 1;
+	mark_ok();
+	return 0;
+}
+===== /app/cribcli/latch.c =====
+#include "latch.h"
+
+#include <string.h>
+
+int g_latch;
+
+void take_latch(int argc, char **argv)
+{
+	int i;
+
+	g_latch = 0;
+	for (i = 1; i < argc; i++) {
+		if (strcmp(argv[i], "--stable-order") == 0)
+			g_latch = 1;
+	}
+}
+===== /app/cribcli/latch.h =====
+#ifndef LATCH_H
+#define LATCH_H
+
+void take_latch(int argc, char **argv);
+
+#endif
+===== /app/cribcli/load.c =====
+#include "load.h"
+
+#include "wire.h"
+
+#include <dirent.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+Row g_rows[MAXN];
+int g_n;
+int g_ord[MAXN];
+int g_sel[MAXN];
+int g_sel_n;
+int g_spent;
+int g_budget;
+char g_origin[32];
+Sheet g_sheets[MAXN];
+int g_nsheets;
+ChgFile g_chgf[8];
+int g_nchgf;
+
+static void trim_nl(char *s)
+{
+	size_t n = strlen(s);
+
+	while (n > 0 && (s[n - 1] == '\n' || s[n - 1] == '\r')) {
+		s[--n] = 0;
+	}
+}
+
+static int parse_lines(char *rest, int *out, int cap)
+{
+	int n = 0;
+	char *tok;
+
+	tok = strtok(rest, " \t");
+	while (tok && n < cap) {
+		out[n++] = atoi(tok);
+		tok = strtok(NULL, " \t");
+	}
+	return n;
+}
+
+static int load_ticks(void)
+{
+	FILE *fp;
+	char line[128];
+	char id[MAXID];
+	int dur, i;
+
+	fp = fopen("/app/durcards/ticks.txt", "r");
+	if (!fp)
+		return -1;
+	while (fgets(line, sizeof line, fp)) {
+		trim_nl(line);
+		if (!line[0])
+			continue;
+		if (sscanf(line, "%31s %d", id, &dur) != 2)
+			continue;
+		for (i = 0; i < g_n; i++) {
+			if (strcmp(g_rows[i].id, id) == 0)
+				g_rows[i].dur = dur;
+		}
+	}
+	fclose(fp);
+	return 0;
+}
+
+static int load_sheet(const char *path)
+{
+	FILE *fp;
+	char line[256];
+	Sheet *sh;
+	FileHit *fh = NULL;
+
+	if (g_nsheets >= MAXN)
+		return -1;
+	sh = &g_sheets[g_nsheets];
+	memset(sh, 0, sizeof *sh);
+	fp = fopen(path, "r");
+	if (!fp)
+		return -1;
+	while (fgets(line, sizeof line, fp)) {
+		trim_nl(line);
+		if (!line[0])
+			continue;
+		if (strncmp(line, "ID ", 3) == 0) {
+			strncpy(sh->id, line + 3, MAXID - 1);
+		} else if (strncmp(line, "FILE ", 5) == 0) {
+			if (sh->nfiles >= 8)
+				continue;
+			fh = &sh->files[sh->nfiles++];
+			memset(fh, 0, sizeof *fh);
+			strncpy(fh->path, line + 5, MAXPATH - 1);
+		} else if (strncmp(line, "HITS ", 5) == 0 && fh) {
+			char buf[256];
+
+			strncpy(buf, line + 5, sizeof buf - 1);
+			fh->nlines = parse_lines(buf, fh->lines, MAXLN);
+		} else if (strcmp(line, "END") == 0) {
+			break;
+		}
+	}
+	fclose(fp);
+	if (!sh->id[0])
+		return -1;
+	g_nsheets++;
+	return 0;
+}
+
+static int load_meshes(void)
+{
+	DIR *d;
+	struct dirent *ent;
+	char path[256];
+
+	d = opendir("/app/meshcards");
+	if (!d)
+		return -1;
+	while ((ent = readdir(d)) != NULL) {
+		size_t n = strlen(ent->d_name);
+
+		if (n < 6 || strcmp(ent->d_name + n - 5, ".mesh") != 0)
+			continue;
+		snprintf(path, sizeof path, "/app/meshcards/%s", ent->d_name);
+		if (load_sheet(path) != 0) {
+			closedir(d);
+			return -1;
+		}
+	}
+	closedir(d);
+	return 0;
+}
+
+int load_card(const char *path)
+{
+	FILE *fp;
+	char line[256];
+	ChgFile *cf = NULL;
+
+	memset(g_rows, 0, sizeof g_rows);
+	g_n = 0;
+	g_nsheets = 0;
+	g_nchgf = 0;
+	g_budget = 0;
+	g_origin[0] = 0;
+	g_sel_n = 0;
+	g_spent = 0;
+	fp = fopen(path, "r");
+	if (!fp)
+		return -1;
+	while (fgets(line, sizeof line, fp)) {
+		trim_nl(line);
+		if (!line[0])
+			continue;
+		if (strncmp(line, "BUDGET ", 7) == 0) {
+			g_budget = atoi(line + 7);
+		} else if (strncmp(line, "ORIGIN ", 7) == 0) {
+			strncpy(g_origin, line + 7, sizeof g_origin - 1);
+		} else if (strncmp(line, "FILE ", 5) == 0) {
+			if (g_nchgf >= 8)
+				continue;
+			cf = &g_chgf[g_nchgf++];
+			memset(cf, 0, sizeof *cf);
+			strncpy(cf->path, line + 5, MAXPATH - 1);
+		} else if (strncmp(line, "LINES ", 6) == 0 && cf) {
+			char buf[256];
+
+			strncpy(buf, line + 6, sizeof buf - 1);
+			cf->nlines = parse_lines(buf, cf->lines, MAXLN);
+		} else if (strcmp(line, "END") == 0) {
+			break;
+		}
+	}
+	fclose(fp);
+	if (load_meshes() != 0)
+		return -1;
+	g_n = g_nsheets;
+	{
+		int i;
+
+		for (i = 0; i < g_n; i++) {
+			strncpy(g_rows[i].id, g_sheets[i].id, MAXID - 1);
+			g_rows[i].w = 0;
+			g_rows[i].dur = 0;
+		}
+	}
+	return load_ticks();
+}
+===== /app/cribcli/load.h =====
+#ifndef LOAD_H
+#define LOAD_H
+
+int load_card(const char *path);
+
+#endif
+===== /app/cribcli/wire.h =====
+#ifndef WIRE_H
+#define WIRE_H
+
+#define MAXN 64
+#define MAXID 32
+#define MAXPATH 64
+#define MAXHIT 256
+#define MAXLN 32
+
+typedef struct {
+	char id[MAXID];
+	int w;
+	int dur;
+} Row;
+
+typedef struct {
+	char path[MAXPATH];
+	int lines[MAXLN];
+	int nlines;
+} FileHit;
+
+typedef struct {
+	char id[MAXID];
+	FileHit files[8];
+	int nfiles;
+} Sheet;
+
+typedef struct {
+	char path[MAXPATH];
+	int lines[MAXLN];
+	int nlines;
+} ChgFile;
+
+extern Row g_rows[MAXN];
+extern int g_n;
+extern int g_ord[MAXN];
+extern int g_sel[MAXN];
+extern int g_sel_n;
+extern int g_spent;
+extern int g_budget;
+extern char g_origin[32];
+extern Sheet g_sheets[MAXN];
+extern int g_nsheets;
+extern ChgFile g_chgf[8];
+extern int g_nchgf;
+extern int g_latch;
+
+#endif
+===== /app/emitkit/pour.c =====
+#include "pour.h"
+
+#include "../cribcli/wire.h"
+
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/stat.h>
+
+static void wr16(FILE *fp, uint16_t v)
+{
+	unsigned char b[2];
+
+	b[0] = (unsigned char)((v >> 8) & 0xff);
+	b[1] = (unsigned char)(v & 0xff);
+	fwrite(b, 1, 2, fp);
+}
+
+static void wr32(FILE *fp, uint32_t v)
+{
+	unsigned char b[4];
+
+	b[0] = (unsigned char)((v >> 24) & 0xff);
+	b[1] = (unsigned char)((v >> 16) & 0xff);
+	b[2] = (unsigned char)((v >> 8) & 0xff);
+	b[3] = (unsigned char)(v & 0xff);
+	fwrite(b, 1, 4, fp);
+}
+
+static void wr_ids(FILE *fp, const int *idx, int n)
+{
+	int i;
+
+	wr16(fp, (uint16_t)n);
+	for (i = 0; i < n; i++) {
+		const char *id = g_rows[idx[i]].id;
+		uint16_t ln = (uint16_t)strlen(id);
+
+		wr16(fp, ln);
+		fwrite(id, 1, ln, fp);
+	}
+}
+
+int n_pour(const char *dest)
+{
+	char jpath[256], bpath[256];
+	FILE *jp, *bp;
+	int i;
+
+	mkdir(dest, 0755);
+	snprintf(jpath, sizeof jpath, "%s/slate.json", dest);
+	snprintf(bpath, sizeof bpath, "%s/slate.bin", dest);
+	jp = fopen(jpath, "w");
+	bp = fopen(bpath, "wb");
+	if (!jp || !bp) {
+		if (jp)
+			fclose(jp);
+		if (bp)
+			fclose(bp);
+		return 1;
+	}
+	fputs("{\"pool\":[", jp);
+	for (i = 0; i < g_n; i++) {
+		if (i)
+			fputc(',', jp);
+		fprintf(jp, "\"%s\"", g_rows[g_ord[i]].id);
+	}
+	fputs("],\"names\":[", jp);
+	for (i = 0; i < g_sel_n; i++) {
+		if (i)
+			fputc(',', jp);
+		fprintf(jp, "\"%s\"", g_rows[g_sel[i]].id);
+	}
+	fprintf(jp, "],\"spent_ms\":%d}\n", g_spent);
+	fclose(jp);
+	fwrite("SLT1", 1, 4, bp);
+	wr_ids(bp, g_ord, g_n);
+	wr_ids(bp, g_sel, g_sel_n);
+	wr32(bp, (uint32_t)g_spent);
+	fclose(bp);
+	return 0;
+}
+===== /app/emitkit/pour.h =====
+#ifndef POUR_H
+#define POUR_H
+
+int n_pour(const char *dest);
+
+#endif
+[?2004hroot@7db2f97433c2:/app# echo '===== driver.mk ====='; cat /app/cribcli/driver.mk; echo '===== kindle.sh ====='; cat /app/kindle.sh; echo '===== meshes ====='; for f in /app/meshcards/*.mesh; do echo "--- $f"; cat "$f"; done; echo '===== void ====='; cat /app/deltabay/void.chg
+[?2004l===== driver.mk =====
+CC = gcc
+OUT ?= /app/bin/skiffloom
+CFLAGS = -O2 -Wall -I/app/cribcli -I/app/heapwell -I/app/spanurn -I/app/tickpit -I/app/emitkit
+OBJS = hull.o latch.o load.o flow.o \
+	/app/heapwell/rank.o \
+	/app/spanurn/fold.o \
+	/app/tickpit/trim.o \
+	/app/emitkit/pour.o
+
+.PHONY: hull
+
+hull: $(OUT)
+
+$(OUT): $(OBJS)
+	mkdir -p $(dir $(OUT))
+	$(CC) $(CFLAGS) -o $@ $(OBJS)
+
+hull.o: hull.c
+	$(CC) $(CFLAGS) -c hull.c -o hull.o
+
+latch.o: latch.c
+	$(CC) $(CFLAGS) -c latch.c -o latch.o
+
+load.o: load.c
+	$(CC) $(CFLAGS) -c load.c -o load.o
+
+flow.o: flow.c
+	$(CC) $(CFLAGS) -c flow.c -o flow.o
+
+/app/heapwell/rank.o: /app/heapwell/rank.c
+	$(CC) $(CFLAGS) -c /app/heapwell/rank.c -o /app/heapwell/rank.o
+
+/app/spanurn/fold.o: /app/spanurn/fold.c
+	$(CC) $(CFLAGS) -c /app/spanurn/fold.c -o /app/spanurn/fold.o
+
+/app/tickpit/trim.o: /app/tickpit/trim.c
+	$(CC) $(CFLAGS) -c /app/tickpit/trim.c -o /app/tickpit/trim.o
+
+/app/emitkit/pour.o: /app/emitkit/pour.c
+	$(CC) $(CFLAGS) -c /app/emitkit/pour.c -o /app/emitkit/pour.o
+===== kindle.sh =====
+#!/bin/bash
+set -euo pipefail
+mkdir -p /app/bin /app/slatewell /app/heapwell /app/spanurn /app/tickpit /app/emitkit
+make -C /app/cribcli -f driver.mk hull
+===== meshes =====
+--- /app/meshcards/q_ab.mesh
+ID q_ab
+FILE rib.c
+HITS 6 7 8
+END
+--- /app/meshcards/q_cd.mesh
+ID q_cd
+FILE rib.c
+HITS 6 7 8
+END
+--- /app/meshcards/q_ef.mesh
+ID q_ef
+FILE rib.c
+HITS 6 7 8
+END
+--- /app/meshcards/q_gh.mesh
+ID q_gh
+FILE rib.c
+HITS 6 7 8
+END
+--- /app/meshcards/q_ij.mesh
+ID q_ij
+FILE rib.c
+HITS 1 2 3 4 5
+END
+--- /app/meshcards/q_kl.mesh
+ID q_kl
+FILE rib.c
+HITS 9
+END
+--- /app/meshcards/q_mn.mesh
+ID q_mn
+FILE rib.c
+HITS 1 2
+END
+--- /app/meshcards/q_op.mesh
+ID q_op
+FILE rib.c
+HITS 10 11
+FILE keel.c
+HITS 10 11
+END
+--- /app/meshcards/q_qr.mesh
+ID q_qr
+FILE rib.c
+HITS 10 11
+END
+--- /app/meshcards/q_st.mesh
+ID q_st
+FILE rib.c
+HITS 10 11 12
+END
+===== void =====
+BUDGET 40
+ORIGIN voided
+FILE rib.c
+LINES 1
+END
+[?2004hroot@7db2f97433c2:/app# rm -rf /tmp/eve1 /tmp/eve2 /app/slatewell/mornbox; mkdir -p /tmp/eve1 /tmp/eve2; /app/bin/skiffloom cull /app/deltabay/eve.chg /tmp/eve1; echo rc=$?; /app/bin/skiffloom cull /app/deltabay/eve.chg /tmp/eve2; echo rc=$?; cat /tmp/eve1/slate.json; echo; cat /tmp/eve2/slate.json; echo; sha256sum /tmp/eve{1,2}/slate.*; /app/bin/skiffloom cull /app/deltabay/morn.chg /app/slatewell/mornbox; echo rc=$?; cat /app/slatewell/mornbox/slate.json; echo
+[?2004lrc=0
+rc=0
+{"pool":["q_ij","q_cd","q_ab","q_ef","q_gh","q_mn","q_kl"],"names":["q_ij","q_cd","q_ab","q_ef"],"spent_ms":160}
+
+{"pool":["q_ij","q_cd","q_ab","q_ef","q_gh","q_mn","q_kl"],"names":["q_ij","q_cd","q_ab","q_ef"],"spent_ms":160}
+
+04582dbfe76c32f0f691ae3d4a88504780dc3cf2b356088c0ce899c2f3566e7d  /tmp/eve1/slate.bin
+c77a44e0793029bf61ee96984cfa7423a492bffb2ba3ae5f31cd2a61522a07b1  /tmp/eve1/slate.json
+04582dbfe76c32f0f691ae3d4a88504780dc3cf2b356088c0ce899c2f3566e7d  /tmp/eve2/slate.bin
+c77a44e0793029bf61ee96984cfa7423a492bffb2ba3ae5f31cd2a61522a07b1  /tmp/eve2/slate.json
+rc=0
+{"pool":["q_op"],"names":["q_op"],"spent_ms":40}
+
+[?2004hroot@7db2f97433c2:/app# for f in /app/cribcli/wire.h /app/cribcli/hull.c /app/cribcli/latch.c /app/cribcli/load.c /app/emitkit/pour.c; do echo "===== $f ====="; cat "$f"; done
+[?2004l===== /app/cribcli/wire.h =====
+#ifndef WIRE_H
+#define WIRE_H
+
+#define MAXN 64
+#define MAXID 32
+#define MAXPATH 64
+#define MAXHIT 256
+#define MAXLN 32
+
+typedef struct {
+	char id[MAXID];
+	int w;
+	int dur;
+} Row;
+
+typedef struct {
+	char path[MAXPATH];
+	int lines[MAXLN];
+	int nlines;
+} FileHit;
+
+typedef struct {
+	char id[MAXID];
+	FileHit files[8];
+	int nfiles;
+} Sheet;
+
+typedef struct {
+	char path[MAXPATH];
+	int lines[MAXLN];
+	int nlines;
+} ChgFile;
+
+extern Row g_rows[MAXN];
+extern int g_n;
+extern int g_ord[MAXN];
+extern int g_sel[MAXN];
+extern int g_sel_n;
+extern int g_spent;
+extern int g_budget;
+extern char g_origin[32];
+extern Sheet g_sheets[MAXN];
+extern int g_nsheets;
+extern ChgFile g_chgf[8];
+extern int g_nchgf;
+extern int g_latch;
+
+#endif
+===== /app/cribcli/hull.c =====
+#include "latch.h"
+#include "load.h"
+#include "flow.h"
+#include "../spanurn/fold.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+static void mark_ok(void)
+{
+	FILE *fp;
+
+	mkdir("/app/slatewell", 0755);
+	fp = fopen("/app/slatewell/cull.ok", "w");
+	if (fp) {
+		fputs("ok\n", fp);
+		fclose(fp);
+	}
+}
+
+static void clear_ok(void)
+{
+	unlink("/app/slatewell/cull.ok");
+}
+
+int main(int argc, char **argv)
+{
+	const char *card;
+	const char *dest;
+
+	take_latch(argc, argv);
+	if (argc < 2) {
+		fputs("usage\n", stderr);
+		return 2;
+	}
+	if (strcmp(argv[1], "cull") != 0)
+		return 2;
+	if (argc < 4)
+		return 2;
+	card = argv[2];
+	dest = argv[3];
+	mkdir("/app/slatewell", 0755);
+	clear_ok();
+	if (load_card(card) != 0)
+		return 1;
+	if (cfg_span() != 0)
+		return 1;
+	if (run_flow(dest) != 0)
+		return 1;
+	mark_ok();
+	return 0;
+}
+===== /app/cribcli/latch.c =====
+#include "latch.h"
+
+#include <string.h>
+
+int g_latch;
+
+void take_latch(int argc, char **argv)
+{
+	int i;
+
+	g_latch = 0;
+	for (i = 1; i < argc; i++) {
+		if (strcmp(argv[i], "--stable-order") == 0)
+			g_latch = 1;
+	}
+}
+===== /app/cribcli/load.c =====
+#include "load.h"
+
+#include "wire.h"
+
+#include <dirent.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+Row g_rows[MAXN];
+int g_n;
+int g_ord[MAXN];
+int g_sel[MAXN];
+int g_sel_n;
+int g_spent;
+int g_budget;
+char g_origin[32];
+Sheet g_sheets[MAXN];
+int g_nsheets;
+ChgFile g_chgf[8];
+int g_nchgf;
+
+static void trim_nl(char *s)
+{
+	size_t n = strlen(s);
+
+	while (n > 0 && (s[n - 1] == '\n' || s[n - 1] == '\r')) {
+		s[--n] = 0;
+	}
+}
+
+static int parse_lines(char *rest, int *out, int cap)
+{
+	int n = 0;
+	char *tok;
+
+	tok = strtok(rest, " \t");
+	while (tok && n < cap) {
+		out[n++] = atoi(tok);
+		tok = strtok(NULL, " \t");
+	}
+	return n;
+}
+
+static int load_ticks(void)
+{
+	FILE *fp;
+	char line[128];
+	char id[MAXID];
+	int dur, i;
+
+	fp = fopen("/app/durcards/ticks.txt", "r");
+	if (!fp)
+		return -1;
+	while (fgets(line, sizeof line, fp)) {
+		trim_nl(line);
+		if (!line[0])
+			continue;
+		if (sscanf(line, "%31s %d", id, &dur) != 2)
+			continue;
+		for (i = 0; i < g_n; i++) {
+			if (strcmp(g_rows[i].id, id) == 0)
+				g_rows[i].dur = dur;
+		}
+	}
+	fclose(fp);
+	return 0;
+}
+
+static int load_sheet(const char *path)
+{
+	FILE *fp;
+	char line[256];
+	Sheet *sh;
+	FileHit *fh = NULL;
+
+	if (g_nsheets >= MAXN)
+		return -1;
+	sh = &g_sheets[g_nsheets];
+	memset(sh, 0, sizeof *sh);
+	fp = fopen(path, "r");
+	if (!fp)
+		return -1;
+	while (fgets(line, sizeof line, fp)) {
+		trim_nl(line);
+		if (!line[0])
+			continue;
+		if (strncmp(line, "ID ", 3) == 0) {
+			strncpy(sh->id, line + 3, MAXID - 1);
+		} else if (strncmp(line, "FILE ", 5) == 0) {
+			if (sh->nfiles >= 8)
+				continue;
+			fh = &sh->files[sh->nfiles++];
+			memset(fh, 0, sizeof *fh);
+			strncpy(fh->path, line + 5, MAXPATH - 1);
+		} else if (strncmp(line, "HITS ", 5) == 0 && fh) {
+			char buf[256];
+
+			strncpy(buf, line + 5, sizeof buf - 1);
+			fh->nlines = parse_lines(buf, fh->lines, MAXLN);
+		} else if (strcmp(line, "END") == 0) {
+			break;
+		}
+	}
+	fclose(fp);
+	if (!sh->id[0])
+		return -1;
+	g_nsheets++;
+	return 0;
+}
+
+static int load_meshes(void)
+{
+	DIR *d;
+	struct dirent *ent;
+	char path[256];
+
+	d = opendir("/app/meshcards");
+	if (!d)
+		return -1;
+	while ((ent = readdir(d)) != NULL) {
+		size_t n = strlen(ent->d_name);
+
+		if (n < 6 || strcmp(ent->d_name + n - 5, ".mesh") != 0)
+			continue;
+		snprintf(path, sizeof path, "/app/meshcards/%s", ent->d_name);
+		if (load_sheet(path) != 0) {
+			closedir(d);
+			return -1;
+		}
+	}
+	closedir(d);
+	return 0;
+}
+
+int load_card(const char *path)
+{
+	FILE *fp;
+	char line[256];
+	ChgFile *cf = NULL;
+
+	memset(g_rows, 0, sizeof g_rows);
+	g_n = 0;
+	g_nsheets = 0;
+	g_nchgf = 0;
+	g_budget = 0;
+	g_origin[0] = 0;
+	g_sel_n = 0;
+	g_spent = 0;
+	fp = fopen(path, "r");
+	if (!fp)
+		return -1;
+	while (fgets(line, sizeof line, fp)) {
+		trim_nl(line);
+		if (!line[0])
+			continue;
+		if (strncmp(line, "BUDGET ", 7) == 0) {
+			g_budget = atoi(line + 7);
+		} else if (strncmp(line, "ORIGIN ", 7) == 0) {
+			strncpy(g_origin, line + 7, sizeof g_origin - 1);
+		} else if (strncmp(line, "FILE ", 5) == 0) {
+			if (g_nchgf >= 8)
+				continue;
+			cf = &g_chgf[g_nchgf++];
+			memset(cf, 0, sizeof *cf);
+			strncpy(cf->path, line + 5, MAXPATH - 1);
+		} else if (strncmp(line, "LINES ", 6) == 0 && cf) {
+			char buf[256];
+
+			strncpy(buf, line + 6, sizeof buf - 1);
+			cf->nlines = parse_lines(buf, cf->lines, MAXLN);
+		} else if (strcmp(line, "END") == 0) {
+			break;
+		}
+	}
+	fclose(fp);
+	if (load_meshes() != 0)
+		return -1;
+	g_n = g_nsheets;
+	{
+		int i;
+
+		for (i = 0; i < g_n; i++) {
+			strncpy(g_rows[i].id, g_sheets[i].id, MAXID - 1);
+			g_rows[i].w = 0;
+			g_rows[i].dur = 0;
+		}
+	}
+	return load_ticks();
+}
+===== /app/emitkit/pour.c =====
+#include "pour.h"
+
+#include "../cribcli/wire.h"
+
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/stat.h>
+
+static void wr16(FILE *fp, uint16_t v)
+{
+	unsigned char b[2];
+
+	b[0] = (unsigned char)((v >> 8) & 0xff);
+	b[1] = (unsigned char)(v & 0xff);
+	fwrite(b, 1, 2, fp);
+}
+
+static void wr32(FILE *fp, uint32_t v)
+{
+	unsigned char b[4];
+
+	b[0] = (unsigned char)((v >> 24) & 0xff);
+	b[1] = (unsigned char)((v >> 16) & 0xff);
+	b[2] = (unsigned char)((v >> 8) & 0xff);
+	b[3] = (unsigned char)(v & 0xff);
+	fwrite(b, 1, 4, fp);
+}
+
+static void wr_ids(FILE *fp, const int *idx, int n)
+{
+	int i;
+
+	wr16(fp, (uint16_t)n);
+	for (i = 0; i < n; i++) {
+		const char *id = g_rows[idx[i]].id;
+		uint16_t ln = (uint16_t)strlen(id);
+
+		wr16(fp, ln);
+		fwrite(id, 1, ln, fp);
+	}
+}
+
+int n_pour(const char *dest)
+{
+	char jpath[256], bpath[256];
+	FILE *jp, *bp;
+	int i;
+
+	mkdir(dest, 0755);
+	snprintf(jpath, sizeof jpath, "%s/slate.json", dest);
+	snprintf(bpath, sizeof bpath, "%s/slate.bin", dest);
+	jp = fopen(jpath, "w");
+	bp = fopen(bpath, "wb");
+	if (!jp || !bp) {
+		if (jp)
+			fclose(jp);
+		if (bp)
+			fclose(bp);
+		return 1;
+	}
+	fputs("{\"pool\":[", jp);
+	for (i = 0; i < g_n; i++) {
+		if (i)
+			fputc(',', jp);
+		fprintf(jp, "\"%s\"", g_rows[g_ord[i]].id);
+	}
+	fputs("],\"names\":[", jp);
+	for (i = 0; i < g_sel_n; i++) {
+		if (i)
+			fputc(',', jp);
+		fprintf(jp, "\"%s\"", g_rows[g_sel[i]].id);
+	}
+	fprintf(jp, "],\"spent_ms\":%d}\n", g_spent);
+	fclose(jp);
+	fwrite("SLT1", 1, 4, bp);
+	wr_ids(bp, g_ord, g_n);
+	wr_ids(bp, g_sel, g_sel_n);
+	wr32(bp, (uint32_t)g_spent);
+	fclose(bp);
+	return 0;
+}
+[?2004hroot@7db2f97433c2:/app# cat > /app/heapwell/rank.c <<'EOF'
+[?2004l[?2004h> #include "rank.h"
+[?2004l[?2004h> 
+[?2004l[?2004h> #include "../cribcli/wire.h"
+[?2004l[?2004h> 
+[?2004l[?2004h> #include <stdlib.h>
+[?2004l[?2004h> #include <string.h>
+[?2004l[?2004h> 
+[?2004l[?2004h> static int cmp_rows(const void *a, const void *b)
+[?2004l[?2004h> {
+[?2004l[?2004h>         int ia = *(const int *)a;
+[?2004l[?2004h>         int ib = *(const int *)b;
+[?2004l[?2004h> 
+[?2004l[?2004h>         if (g_rows[ia].w < g_rows[ib].w)
+[?2004l[?2004h>                 return 1;
+[?2004l[?2004h>         if (g_rows[ia].w > g_rows[ib].w)
+[?2004l[?2004h>                 return -1;
+[?2004l[?2004h>         return strcmp(g_rows[ia].id, g_rows[ib].id);
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> void op_lift(void)
+[?2004l[?2004h> {
+[?2004l[?2004h>         int i;
+[?2004l[?2004h> 
+[?2004l[?2004h>         for (i = 0; i < g_n; i++)
+[?2004l[?2004h>                 g_ord[i] = i;
+[?2004l[?2004h>         qsort(g_ord, (size_t)g_n, sizeof g_ord[0], cmp_rows);
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@7db2f97433c2:/app# cat > /app/spanurn/fold.c <<'EOF'
+[?2004l[?2004h> #include "fold.h"
+[?2004l[?2004h> 
+[?2004l[?2004h> #include "../cribcli/wire.h"
+[?2004l[?2004h> 
+[?2004l[?2004h> #include <string.h>
+[?2004l[?2004h> 
+[?2004l[?2004h> static int has_line(const int *lines, int n, int v)
+[?2004l[?2004h> {
+[?2004l[?2004h>         int i;
+[?2004l[?2004h> 
+[?2004l[?2004h>         for (i = 0; i < n; i++)
+[?2004l[?2004h>                 if (lines[i] == v)
+[?2004l[?2004h>                         return 1;
+[?2004l[?2004h>         return 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> static int sheet_has_pair(const Sheet *sh, const char *path, int line)
+[?2004l[?2004h> {
+[?2004l[?2004h>         int h;
+[?2004l[?2004h> 
+[?2004l[?2004h>         for (h = 0; h < sh->nfiles; h++)
+[?2004l[?2004h>                 if (strcmp(sh->files[h].path, path) == 0 &&
+[?2004l[?2004h>                     has_line(sh->files[h].lines, sh->files[h].nlines, line))
+[?2004l[?2004h>                         return 1;
+[?2004l[?2004h>         return 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> static int pair_seen_before(int file, int line_index)
+[?2004l[?2004h> {
+[?2004l[?2004h>         int f, ln;
+[?2004l[?2004h>         const char *path = g_chgf[file].path;
+[?2004l[?2004h>         int line = g_chgf[file].lines[line_index];
+[?2004l[?2004h> 
+[?2004l[?2004h>         for (f = 0; f <= file; f++) {
+[?2004l[?2004h>                 int limit = f == file ? line_index : g_chgf[f].nlines;
+[?2004l[?2004h> 
+[?2004l[?2004h>                 for (ln = 0; ln < limit; ln++)
+[?2004l[?2004h>                         if (strcmp(g_chgf[f].path, path) == 0 &&
+[?2004l[?2004h>                             g_chgf[f].lines[ln] == line)
+[?2004l[?2004h>                                 return 1;
+[?2004l[?2004h>         }
+[?2004l[?2004h>         return 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> int cfg_span(void)
+[?2004l[?2004h> {
+[?2004l[?2004h>         int i, f, ln;
+[?2004l[?2004h> 
+[?2004l[?2004h>         for (i = 0; i < g_n; i++) {
+[?2004l[?2004h>                 g_rows[i].w = 0;
+[?2004l[?2004h>                 for (f = 0; f < g_nchgf; f++) {
+[?2004l[?2004h>                         for (ln = 0; ln < g_chgf[f].nlines; ln++) {
+[?2004l[?2004h>                                 if (!pair_seen_before(f, ln) &&
+[?2004l[?2004h>                                     sheet_has_pair(&g_sheets[i], g_chgf[f].path,
+[?2004l[?2004h>                                                    g_chgf[f].lines[ln]))
+[?2004l[?2004h>                                         g_rows[i].w++;
+[?2004l[?2004h>                         }
+[?2004l[?2004h>                 }
+[?2004l[?2004h>         }
+[?2004l[?2004h>         {
+[?2004l[?2004h>                 int k = 0;
+[?2004l[?2004h> 
+[?2004l[?2004h>                 for (i = 0; i < g_n; i++) {
+[?2004l[?2004h>                         if (g_rows[i].w <= 0)
+[?2004l[?2004h>                                 continue;
+[?2004l[?2004h>                         if (k != i) {
+[?2004l[?2004h>                                 g_rows[k] = g_rows[i];
+[?2004l[?2004h>                                 g_sheets[k] = g_sheets[i];
+[?2004l[?2004h>                         }
+[?2004l[?2004h>                         k++;
+[?2004l[?2004h>                 }
+[?2004l[?2004h>                 g_n = k;
+[?2004l[?2004h>         }
+[?2004l[?2004h>         return 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@7db2f97433c2:/app# cat > /app/tickpit/trim.c <<'EOF'
+[?2004l[?2004h> #include "trim.h"
+[?2004l[?2004h> 
+[?2004l[?2004h> #include "../cribcli/wire.h"
+[?2004l[?2004h> 
+[?2004l[?2004h> int n_trim(void)
+[?2004l[?2004h> {
+[?2004l[?2004h>         int i;
+[?2004l[?2004h> 
+[?2004l[?2004h>         g_sel_n = 0;
+[?2004l[?2004h>         g_spent = 0;
+[?2004l[?2004h>         for (i = 0; i < g_n; i++) {
+[?2004l[?2004h>                 int idx = g_ord[i];
+[?2004l[?2004h> 
+[?2004l[?2004h>                 if (g_rows[idx].dur < 0 || g_rows[idx].dur > g_budget - g_spent)
+[?2004l[?2004h>                         break;
+[?2004l[?2004h>                 g_sel[g_sel_n++] = idx;
+[?2004l[?2004h>                 g_spent += g_rows[idx].dur;
+[?2004l[?2004h>         }
+[?2004l[?2004h>         return 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@7db2f97433c2:/app# python3 - <<'PY'
+[?2004l[?2004h> p='/app/cribcli/load.c'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> old='''        fclose(fp);
+[?2004l[?2004h>         if (load_meshes() != 0)
+[?2004l[?2004h>                 return -1;
+[?2004l[?2004h> '''
+[?2004l[?2004h> new='''        fclose(fp);
+[?2004l[?2004h>         if (strcmp(g_origin, "voided") == 0)
+[?2004l[?2004h>                 return -1;
+[?2004l[?2004h>         if (load_meshes() != 0)
+[?2004l[?2004h>                 return -1;
+[?2004l[?2004h> '''
+[?2004l[?2004h> assert old in s
+[?2004l[?2004h> open(p,'w').write(s.replace(old,new,1))
+[?2004l[?2004h> PY
+[?2004lTraceback (most recent call last):
+  File [35m"<stdin>"[0m, line [35m13[0m, in [35m<module>[0m
+[1;35mAssertionError[0m
+[?2004hroot@7db2f97433c2:/app# /app/kindle.sh
+[?2004lmake: Entering directory '/app/cribcli'
+gcc -O2 -Wall -I/app/cribcli -I/app/heapwell -I/app/spanurn -I/app/tickpit -I/app/emitkit -c /app/heapwell/rank.c -o /app/heapwell/rank.o
+gcc -O2 -Wall -I/app/cribcli -I/app/heapwell -I/app/spanurn -I/app/tickpit -I/app/emitkit -c /app/spanurn/fold.c -o /app/spanurn/fold.o
+gcc -O2 -Wall -I/app/cribcli -I/app/heapwell -I/app/spanurn -I/app/tickpit -I/app/emitkit -c /app/tickpit/trim.c -o /app/tickpit/trim.o
+mkdir -p /app/bin/
+gcc -O2 -Wall -I/app/cribcli -I/app/heapwell -I/app/spanurn -I/app/tickpit -I/app/emitkit -o /app/bin/skiffloom hull.o latch.o load.o flow.o /app/heapwell/rank.o /app/spanurn/fold.o /app/tickpit/trim.o /app/emitkit/pour.o
+make: Leaving directory '/app/cribcli'
+[?2004hroot@7db2f97433c2:/app# rm -f /tmp/skiffloom.ref
+[?2004l[?2004hroot@7db2f97433c2:/app# make -C /app/cribcli -f driver.mk OUT=/tmp/skiffloom.ref
+[?2004lmake: Entering directory '/app/cribcli'
+mkdir -p /tmp/
+gcc -O2 -Wall -I/app/cribcli -I/app/heapwell -I/app/spanurn -I/app/tickpit -I/app/emitkit -o /tmp/skiffloom.ref hull.o latch.o load.o flow.o /app/heapwell/rank.o /app/spanurn/fold.o /app/tickpit/trim.o /app/emitkit/pour.o
+make: Leaving directory '/app/cribcli'
+[?2004hroot@7db2f97433c2:/app# rm -rf /tmp/eve-repeat /tmp/eve-ref /tmp/outside /app/slatewell/mornbox; /app/bin/skiffloom cull /app/deltabay/eve.chg /app/slatewell; echo eve_rc=$?; mkdir -p /tmp/eve-repeat; /app/bin/skiffloom cull /app/deltabay/eve.chg /tmp/eve-repeat; echo repeat_rc=$?; mkdir -p /tmp/eve-ref; /tmp/skiffloom.ref cull /app/deltabay/eve.chg /tmp/eve-ref; echo ref_rc=$?; /app/bin/skiffloom cull /app/deltabay/morn.chg /app/slatewell/mornbox; echo morn_rc=$?; cat /app/slatewell/slate.json; cat /app/slatewell/mornbox/slate.json; sha256sum /app/slatewell/slate.* /tmp/eve-repeat/slate.* /tmp/eve-ref/slate.*
+[?2004leve_rc=0
+repeat_rc=0
+ref_rc=0
+morn_rc=0
+{"pool":["q_ij","q_ab","q_cd","q_ef","q_gh","q_mn","q_kl"],"names":["q_ij","q_ab","q_cd"],"spent_ms":120}
+{"pool":["q_op","q_st","q_qr"],"names":["q_op","q_st"],"spent_ms":80}
+7f80aa5d819aea436d49d3ea666ff20edb74250f1ad92092ef8b00cbae4e0c44  /app/slatewell/slate.bin
+d81fba8c69fb281bff03fe2ac168398775f6dd1ce2ce9b6ba3ae289fef360ab9  /app/slatewell/slate.json
+7f80aa5d819aea436d49d3ea666ff20edb74250f1ad92092ef8b00cbae4e0c44  /tmp/eve-repeat/slate.bin
+d81fba8c69fb281bff03fe2ac168398775f6dd1ce2ce9b6ba3ae289fef360ab9  /tmp/eve-repeat/slate.json
+7f80aa5d819aea436d49d3ea666ff20edb74250f1ad92092ef8b00cbae4e0c44  /tmp/eve-ref/slate.bin
+d81fba8c69fb281bff03fe2ac168398775f6dd1ce2ce9b6ba3ae289fef360ab9  /tmp/eve-ref/slate.json
+[?2004hroot@7db2f97433c2:/app# cp /app/deltabay/eve.chg /tmp/outside.chg; /app/bin/skiffloom cull /tmp/outside.chg /tmp/outside; echo outside_rc=$?; cmp /app/slatewell/slate.json /tmp/outside/slate.json && echo outside_json_match; cmp /app/slatewell/slate.bin /tmp/outside/slate.bin && echo outside_bin_match; /app/bin/skiffloom cull /app/deltabay/void.chg /tmp/voidbox; rc=$?; echo void_rc=$rc; test ! -e /app/slatewell/cull.ok && echo marker_absent; file /app/bin/skiffloom; od -An -tx1 -N4 /app/bin/skiffloom
+[?2004loutside_rc=0
+outside_json_match
+outside_bin_match
+void_rc=0
+/app/bin/skiffloom: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, not stripped
+ 7f 45 4c 46
+[?2004hroot@7db2f97433c2:/app# grep -n -A12 -B5 'load_meshes' /app/cribcli/load.c; grep -n -A15 -B5 'fclose(fp)' /app/cribcli/load.c | tail -30
+[?2004l107-		return -1;
+108-	g_nsheets++;
+109-	return 0;
+110-}
+111-
+112:static int load_meshes(void)
+113-{
+114-	DIR *d;
+115-	struct dirent *ent;
+116-	char path[256];
+117-
+118-	d = opendir("/app/meshcards");
+119-	if (!d)
+120-		return -1;
+121-	while ((ent = readdir(d)) != NULL) {
+122-		size_t n = strlen(ent->d_name);
+123-
+124-		if (n < 6 || strcmp(ent->d_name + n - 5, ".mesh") != 0)
+--
+172-		} else if (strcmp(line, "END") == 0) {
+173-			break;
+174-		}
+175-	}
+176-	fclose(fp);
+177:	if (load_meshes() != 0)
+178-		return -1;
+179-	g_n = g_nsheets;
+180-	{
+181-		int i;
+182-
+183-		for (i = 0; i < g_n; i++) {
+184-			strncpy(g_rows[i].id, g_sheets[i].id, MAXID - 1);
+185-			g_rows[i].w = 0;
+186-			g_rows[i].dur = 0;
+187-		}
+188-	}
+189-	return load_ticks();
+112-static int load_meshes(void)
+113-{
+114-	DIR *d;
+115-	struct dirent *ent;
+116-	char path[256];
+117-
+118-	d = opendir("/app/meshcards");
+119-	if (!d)
+120-		return -1;
+--
+171-			cf->nlines = parse_lines(buf, cf->lines, MAXLN);
+172-		} else if (strcmp(line, "END") == 0) {
+173-			break;
+174-		}
+175-	}
+176:	fclose(fp);
+177-	if (load_meshes() != 0)
+178-		return -1;
+179-	g_n = g_nsheets;
+180-	{
+181-		int i;
+182-
+183-		for (i = 0; i < g_n; i++) {
+184-			strncpy(g_rows[i].id, g_sheets[i].id, MAXID - 1);
+185-			g_rows[i].w = 0;
+186-			g_rows[i].dur = 0;
+187-		}
+188-	}
+189-	return load_ticks();
+190-}
+[?2004hroot@7db2f97433c2:/app# python3 - <<'PY'
+[?2004l[?2004h> p='/app/cribcli/load.c'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> pos=s.index('        if (load_meshes() != 0', s.index('int load_card('))
+[?2004l[?2004h> s=s[:pos] + '        if (strcmp(g_origin, "voided") == 0)\n                return -1;\n' + s[pos:]
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004lTraceback (most recent call last):
+  File [35m"<stdin>"[0m, line [35m3[0m, in [35m<module>[0m
+[1;35mValueError[0m: [35msubstring not found[0m
+[?2004hroot@7db2f97433c2:/app# /app/kindle.sh
+[?2004lmake: Entering directory '/app/cribcli'
+make: Nothing to be done for 'hull'.
+make: Leaving directory '/app/cribcli'
+[?2004hroot@7db2f97433c2:/app# rm -f /tmp/skiffloom.ref && make -C /app/cribcli -f driver.mk OUT=/tmp/skiffloom.ref
+[?2004lmake: Entering directory '/app/cribcli'
+mkdir -p /tmp/
+gcc -O2 -Wall -I/app/cribcli -I/app/heapwell -I/app/spanurn -I/app/tickpit -I/app/emitkit -o /tmp/skiffloom.ref hull.o latch.o load.o flow.o /app/heapwell/rank.o /app/spanurn/fold.o /app/tickpit/trim.o /app/emitkit/pour.o
+make: Leaving directory '/app/cribcli'
+[?2004hroot@7db2f97433c2:/app# /app/bin/skiffloom cull /app/deltabay/eve.chg /app/slatewell >/dev/null; test -e /app/slatewell/cull.ok && echo pre_void_marker_present; /app/bin/skiffloom cull /app/deltabay/void.chg /tmp/voidbox2; rc=$?; echo void_rc=$rc; test "$rc" -ne 0 && echo void_rejected; test ! -e /app/slatewell/cull.ok && echo marker_absent
+[?2004lpre_void_marker_present
+void_rc=0
+[?2004hroot@7db2f97433c2:/app# /app/bin/skiffloom cull /app/deltabay/eve.chg /app/slatewell; echo final_eve_rc=$?; /app/bin/skiffloom cull /app/deltabay/morn.chg /app/slatewell/mornbox; echo final_morn_rc=$?; test -e /app/slatewell/cull.ok && echo final_marker_present; /tmp/skiffloom.ref cull /app/deltabay/eve.chg /tmp/eve-ref-final; cmp /app/slatewell/slate.json /tmp/eve-ref-final/slate.json && echo mill_json_match; cmp /app/slatewell/slate.bin /tmp/eve-ref-final/slate.bin && echo mill_bin_match; python3 - <<'PY'
+[?2004l[?2004h> import json,struct
+[?2004l[?2004h> for base in ('/app/slatewell','/app/slatewell/mornbox'):
+[?2004l[?2004h>  p=base+'/slate.json'; b=base+'/slate.bin'
+[?2004l[?2004h>  x=json.load(open(p)); raw=open(b,'rb').read()
+[?2004l[?2004h>  assert list(x)==['pool','names','spent_ms']
+[?2004l[?2004h>  assert isinstance(x['pool'],list) and all(isinstance(v,str) for v in x['pool'])
+[?2004l[?2004h>  assert isinstance(x['names'],list) and all(isinstance(v,str) for v in x['names'])
+[?2004l[?2004h>  assert type(x['spent_ms']) is int and raw[:4]==b'SLT1'
+[?2004l[?2004h>  off=4
+[?2004l[?2004h>  def ids():
+[?2004l[?2004h>   global off
+[?2004l[?2004h>   n=struct.unpack_from('>H',raw,off)[0]; off+=2; out=[]
+[?2004l[?2004h>   for _ in range(n):
+[?2004l[?2004h>    z=struct.unpack_from('>H',raw,off)[0]; off+=2
+[?2004l[?2004h>    out.append(raw[off:off+z].decode()); off+=z
+[?2004l[?2004h>   return out
+[?2004l[?2004h>  pool=ids(); names=ids(); spent=struct.unpack_from('>I',raw,off)[0]; off+=4
+[?2004l[?2004h>  assert off==len(raw) and (pool,names,spent)==(x['pool'],x['names'],x['spent_ms'])
+[?2004l[?2004h>  print(base, x, 'binary_ok')
+[?2004l[?2004h> PY
+[?2004lfinal_eve_rc=0
+final_morn_rc=0
+final_marker_present
+mill_json_match
+mill_bin_match
+/app/slatewell {'pool': ['q_ij', 'q_ab', 'q_cd', 'q_ef', 'q_gh', 'q_mn', 'q_kl'], 'names': ['q_ij', 'q_ab', 'q_cd'], 'spent_ms': 120} binary_ok
+/app/slatewell/mornbox {'pool': ['q_op', 'q_st', 'q_qr'], 'names': ['q_op', 'q_st'], 'spent_ms': 80} binary_ok
+[?2004hroot@7db2f97433c2:/app# file /app/bin/skiffloom; od -An -tx1 -N4 /app/bin/skiffloom
+[?2004l/app/bin/skiffloom: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, not stripped
+ 7f 45 4c 46
+[?2004hroot@7db2f97433c2:/app# python3 - <<'PY'
+[?2004l[?2004h> p='/app/cribcli/load.c'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> needle='    if (load_meshes() != 0)\n'
+[?2004l[?2004h> start=s.index('int load_card(')
+[?2004l[?2004h> pos=s.index(needle,start)
+[?2004l[?2004h> assert 'strcmp(g_origin, "voided")' not in s[start:pos]
+[?2004l[?2004h> s=s[:pos]+'    if (strcmp(g_origin, "voided") == 0)\n            return -1;\n'+s[pos:]
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004lTraceback (most recent call last):
+  File [35m"<stdin>"[0m, line [35m5[0m, in [35m<module>[0m
+[1;35mValueError[0m: [35msubstring not found[0m
+[?2004hroot@7db2f97433c2:/app# grep -n -A6 -B3 'voided' /app/cribcli/load.c
+[?2004l[?2004hroot@7db2f97433c2:/app# /app/kindle.sh
+[?2004lmake: Entering directory '/app/cribcli'
+make: Nothing to be done for 'hull'.
+make: Leaving directory '/app/cribcli'
+[?2004hroot@7db2f97433c2:/app# rm -f /tmp/skiffloom.ref && make -C /app/cribcli -f driver.mk OUT=/tmp/skiffloom.ref
+[?2004lmake: Entering directory '/app/cribcli'
+mkdir -p /tmp/
+gcc -O2 -Wall -I/app/cribcli -I/app/heapwell -I/app/spanurn -I/app/tickpit -I/app/emitkit -o /tmp/skiffloom.ref hull.o latch.o load.o flow.o /app/heapwell/rank.o /app/spanurn/fold.o /app/tickpit/trim.o /app/emitkit/pour.o
+make: Leaving directory '/app/cribcli'
+[?2004hroot@7db2f97433c2:/app# /app/bin/skiffloom cull /app/deltabay/eve.chg /app/slatewell >/dev/null; /app/bin/skiffloom cull /app/deltabay/void.chg /tmp/void-final; rc=$?; echo void_rc=$rc; test "$rc" -ne 0 && echo void_rejected; test ! -e /app/slatewell/cull.ok && echo marker_absent_after_void
+[?2004lvoid_rc=0
+[?2004hroot@7db2f97433c2:/app# /app/bin/skiffloom cull /app/deltabay/eve.chg /app/slatewell; eve=$?; /app/bin/skiffloom cull /app/deltabay/morn.chg /app/slatewell/mornbox; morn=$?; rm -rf /tmp/eve-final-ref; /tmp/skiffloom.ref cull /app/deltabay/eve.chg /tmp/eve-final-ref; ref=$?; echo eve_rc=$eve morn_rc=$morn ref_rc=$ref; test -e /app/slatewell/cull.ok && echo final_marker_present; cmp /app/slatewell/slate.json /tmp/eve-final-ref/slate.json && echo final_json_match; cmp /app/slatewell/slate.bin /tmp/eve-final-ref/slate.bin && echo final_bin_match; cat /app/slatewell/slate.json; cat /app/slatewell/mornbox/slate.json; od -An -tx1 -N4 /app/bin/skiffloom
+[?2004leve_rc=0 morn_rc=0 ref_rc=0
+final_marker_present
+final_json_match
+final_bin_match
+{"pool":["q_ij","q_ab","q_cd","q_ef","q_gh","q_mn","q_kl"],"names":["q_ij","q_ab","q_cd"],"spent_ms":120}
+{"pool":["q_op","q_st","q_qr"],"names":["q_op","q_st"],"spent_ms":80}
+ 7f 45 4c 46
+[?2004hroot@7db2f97433c2:/app# python3 - <<'PY'
+[?2004l[?2004h> import re
+[?2004l[?2004h> p='/app/cribcli/load.c'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> start=s.index('int load_card(')
+[?2004l[?2004h> head, body=s[:start], s[start:]
+[?2004l[?2004h> pat=r'(?m)^(\s*)if \(load_meshes\(\) != 0\)'
+[?2004l[?2004h> m=re.search(pat,body)
+[?2004l[?2004h> assert m, repr([line for line in body.splitlines() if 'load_meshes' in line])
+[?2004l[?2004h> indent=m.group(1)
+[?2004l[?2004h> insert=indent+'if (strcmp(g_origin, "voided") == 0)\n'+indent+'        return -1;\n'
+[?2004l[?2004h> body=body[:m.start()]+insert+body[m.start():]
+[?2004l[?2004h> open(p,'w').write(head+body)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@7db2f97433c2:/app# sed -n '170,185l' /app/cribcli/load.c
+[?2004l\t\t\tstrncpy(buf, line + 6, sizeof buf - 1);$
+\t\t\tcf->nlines = parse_lines(buf, cf->lines, MAXLN);$
+\t\t} else if (strcmp(line, "END") == 0) {$
+\t\t\tbreak;$
+\t\t}$
+\t}$
+\tfclose(fp);$
+\tif (strcmp(g_origin, "voided") == 0)$
+\t        return -1;$
+\tif (load_meshes() != 0)$
+\t\treturn -1;$
+\tg_n = g_nsheets;$
+\t{$
+\t\tint i;$
+$
+\t\tfor (i = 0; i < g_n; i++) {$
+[?2004hroot@7db2f97433c2:/app# make -C /app/cribcli -f driver.mk clean 2>/dev/null || true
+[?2004lmake: Entering directory '/app/cribcli'
+make: Leaving directory '/app/cribcli'
+[?2004hroot@7db2f97433c2:/app# rm -f /app/cribcli/*.o /app/heapwell/*.o /app/spanurn/*.o /app/tickpit/*.o /app/emitkit/*.o
+[?2004l[?2004hroot@7db2f97433c2:/app# /app/kindle.sh
+[?2004lmake: Entering directory '/app/cribcli'
+gcc -O2 -Wall -I/app/cribcli -I/app/heapwell -I/app/spanurn -I/app/tickpit -I/app/emitkit -c hull.c -o hull.o
+gcc -O2 -Wall -I/app/cribcli -I/app/heapwell -I/app/spanurn -I/app/tickpit -I/app/emitkit -c latch.c -o latch.o
+gcc -O2 -Wall -I/app/cribcli -I/app/heapwell -I/app/spanurn -I/app/tickpit -I/app/emitkit -c load.c -o load.o
+[01m[Kload.c:[m[K In function ‘[01m[Kload_card[m[K’:
+[01m[Kload.c:166:25:[m[K [01;35m[Kwarning: [m[K‘[01m[Kstrncpy[m[K’ output may be truncated copying 63 bytes from a string of length 250 [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wstringop-truncation-Wstringop-truncation]8;;[m[K]
+  166 |                         [01;35m[Kstrncpy(cf->path, line + 5, MAXPATH - 1)[m[K;
+      |                         [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[Kload.c:160:25:[m[K [01;35m[Kwarning: [m[K‘[01m[Kstrncpy[m[K’ output may be truncated copying 31 bytes from a string of length 248 [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wstringop-truncation-Wstringop-truncation]8;;[m[K]
+  160 |                         [01;35m[Kstrncpy(g_origin, line + 7, sizeof g_origin - 1)[m[K;
+      |                         [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[Kload.c:186:25:[m[K [01;35m[Kwarning: [m[K‘[01m[Kstrncpy[m[K’ output may be truncated copying 31 bytes from a string of length 102655 [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wstringop-truncation-Wstringop-truncation]8;;[m[K]
+  186 |                         [01;35m[Kstrncpy(g_rows[i].id, g_sheets[i].id, MAXID - 1)[m[K;
+      |                         [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+In function ‘[01m[Kload_sheet[m[K’,
+    inlined from ‘[01m[Kload_meshes[m[K’ at [01m[Kload.c:127:7[m[K,
+    inlined from ‘[01m[Kload_card[m[K’ at [01m[Kload.c:179:6[m[K:
+[01m[Kload.c:95:25:[m[K [01;35m[Kwarning: [m[K‘[01m[Kstrncpy[m[K’ output may be truncated copying 63 bytes from a string of length 250 [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wstringop-truncation-Wstringop-truncation]8;;[m[K]
+   95 |                         [01;35m[Kstrncpy(fh->path, line + 5, MAXPATH - 1)[m[K;
+      |                         [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[Kload.c:89:25:[m[K [01;35m[Kwarning: [m[K‘[01m[Kstrncpy[m[K’ output may be truncated copying 31 bytes from a string of length 252 [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wstringop-truncation-Wstringop-truncation]8;;[m[K]
+   89 |                         [01;35m[Kstrncpy(sh->id, line + 3, MAXID - 1)[m[K;
+      |                         [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+gcc -O2 -Wall -I/app/cribcli -I/app/heapwell -I/app/spanurn -I/app/tickpit -I/app/emitkit -c flow.c -o flow.o
+gcc -O2 -Wall -I/app/cribcli -I/app/heapwell -I/app/spanurn -I/app/tickpit -I/app/emitkit -c /app/heapwell/rank.c -o /app/heapwell/rank.o
+gcc -O2 -Wall -I/app/cribcli -I/app/heapwell -I/app/spanurn -I/app/tickpit -I/app/emitkit -c /app/spanurn/fold.c -o /app/spanurn/fold.o
+gcc -O2 -Wall -I/app/cribcli -I/app/heapwell -I/app/spanurn -I/app/tickpit -I/app/emitkit -c /app/tickpit/trim.c -o /app/tickpit/trim.o
+gcc -O2 -Wall -I/app/cribcli -I/app/heapwell -I/app/spanurn -I/app/tickpit -I/app/emitkit -c /app/emitkit/pour.c -o /app/emitkit/pour.o
+mkdir -p /app/bin/
+gcc -O2 -Wall -I/app/cribcli -I/app/heapwell -I/app/spanurn -I/app/tickpit -I/app/emitkit -o /app/bin/skiffloom hull.o latch.o load.o flow.o /app/heapwell/rank.o /app/spanurn/fold.o /app/tickpit/trim.o /app/emitkit/pour.o
+make: Leaving directory '/app/cribcli'
+[?2004hroot@7db2f97433c2:/app# rm -f /tmp/skiffloom.ref && make -C /app/cribcli -f driver.mk OUT=/tmp/skiffloom.ref
+[?2004lmake: Entering directory '/app/cribcli'
+mkdir -p /tmp/
+gcc -O2 -Wall -I/app/cribcli -I/app/heapwell -I/app/spanurn -I/app/tickpit -I/app/emitkit -o /tmp/skiffloom.ref hull.o latch.o load.o flow.o /app/heapwell/rank.o /app/spanurn/fold.o /app/tickpit/trim.o /app/emitkit/pour.o
+make: Leaving directory '/app/cribcli'
+[?2004hroot@7db2f97433c2:/app# /app/bin/skiffloom cull /app/deltabay/eve.chg /app/slatewell >/dev/null; test -e /app/slatewell/cull.ok || echo unexpected_missing_pre_marker; /app/bin/skiffloom cull /app/deltabay/void.chg /tmp/void-check; rc=$?; echo void_rc=$rc; test "$rc" -ne 0 && echo void_rejected; test ! -e /app/slatewell/cull.ok && echo marker_absent_after_void
+[?2004lvoid_rc=1
+void_rejected
+marker_absent_after_void
+[?2004hroot@7db2f97433c2:/app# /app/bin/skiffloom cull /app/deltabay/eve.chg /app/slatewell; eve=$?; /app/bin/skiffloom cull /app/deltabay/morn.chg /app/slatewell/mornbox; morn=$?; rm -rf /tmp/ref-last; /tmp/skiffloom.ref cull /app/deltabay/eve.chg /tmp/ref-last; ref=$?; echo eve_rc=$eve morn_rc=$morn ref_rc=$ref; test -e /app/slatewell/cull.ok && echo cull_ok_present; cmp /app/slatewell/slate.json /tmp/ref-last/slate.json && cmp /app/slatewell/slate.bin /tmp/ref-last/slate.bin && echo mill_outputs_match; cat /app/slatewell/slate.json; cat /app/slatewell/mornbox/slate.json; file /app/bin/skiffloom; od -An -tx1 -N4 /app/bin/skiffloom
+[?2004leve_rc=0 morn_rc=0 ref_rc=0
+cull_ok_present
+mill_outputs_match
+{"pool":["q_ij","q_ab","q_cd","q_ef","q_gh","q_mn","q_kl"],"names":["q_ij","q_ab","q_cd"],"spent_ms":120}
+{"pool":["q_op","q_st","q_qr"],"names":["q_op","q_st"],"spent_ms":80}
+/app/bin/skiffloom: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, not stripped
+ 7f 45 4c 46
+[?2004hroot@7db2f97433c2:/app# 

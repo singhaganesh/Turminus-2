@@ -1,0 +1,169 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 11 items
+
+../tests/test_outputs.py FFFFFFFFFFF                                     [100%]
+
+=================================== FAILURES ===================================
+_____________________ test_premap01_symmap_covers_runtime ______________________
+
+    def test_premap01_symmap_covers_runtime():
+        """Symmap must list every exported bench function plus core runtime entry symbols."""
+        sym_names, _, _ = _parse_symmap()
+        required = {"ring_dispatch", "legacy_worker", "main", "_start"}
+>       assert required <= sym_names
+E       AssertionError: assert {'_start', 'l...ing_dispatch'} <= {'legacy_work...untime_entry'}
+E         
+E         Extra items in the left set:
+E         '_start'
+
+/tests/test_outputs.py:100: AssertionError
+_______________________ test_premap02_symmap_mode_linked _______________________
+
+    def test_premap02_symmap_mode_linked():
+        """Symmap mode line must be linked, not an object-merge map."""
+        _, _, meta = _parse_symmap()
+>       assert meta.get("mode") == "linked"
+E       AssertionError: assert 'objects' == 'linked'
+E         
+E         - linked
+E         + objects
+
+/tests/test_outputs.py:107: AssertionError
+________________________ test_premap03_buildid_present _________________________
+
+    def test_premap03_buildid_present():
+        """Symmap buildid must be present and not the object-merge placeholder."""
+        _, _, meta = _parse_symmap()
+        bid = meta.get("buildid")
+        assert isinstance(bid, str)
+>       assert bid not in {"", "object-merge", "unknown"}
+E       AssertionError: assert 'object-merge' not in {'', 'object-merge', 'unknown'}
+
+/tests/test_outputs.py:115: AssertionError
+____________________ test_premap04_buildid_matches_readelf _____________________
+
+    def test_premap04_buildid_matches_readelf():
+        """Symmap buildid must match the linked runtime ELF build id."""
+        _, _, meta = _parse_symmap()
+>       assert meta.get("buildid") == _readelf_build_id()
+E       AssertionError: assert 'object-merge' == 'dc075623bb91...dd55022d05b55'
+E         
+E         - dc075623bb91aa46174cc9e524fdd55022d05b55
+E         + object-merge
+
+/tests/test_outputs.py:122: AssertionError
+____________________ test_premap05_bench_ring_dispatch_name ____________________
+
+    def test_premap05_bench_ring_dispatch_name():
+        """First bench sample PC must resolve to ring_dispatch by name."""
+        profile = json.loads(PROFILE.read_text())
+        ring_pc = _sym_start("ring_dispatch") + 8
+        match = [s for s in profile["frames"] if int(s["pc"], 16) == ring_pc]
+>       assert match and match[0]["symbol"] == "ring_dispatch"
+E       assert ([])
+
+/tests/test_outputs.py:130: AssertionError
+____________________ test_premap06_bench_legacy_worker_name ____________________
+
+    def test_premap06_bench_legacy_worker_name():
+        """Second bench sample PC must resolve to legacy_worker by name."""
+        profile = json.loads(PROFILE.read_text())
+        legacy_pc = _sym_start("legacy_worker") + 4
+        match = [s for s in profile["frames"] if int(s["pc"], 16) == legacy_pc]
+>       assert match and match[0]["symbol"] == "legacy_worker"
+E       assert ([])
+
+/tests/test_outputs.py:138: AssertionError
+______________________ test_premap07_held_out_ring_render ______________________
+
+    def test_premap07_held_out_ring_render():
+        """Held-out render on linked ring_dispatch PC must resolve to ring_dispatch."""
+        ring_pc = _elf_sym_start("ring_dispatch") + 4
+        prof = _render(f"pc 0x{ring_pc:x}\n")
+>       assert prof["frames"][0]["symbol"] == "ring_dispatch"
+E       AssertionError: assert 'main' == 'ring_dispatch'
+E         
+E         - ring_dispatch
+E         + main
+
+/tests/test_outputs.py:145: AssertionError
+__________________ test_premap08_held_out_offset_not_neighbor __________________
+
+    def test_premap08_held_out_offset_not_neighbor():
+        """Held-out ring_dispatch sample offset must match linked runtime layout."""
+        ring_start = _elf_sym_start("ring_dispatch")
+        ring_pc = ring_start + 4
+        prof = _render(f"pc 0x{ring_pc:x}\n")
+>       assert prof["frames"][0]["symbol"] == "ring_dispatch"
+E       AssertionError: assert 'main' == 'ring_dispatch'
+E         
+E         - ring_dispatch
+E         + main
+
+/tests/test_outputs.py:154: AssertionError
+__________________ test_premap09_profile_json_shape_and_names __________________
+
+    def test_premap09_profile_json_shape_and_names():
+        """profile.json must expose frames with correct ring_dispatch and legacy_worker names."""
+        profile = json.loads(PROFILE.read_text())
+        assert isinstance(profile["frames"], list)
+        ring_pc = _sym_start("ring_dispatch") + 8
+        legacy_pc = _sym_start("legacy_worker") + 4
+        by_pc = {int(s["pc"], 16): s for s in profile["frames"]}
+>       assert by_pc[ring_pc]["symbol"] == "ring_dispatch"
+               ^^^^^^^^^^^^^^
+E       KeyError: 5640
+
+/tests/test_outputs.py:165: KeyError
+__________________ test_premap10_ring_dispatch_linked_address __________________
+
+    def test_premap10_ring_dispatch_linked_address():
+        """Symmap ring_dispatch entry must use the linked runtime address."""
+        linked = _sym_start("ring_dispatch")
+        nm = subprocess.run(
+            ["nm", "-n", "--defined-only", str(RUNTIME)],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        for line in nm.splitlines():
+            parts = line.split()
+            if len(parts) >= 3 and parts[2] == "ring_dispatch":
+>               assert int(parts[0], 16) == linked
+E               AssertionError: assert 4198752 == 5632
+E                +  where 4198752 = int('0000000000401160', 16)
+
+/tests/test_outputs.py:185: AssertionError
+____________________ test_premap11_bench_samples_file_used _____________________
+
+    def test_premap11_bench_samples_file_used():
+        """profile.json must include every bench.samples PC line with matching symbols."""
+        pcs = []
+        for line in BENCH.read_text().splitlines():
+            if line.startswith("pc "):
+                pcs.append(int(line.split()[1], 16))
+        profile = json.loads(PROFILE.read_text())
+        got = {int(s["pc"], 16): s["symbol"] for s in profile["frames"]}
+        assert set(pcs) <= set(got)
+        for pc in pcs:
+            sym = got[pc]
+>           assert sym in {"ring_dispatch", "legacy_worker"}
+E           AssertionError: assert 'main' in {'legacy_worker', 'ring_dispatch'}
+
+/tests/test_outputs.py:201: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_premap01_symmap_covers_runtime - Assert...
+FAILED ../tests/test_outputs.py::test_premap02_symmap_mode_linked - Assertion...
+FAILED ../tests/test_outputs.py::test_premap03_buildid_present - AssertionErr...
+FAILED ../tests/test_outputs.py::test_premap04_buildid_matches_readelf - Asse...
+FAILED ../tests/test_outputs.py::test_premap05_bench_ring_dispatch_name - ass...
+FAILED ../tests/test_outputs.py::test_premap06_bench_legacy_worker_name - ass...
+FAILED ../tests/test_outputs.py::test_premap07_held_out_ring_render - Asserti...
+FAILED ../tests/test_outputs.py::test_premap08_held_out_offset_not_neighbor
+FAILED ../tests/test_outputs.py::test_premap09_profile_json_shape_and_names
+FAILED ../tests/test_outputs.py::test_premap10_ring_dispatch_linked_address
+FAILED ../tests/test_outputs.py::test_premap11_bench_samples_file_used - Asse...
+============================== 11 failed in 0.32s ==============================

@@ -1,0 +1,822 @@
+[?2004hroot@53f8ba35682d:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@53f8ba35682d:/app# clear
+[?2004l[H[J[3J[?2004hroot@53f8ba35682d:/app# cat /app/millnote/LAY.txt; printf '\n--- ROUTE ---\n'; cat /app/millnote/ROUTE.txt; printf '\n--- HULL ---\n'; cat /app/millnote/HULL.txt
+[?2004lrows.ndjson: one JSON object per dump row, dump order. Keys are id, hitch, tok (strings).
+hitch.idx: one line per hitch token. Token, then a single space, then a comma-joined id list sorted by id bytes. Lines sorted by hitch bytes.
+The hitch token on every row of a group is the least token among tokens in that group, compared as raw UTF-8 bytes. Pair files contribute tokens to the same group.
+berth.ok: bytes o k newline after a successful sew.
+
+--- ROUTE ---
+berthcli — sew CLI
+readcue — yarn scan
+netsrc — token net
+cardpit — pair load
+walkbind — dockurn write
+ribdrop — size table
+hull.sh — mill link
+
+--- HULL ---
+Link the mill with /app/hull.sh after source edits. The agent binary is /app/bin/twinefuse.
+A throwaway mill is go build -o /tmp/twinefuse.ref berth.local/twinefuse/berthcli from /app.
+Agent /app/bin/twinefuse must sew the same rows.ndjson and hitch.idx as /tmp/twinefuse.ref.
+Do not copy that throwaway over the agent mill.
+[?2004hroot@53f8ba35682d:/app# find /app -maxdepth 3 -type f -printf '%p\n' | sort
+[?2004l/app/aliascue/desk.cue
+/app/berthcli/main.go
+/app/berthcli/sew.go
+/app/bin/twinefuse
+/app/cardpit/pair.go
+/app/cordbay/eve.yarn
+/app/cordbay/morn.yarn
+/app/deskfold/NOTE.txt
+/app/deskfold/night.hitch
+/app/dockurn/berth.ok
+/app/dockurn/hitch.idx
+/app/dockurn/rows.ndjson
+/app/go.mod
+/app/hull.sh
+/app/millnote/CLI.txt
+/app/millnote/HULL.txt
+/app/millnote/LAY.txt
+/app/millnote/ROUTE.txt
+/app/millnote/forms.txt
+/app/netsrc/tie.go
+/app/readcue/attach.go
+/app/readcue/scan.go
+/app/ribdrop/rank.go
+/app/walkbind/stamp.go
+[?2004hroot@53f8ba35682d:/app# file /app/bin/twinefuse; ls -l /app/bin/twinefuse /app/dockurn /app/aliascue /app/cordbay
+[?2004lbash: file: command not found
+-rwxr-xr-x 1 root root 2841956 Sep  9 05:42 /app/bin/twinefuse
+
+/app/aliascue:
+total 4
+-rw-rw-r-- 1 root root 31 Sep  9 05:02 desk.cue
+
+/app/cordbay:
+total 8
+-rw-rw-r-- 1 root root 80 Sep  9 05:02 eve.yarn
+-rw-rw-r-- 1 root root 80 Sep  9 05:02 morn.yarn
+
+/app/dockurn:
+total 12
+-rw-r--r-- 1 root root   3 Sep  9 05:42 berth.ok
+-rw-r--r-- 1 root root  64 Sep  9 05:42 hitch.idx
+-rw-r--r-- 1 root root 390 Sep  9 05:42 rows.ndjson
+[?2004hroot@53f8ba35682d:/app# printf '%s\n' '--- go.mod ---'; cat go.mod; printf '%s\n' '--- hull.sh ---'; cat hull.sh; printf '%s\n' '--- CLI ---'; cat millnote/CLI.txt; printf '%s\n' '--- forms ---'; cat millnote/forms.txt
+[?2004l--- go.mod ---
+module berth.local/twinefuse
+
+go 1.24
+--- hull.sh ---
+#!/bin/bash
+set -euo pipefail
+cd /app
+mkdir -p /app/bin /app/dockurn
+go build -o /app/bin/twinefuse berth.local/twinefuse/berthcli
+--- CLI ---
+sew YARN OUTDIR
+Writes OUTDIR/rows.ndjson, OUTDIR/hitch.idx, and OUTDIR/berth.ok on success.
+Pair files are read from /app/aliascue.
+--- forms ---
+Yarn line: id then a single space then tok.
+Pair file (.cue): left=, right=, origin= lines. origin desk is live. origin scrapped is refused.
+[?2004hroot@53f8ba35682d:/app# for f in berthcli/*.go readcue/*.go netsrc/*.go cardpit/*.go walkbind/*.go ribdrop/*.go; do echo "--- $f ---"; sed -n '1,240p' "$f"; done
+[?2004l--- berthcli/main.go ---
+package main
+
+import (
+	"os"
+)
+
+func main() {
+	if len(os.Args) < 2 {
+		os.Exit(2)
+	}
+	switch os.Args[1] {
+	case "sew":
+		if len(os.Args) < 4 {
+			os.Exit(2)
+		}
+		os.Exit(runSew(os.Args[2], os.Args[3]))
+	default:
+		os.Exit(2)
+	}
+}
+--- berthcli/sew.go ---
+package main
+
+import (
+	"os"
+	"path/filepath"
+
+	"berth.local/twinefuse/cardpit"
+	"berth.local/twinefuse/netsrc"
+	"berth.local/twinefuse/readcue"
+	"berth.local/twinefuse/ribdrop"
+	"berth.local/twinefuse/walkbind"
+)
+
+func runSew(dump, out string) int {
+	recs, err := readcue.Scan(dump)
+	if err != nil {
+		return 1
+	}
+	toks := make([]string, 0, len(recs))
+	for _, rec := range recs {
+		toks = append(toks, rec.Tok)
+	}
+	net := netsrc.OpTie(toks)
+	_ = ribdrop.Rank(net.Sz)
+	if err := cardpit.NPair("/app/aliascue", net); err != nil {
+		_ = os.Remove(filepath.Join(out, "berth.ok"))
+		return 1
+	}
+	rows := readcue.Attach(recs, net)
+	if err := walkbind.CfgStamp(out, rows); err != nil {
+		return 1
+	}
+	return 0
+}
+--- readcue/attach.go ---
+package readcue
+
+import (
+	"berth.local/twinefuse/netsrc"
+	"berth.local/twinefuse/walkbind"
+)
+
+func Attach(recs []Rec, n *netsrc.Net) []walkbind.Row {
+	rows := make([]walkbind.Row, 0, len(recs))
+	for _, rec := range recs {
+		rows = append(rows, walkbind.Row{
+			Id:    rec.Id,
+			Hitch: netsrc.OpMark(n, rec.Tok),
+			Tok:   rec.Tok,
+		})
+	}
+	return rows
+}
+--- readcue/scan.go ---
+package readcue
+
+import (
+	"os"
+	"strings"
+)
+
+type Rec struct {
+	Id  string
+	Tok string
+}
+
+func Scan(path string) ([]Rec, error) {
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var out []Rec
+	for _, line := range strings.Split(string(body), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		id, tok, ok := strings.Cut(line, " ")
+		if !ok {
+			continue
+		}
+		out = append(out, Rec{Id: strings.TrimSpace(id), Tok: strings.TrimSpace(tok)})
+	}
+	return out, nil
+}
+--- netsrc/tie.go ---
+package netsrc
+
+type Net struct {
+	Par map[string]string
+	Sz  map[string]int
+}
+
+func NewNet() *Net {
+	return &Net{Par: map[string]string{}, Sz: map[string]int{}}
+}
+
+func (n *Net) Add(k string) {
+	if _, ok := n.Par[k]; ok {
+		return
+	}
+	n.Par[k] = k
+	n.Sz[k] = 1
+}
+
+func (n *Net) Find(k string) string {
+	n.Add(k)
+	for n.Par[k] != k {
+		n.Par[k] = n.Par[n.Par[k]]
+		k = n.Par[k]
+	}
+	return k
+}
+
+func (n *Net) Join(a, b string) {
+	ra, rb := n.Find(a), n.Find(b)
+	if ra == rb {
+		return
+	}
+	if n.Sz[ra] < n.Sz[rb] {
+		ra, rb = rb, ra
+	}
+	n.Par[rb] = ra
+	n.Sz[ra] += n.Sz[rb]
+}
+
+func OpTie(toks []string) *Net {
+	n := NewNet()
+	for _, t := range toks {
+		n.Add(t)
+	}
+	return n
+}
+
+func OpMark(n *Net, tok string) string {
+	return n.Find(tok)
+}
+--- cardpit/pair.go ---
+package cardpit
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+
+	"berth.local/twinefuse/netsrc"
+)
+
+func NPair(dir string, n *netsrc.Net) error {
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, ent := range ents {
+		if ent.IsDir() || !strings.HasSuffix(ent.Name(), ".cue") {
+			continue
+		}
+		body, err := os.ReadFile(filepath.Join(dir, ent.Name()))
+		if err != nil {
+			return err
+		}
+		left, right, origin := "", "", ""
+		for _, line := range strings.Split(string(body), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || !strings.Contains(line, "=") {
+				continue
+			}
+			k, v, _ := strings.Cut(line, "=")
+			k = strings.TrimSpace(k)
+			v = strings.TrimSpace(v)
+			switch k {
+			case "left":
+				left = v
+			case "right":
+				right = v
+			case "origin":
+				origin = v
+			}
+		}
+		if origin == "scrapped" {
+			continue
+		}
+		if left != "" {
+			n.Add(left)
+		}
+		_ = right
+	}
+	return nil
+}
+--- walkbind/stamp.go ---
+package walkbind
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+)
+
+type Row struct {
+	Id    string `json:"id"`
+	Hitch string `json:"hitch"`
+	Tok   string `json:"tok"`
+}
+
+func CfgStamp(outDir string, rows []Row) error {
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return err
+	}
+	byID := map[string]Row{}
+	for _, row := range rows {
+		byID[row.Id] = row
+	}
+	rf, err := os.Create(filepath.Join(outDir, "rows.ndjson"))
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(rf)
+	enc.SetEscapeHTML(false)
+	for _, row := range byID {
+		if err := enc.Encode(row); err != nil {
+			rf.Close()
+			return err
+		}
+	}
+	if err := rf.Close(); err != nil {
+		return err
+	}
+	groups := map[string][]string{}
+	for _, row := range byID {
+		groups[row.Hitch] = append(groups[row.Hitch], row.Id)
+	}
+	xf, err := os.Create(filepath.Join(outDir, "hitch.idx"))
+	if err != nil {
+		return err
+	}
+	for h, ids := range groups {
+		line := h + " " + stringsJoin(ids, ",") + "\n"
+		if _, err := xf.WriteString(line); err != nil {
+			xf.Close()
+			return err
+		}
+	}
+	if err := xf.Close(); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(outDir, "berth.ok"), []byte("ok\n"), 0o644)
+}
+
+func stringsJoin(ids []string, sep string) string {
+	if len(ids) == 0 {
+		return ""
+	}
+	out := ids[0]
+	for i := 1; i < len(ids); i++ {
+		out += sep + ids[i]
+	}
+	return out
+}
+--- ribdrop/rank.go ---
+package ribdrop
+
+// Rank builds a size table after join. Equal sizes share one bin.
+func Rank(sz map[string]int) map[int]int {
+	out := map[int]int{}
+	for _, n := range sz {
+		out[n]++
+	}
+	return out
+}
+[?2004hroot@53f8ba35682d:/app# for f in cordbay/*.yarn aliascue/* dockurn/rows.ndjson dockurn/hitch.idx dockurn/berth.ok deskfold/*; do echo "--- $f ---"; cat "$f"; done
+[?2004l--- cordbay/eve.yarn ---
+e01 t_m
+e02 t_a
+e03 t_m
+e04 t_z
+e05 t_b
+e06 t_a
+e07 t_q
+e08 t_r
+e09 t_q
+e10 t_r
+--- cordbay/morn.yarn ---
+e10 t_r
+e09 t_q
+e08 t_r
+e07 t_q
+e06 t_a
+e05 t_b
+e04 t_z
+e03 t_m
+e02 t_a
+e01 t_m
+--- aliascue/desk.cue ---
+left=t_z
+right=t_b
+origin=desk
+--- dockurn/rows.ndjson ---
+{"id":"e05","hitch":"t_b","tok":"t_b"}
+{"id":"e06","hitch":"t_a","tok":"t_a"}
+{"id":"e08","hitch":"t_r","tok":"t_r"}
+{"id":"e09","hitch":"t_q","tok":"t_q"}
+{"id":"e10","hitch":"t_r","tok":"t_r"}
+{"id":"e01","hitch":"t_m","tok":"t_m"}
+{"id":"e07","hitch":"t_q","tok":"t_q"}
+{"id":"e02","hitch":"t_a","tok":"t_a"}
+{"id":"e03","hitch":"t_m","tok":"t_m"}
+{"id":"e04","hitch":"t_z","tok":"t_z"}
+--- dockurn/hitch.idx ---
+t_a e06,e02
+t_r e08,e10
+t_q e09,e07
+t_m e01,e03
+t_z e04
+t_b e05
+--- dockurn/berth.ok ---
+ok
+--- deskfold/NOTE.txt ---
+Last good hitch.idx from eve. If sew looks noisy, some desks restore this file into dockurn.
+--- deskfold/night.hitch ---
+t_a e02,e06
+t_b e04,e05
+t_m e01,e03
+t_q e07,e09
+t_r e08,e10
+[?2004hroot@53f8ba35682d:/app# od -An -tx1 -N4 bin/twinefuse
+[?2004l 7f 45 4c 46
+[?2004hroot@53f8ba35682d:/app# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p=Path('netsrc/tie.go')
+[?2004l[?2004h> s=p.read_text()
+[?2004l[?2004h> start=s.index('func (n *Net) Join')
+[?2004l[?2004h> end=s.index('\nfunc OpTie', start)
+[?2004l[?2004h> s=s[:start]+'''func (n *Net) Join(a, b string) {
+[?2004l[?2004h> \tra, rb := n.Find(a), n.Find(b)
+[?2004l[?2004h> \tif ra == rb {
+[?2004l[?2004h> \t\treturn
+[?2004l[?2004h> \t}
+[?2004l[?2004h> \t// A group's root is its least token by raw UTF-8 bytes. Go string
+[?2004l[?2004h> \t// comparison is bytewise, so this is independent of input/pair order.
+[?2004l[?2004h> \tif rb < ra {
+[?2004l[?2004h> \t\tra, rb = rb, ra
+[?2004l[?2004h> \t}
+[?2004l[?2004h> \tn.Par[rb] = ra
+[?2004l[?2004h> \tn.Sz[ra] += n.Sz[rb]
+[?2004l[?2004h> \tdelete(n.Sz, rb)
+[?2004l[?2004h> }
+[?2004l[?2004h> '''+s[end:]
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@53f8ba35682d:/app# cat > cardpit/pair.go <<'EOF'
+[?2004l[?2004h> package cardpit
+[?2004l[?2004h> 
+[?2004l[?2004h> import (
+[?2004l[?2004h> "fmt"
+[?2004l[?2004h> "os"
+[?2004l[?2004h> "path/filepath"
+[?2004l[?2004h> "strings"
+[?2004l[?2004h> 
+[?2004l[?2004h> "berth.local/twinefuse/netsrc"
+[?2004l[?2004h> )
+[?2004l[?2004h> 
+[?2004l[?2004h> func NPair(dir string, n *netsrc.Net) error {
+[?2004l[?2004h> ents, err := os.ReadDir(dir)
+[?2004l[?2004h> if err != nil {
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> return err
+[?2004l[?2004h> }
+[?2004l[?2004h> for _, ent := range ents {
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> if ent.IsDir() || !strings.HasSuffix(ent.Name(), ".cue") {
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> continue
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> }
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> path := filepath.Join(dir, ent.Name())
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> body, err := os.ReadFile(path)
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> if err != nil {
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> return err
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> }
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> left, right, origin := "", "", ""
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> for _, line := range strings.Split(string(body), "\n") {
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> line = strings.TrimSpace(line)
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> if line == "" || !strings.Contains(line, "=") {
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> continue
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> }
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> k, v, _ := strings.Cut(line, "=")
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> switch strings.TrimSpace(k) {
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> case "left":
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> left = strings.TrimSpace(v)
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> case "right":
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> right = strings.TrimSpace(v)
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> case "origin":
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> origin = strings.TrimSpace(v)
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> }
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> }
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> if origin == "scrapped" {
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> return fmt.Errorf("refusing scrapped pair %s", path)
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> }
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> if left != "" && right != "" {
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> n.Join(left, right)
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> } else {
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> if left != "" {
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> n.Add(left)
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> }
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> if right != "" {
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> n.Add(right)
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> }
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> }
+[?2004l[?2004h> }
+[?2004l[?2004h> return nil
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@53f8ba35682d:/app# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p=Path('berthcli/sew.go')
+[?2004l[?2004h> s=p.read_text()
+[?2004l[?2004h> needle='func runSew(dump, out string) int {\n'
+[?2004l[?2004h> s=s.replace(needle, needle+'\t// Never allow a failure to leave a stale success marker.\n\t_ = os.Remove(filepath.Join(out, "berth.ok"))\n', 1)
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@53f8ba35682d:/app# cat > walkbind/stamp.go <<'EOF'
+[?2004l[?2004h> package walkbind
+[?2004l[?2004h> 
+[?2004l[?2004h> import (
+[?2004l[?2004h> "encoding/json"
+[?2004l[?2004h> "os"
+[?2004l[?2004h> "path/filepath"
+[?2004l[?2004h> "sort"
+[?2004l[?2004h> "strings"
+[?2004l[?2004h> )
+[?2004l[?2004h> 
+[?2004l[?2004h> type Row struct {
+[?2004l[?2004h> Id    string `json:"id"`
+[?2004l[?2004h> Hitch string `json:"hitch"`
+[?2004l[?2004h> Tok   string `json:"tok"`
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> func CfgStamp(outDir string, rows []Row) error {
+[?2004l[?2004h> if err := os.MkdirAll(outDir, 0o755); err != nil {
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> return err
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> // Rows are part of the dump format and must retain dump order.
+[?2004l[?2004h> rf, err := os.Create(filepath.Join(outDir, "rows.ndjson"))
+[?2004l[?2004h> if err != nil {
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> return err
+[?2004l[?2004h> }
+[?2004l[?2004h> enc := json.NewEncoder(rf)
+[?2004l[?2004h> enc.SetEscapeHTML(false)
+[?2004l[?2004h> for _, row := range rows {
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> if err := enc.Encode(row); err != nil {
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> rf.Close()
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> return err
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> }
+[?2004l[?2004h> }
+[?2004l[?2004h> if err := rf.Close(); err != nil {
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> return err
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> groups := make(map[string][]string)
+[?2004l[?2004h> for _, row := range rows {
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> groups[row.Hitch] = append(groups[row.Hitch], row.Id)
+[?2004l[?2004h> }
+[?2004l[?2004h> hitches := make([]string, 0, len(groups))
+[?2004l[?2004h> for hitch := range groups {
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> hitches = append(hitches, hitch)
+[?2004l[?2004h> }
+[?2004l[?2004h> sort.Strings(hitches)
+[?2004l[?2004h> 
+[?2004l[?2004h> xf, err := os.Create(filepath.Join(outDir, "hitch.idx"))
+[?2004l[?2004h> if err != nil {
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> return err
+[?2004l[?2004h> }
+[?2004l[?2004h> for _, hitch := range hitches {
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> ids := groups[hitch]
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> sort.Strings(ids)
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> if _, err := xf.WriteString(hitch + " " + strings.Join(ids, ",") + "\n"); err != nil {
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> xf.Close()
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> return err
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> }
+[?2004l[?2004h> }
+[?2004l[?2004h> if err := xf.Close(); err != nil {
+[?2004l[?2004h> 
+aliascue/ berthcli/ bin/      cardpit/  cordbay/  deskfold/ dockurn/  go.mod    hull.sh   millnote/ netsrc/   readcue/  ribdrop/  walkbind/ 
+> return err
+[?2004l[?2004h> }
+[?2004l[?2004h> return os.WriteFile(filepath.Join(outDir, "berth.ok"), []byte("ok\n"), 0o644)
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@53f8ba35682d:/app# gofmt -w berthcli/*.go readcue/*.go netsrc/*.go cardpit/*.go walkbind/*.go ribdrop/*.go
+[?2004l[?2004hroot@53f8ba35682d:/app# go test ./...
+[?2004lrm -rf /tmp/eve-first /app/dockurn/mornbox; /app/bin/twinefuse sew /app/cordbay/eve.yarn /app/dockurn && mkdir /tmp/eve-first && cp /app/dockurn/rows.ndjson /app/dockurn/hitch.idx /tmp/eve-first/ && /app/bin/twinefuse sew /app/cordbay/eve.yarn /app/dockurn && cmp /tmp/eve-first/rows.ndjson /app/dockurn/rows.ndjson && cmp /tmp/eve-first/hitch.idx /app/dockurn/hitch.idx && /tmp/twinefuse.ref sew /app/cordbay/eve.yarn /tmp/refbox && cmp /tmp/refbox/rows.ndjson /app/dockurn/rows.ndjson && cmp /tmp/refbox/hitch.idx /app/dockurn/hitch.idx && /app/bin/twinefuse sew /app/cordbay/morn.yarn /app/dockurn/mornbox && echo '--- eve rows ---' && cat /app/dockurn/rows.ndjson && echo '--- eve index ---' && cat /app/dockurn/hitch.idx && echo '--- morn index ---' && cat /app/dockurn/mornbox/hitch.idx
+?   	berth.local/twinefuse/berthcli	[no test files]
+?   	berth.local/twinefuse/cardpit	[no test files]
+?   	berth.local/twinefuse/netsrc	[no test files]
+?   	berth.local/twinefuse/readcue	[no test files]
+?   	berth.local/twinefuse/ribdrop	[no test files]
+?   	berth.local/twinefuse/walkbind	[no test files]
+[?2004hroot@53f8ba35682d:/app# go build -o /tmp/twinefuse.ref berth.local/twinefuse/berthcli
+[?2004l[?2004hroot@53f8ba35682d:/app# bash /app/hull.sh
+[?2004l[?2004hroot@53f8ba35682d:/app# rm -rf /tmp/eve-first /app/dockurn/mornbox; /app/bin/twinefuse sew /app/cordbay/eve.yarn /app/dockurn && mkdir /tmp/eve-first && cp /app/dockurn/rows.ndjson /app/dockurn/hitch.idx /tmp/eve-first/ && /app/bin/twinefuse sew /app/cordbay/eve.yarn /app/dockurn && cmp /tmp/eve-first/rows.ndjson /app/dockurn/rows.ndjson && cmp /tmp/eve-first/hitch.idx /app/dockurn/hitch.idx && /tmp/twinefuse.ref sew /app/cordbay/eve.yarn /tmp/refbox && cmp /tmp/refbox/rows.ndjson /app/dockurn/rows.ndjson && cmp /tmp/refbox/hitch.idx /app/dockurn/hitch.idx && /app/bin/twinefuse sew /app/cordbay/morn.yarn /app/dockurn/mornbox && echo '--- eve rows ---' && cat /app/dockurn/rows.ndjson && echo '--- eve index ---' && cat /app/dockurn/hitch.idx && echo '--- morn index ---' && cat /app/dockurn/mornbox/hitch.idx
+[?2004l--- eve rows ---
+{"id":"e01","hitch":"t_m","tok":"t_m"}
+{"id":"e02","hitch":"t_a","tok":"t_a"}
+{"id":"e03","hitch":"t_m","tok":"t_m"}
+{"id":"e04","hitch":"t_b","tok":"t_z"}
+{"id":"e05","hitch":"t_b","tok":"t_b"}
+{"id":"e06","hitch":"t_a","tok":"t_a"}
+{"id":"e07","hitch":"t_q","tok":"t_q"}
+{"id":"e08","hitch":"t_r","tok":"t_r"}
+{"id":"e09","hitch":"t_q","tok":"t_q"}
+{"id":"e10","hitch":"t_r","tok":"t_r"}
+--- eve index ---
+t_a e02,e06
+t_b e04,e05
+t_m e01,e03
+t_q e07,e09
+t_r e08,e10
+--- morn index ---
+t_a e02,e06
+t_b e04,e05
+t_m e01,e03
+t_q e07,e09
+t_r e08,e10
+[?2004hroot@53f8ba35682d:/app# python3 - <<'PY'
+[?2004l[?2004h> import json
+[?2004l[?2004h> 
+[?2004l[?2004h> def mapping(path):
+[?2004l[?2004h>     with open(path) as f:
+[?2004l[?2004h>         return {r['id']: r['hitch'] for r in map(json.loads, f)}
+[?2004l[?2004h> a=mapping('/app/dockurn/rows.ndjson')
+[?2004l[?2004h> b=mapping('/app/dockurn/mornbox/rows.ndjson')
+[?2004l[?2004h> assert a == b, (a,b)
+[?2004l[?2004h> print('same per-id hitches:', a)
+[?2004l[?2004h> PY
+[?2004lsame per-id hitches: {'e01': 't_m', 'e02': 't_a', 'e03': 't_m', 'e04': 't_b', 'e05': 't_b', 'e06': 't_a', 'e07': 't_q', 'e08': 't_r', 'e09': 't_q', 'e10': 't_r'}
+[?2004hroot@53f8ba35682d:/app# cat > /app/aliascue/reject-test.cue <<'EOF'
+[?2004l[?2004h> left=t_a
+[?2004l[?2004h> right=t_q
+[?2004l[?2004h> origin=scrapped
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@53f8ba35682d:/app# /app/bin/twinefuse sew /app/cordbay/eve.yarn /app/dockurn; rc=$?; test "$rc" -ne 0 && test ! -e /app/dockurn/berth.ok; verdict=$?; rm -f /app/aliascue/reject-test.cue; /app/bin/twinefuse sew /app/cordbay/eve.yarn /app/dockurn; test "$verdict" -eq 0; printf 'scrapped rejection rc=%s; final artifacts refreshed\n' "$rc"
+[?2004lscrapped rejection rc=1; final artifacts refreshed
+[?2004hroot@53f8ba35682d:/app# 

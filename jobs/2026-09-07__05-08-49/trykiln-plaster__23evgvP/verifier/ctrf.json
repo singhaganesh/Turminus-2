@@ -1,0 +1,176 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 13,
+            "passed": 0,
+            "failed": 13,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1788737938.7378004,
+            "stop": 1788737938.9049506
+        },
+        "tests": [
+            {
+                "name": "test_outputs.py::test_k01_mold_column",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0014850200000182667,
+                "start": 1788737938.7836418,
+                "stop": 1788737938.8023071,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_k01_mold_column():\n        \"\"\"Plaster vat carries attempt_slot on tries.\"\"\"\n        v = parse_vat(PLASTER)\n        assert v[\"table\"] == \"tries\"\n>       assert \"attempt_slot\" in v[\"cols\"]\nE       AssertionError: assert 'attempt_slot' in ['id', 'label']\n\n/tests/test_outputs.py:55: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_k02_worker_column",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0007976599999892642,
+                "start": 1788737938.8025782,
+                "stop": 1788737938.8070798,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_k02_worker_column():\n        \"\"\"Worker vat carries attempt_slot on tries.\"\"\"\n        v = parse_vat(WORKER)\n>       assert \"attempt_slot\" in v[\"cols\"]\nE       AssertionError: assert 'attempt_slot' in ['id', 'label']\n\n/tests/test_outputs.py:61: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_k03_applied_head",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.001137252000035005,
+                "start": 1788737938.8073096,
+                "stop": 1788737938.8148863,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_k03_applied_head():\n        \"\"\"Last applied stem on plaster equals ledger sql head.\"\"\"\n>       assert last_applied(PLASTER) == sql_head()\nE       AssertionError: assert '0003_base' == '0004_attempt_slot'\nE         \nE         - 0004_attempt_slot\nE         + 0003_base\n\n/tests/test_outputs.py:66: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_k04_column_parity",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0011609929999849555,
+                "start": 1788737938.8153367,
+                "stop": 1788737938.822794,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_k04_column_parity():\n        \"\"\"Mold and worker column lists match and both sit on the sql head.\"\"\"\n        a = parse_vat(PLASTER)\n        b = parse_vat(WORKER)\n        assert a[\"cols\"] == b[\"cols\"]\n        assert a[\"applied\"] == b[\"applied\"]\n>       assert last_applied(PLASTER) == sql_head()\nE       AssertionError: assert '0003_base' == '0004_attempt_slot'\nE         \nE         - 0004_attempt_slot\nE         + 0003_base\n\n/tests/test_outputs.py:75: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_k05_lag_copy_exit",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0030319570000756357,
+                "start": 1788737938.8230703,
+                "stop": 1788737938.8342283,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_k05_lag_copy_exit():\n        \"\"\"Spill of a vat behind the sql head exits non-zero.\"\"\"\n        orig = PLASTER.read_text()\n        worker_orig = WORKER.read_bytes()\n        try:\n            PLASTER.write_text(LAGGING)\n            proc = subprocess.run([CLI, \"spill\"], capture_output=True, text=True)\n>           assert proc.returncode != 0\nE           AssertionError: assert 0 != 0\nE            +  where 0 = CompletedProcess(args=['/app/bin/kilncli', 'spill'], returncode=0, stdout='', stderr='').returncode\n\n/tests/test_outputs.py:86: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_k06_lag_copy_untouched",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0026843850000659586,
+                "start": 1788737938.8345144,
+                "stop": 1788737938.8414872,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_k06_lag_copy_untouched():\n        \"\"\"Failed lag spill leaves a marked worker vat unchanged.\"\"\"\n        orig = PLASTER.read_text()\n        worker_orig = WORKER.read_text()\n        marked = worker_orig.replace(\"row:1,boot\", \"row:9,marked\")\n        if marked == worker_orig:\n            marked = worker_orig + \"row:9,marked\\n\"\n        try:\n            WORKER.write_text(marked)\n            PLASTER.write_text(LAGGING)\n            subprocess.run([CLI, \"spill\"], capture_output=True, text=True)\n>           assert \"marked\" in WORKER.read_text()\nE           AssertionError: assert 'marked' in 'KILNVAT 1\\napplied:0003_base\\ntable:tries\\ncols:id,label\\nrow:1,boot\\n'\nE            +  where 'KILNVAT 1\\napplied:0003_base\\ntable:tries\\ncols:id,label\\nrow:1,boot\\n' = read_text()\nE            +    where read_text = PosixPath('/app/scorepit/worker.vat').read_text\n\n/tests/test_outputs.py:103: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_k07_holdout_sql_head",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.004273023999985526,
+                "start": 1788737938.8416996,
+                "stop": 1788737938.8538265,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_k07_holdout_sql_head():\n        \"\"\"Extra unseen sql stem makes spill reject the current plaster.\"\"\"\n        extra = MIG / \"0005_holdout.sql\"\n        orig_w = WORKER.read_bytes()\n        try:\n            extra.write_text(\"ALTER TABLE tries ADD COLUMN hold_pad;\\n\")\n            proc = subprocess.run([CLI, \"spill\"], capture_output=True, text=True)\n>           assert proc.returncode != 0\nE           AssertionError: assert 0 != 0\nE            +  where 0 = CompletedProcess(args=['/app/bin/kilncli', 'spill'], returncode=0, stdout='', stderr='').returncode\n\n/tests/test_outputs.py:116: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_k08_zz_recover_worker",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.002736396000273089,
+                "start": 1788737938.854158,
+                "stop": 1788737938.8638747,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_k08_zz_recover_worker():\n        \"\"\"Corrupt worker then spill recovers columns from plaster.\"\"\"\n        orig = WORKER.read_text()\n        try:\n            WORKER.write_text(\"KILNVAT 1\\n\")\n            proc = subprocess.run([CLI, \"spill\"], capture_output=True, text=True)\n            assert proc.returncode == 0\n            v = parse_vat(WORKER)\n>           assert \"attempt_slot\" in v[\"cols\"]\nE           AssertionError: assert 'attempt_slot' in ['id', 'label']\n\n/tests/test_outputs.py:130: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_k09_ok_marker",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0008404259999679198,
+                "start": 1788737938.8643222,
+                "stop": 1788737938.8703065,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_k09_ok_marker():\n        \"\"\"Successful assay writes assay.ok.\"\"\"\n>       assert OK.is_file()\nE       AssertionError: assert False\nE        +  where False = is_file()\nE        +    where is_file = PosixPath('/app/scorepit/assay.ok').is_file\n\n/tests/test_outputs.py:140: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_k10_version_print",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0024854109999523644,
+                "start": 1788737938.8705802,
+                "stop": 1788737938.8783588,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_k10_version_print():\n        \"\"\"Assay stdout prints schema_version equal to sql head.\"\"\"\n        proc = subprocess.run([CLI, \"assay\"], capture_output=True, text=True)\n>       assert proc.returncode == 0\nE       AssertionError: assert 1 == 0\nE        +  where 1 = CompletedProcess(args=['/app/bin/kilncli', 'assay'], returncode=1, stdout='schema_version=0003_base\\n', stderr='unknown-column: attempt_slot\\n').returncode\n\n/tests/test_outputs.py:147: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_k11_version_matches_head",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0013014060000386962,
+                "start": 1788737938.8789368,
+                "stop": 1788737938.8857722,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_k11_version_matches_head():\n        \"\"\"Worker last applied independently matches ledger head.\"\"\"\n>       assert last_applied(WORKER) == sql_head()\nE       AssertionError: assert '0003_base' == '0004_attempt_slot'\nE         \nE         - 0004_attempt_slot\nE         + 0003_base\n\n/tests/test_outputs.py:155: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_k12_second_run",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0034957330001361697,
+                "start": 1788737938.8860438,
+                "stop": 1788737938.8961523,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_k12_second_run():\n        \"\"\"Assay twice yields the same schema_version line.\"\"\"\n        a = subprocess.run([CLI, \"assay\"], capture_output=True, text=True)\n        b = subprocess.run([CLI, \"assay\"], capture_output=True, text=True)\n>       assert a.returncode == 0 and b.returncode == 0\nE       AssertionError: assert (1 == 0)\nE        +  where 1 = CompletedProcess(args=['/app/bin/kilncli', 'assay'], returncode=1, stdout='schema_version=0003_base\\n', stderr='unknown-column: attempt_slot\\n').returncode\n\n/tests/test_outputs.py:162: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_k13_clean_exit",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.002860581000049933,
+                "start": 1788737938.8965476,
+                "stop": 1788737938.904747,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_k13_clean_exit():\n        \"\"\"Assay exits zero on the repaired worker vat.\"\"\"\n        proc = subprocess.run([CLI, \"assay\"], capture_output=True, text=True)\n>       assert proc.returncode == 0\nE       AssertionError: assert 1 == 0\nE        +  where 1 = CompletedProcess(args=['/app/bin/kilncli', 'assay'], returncode=1, stdout='schema_version=0003_base\\n', stderr='unknown-column: attempt_slot\\n').returncode\n\n/tests/test_outputs.py:169: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            }
+        ]
+    }
+}

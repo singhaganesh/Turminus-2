@@ -1,0 +1,847 @@
+[?2004hroot@9ab0d9879cf3:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@9ab0d9879cf3:/app# clear
+[?2004l[H[J[3J[?2004hroot@9ab0d9879cf3:/app# cat /app/baycard/BAY_NOTES.txt && printf '\n--- forms ---\n' && cat /app/baycard/forms.txt
+[?2004llotxref layout
+=============
+
+/app/bin/lotxref     linked mill (see /app/tblkit/hull.mk)
+/app/slitmill        table rewrite
+/app/cupeel          clip lookup
+/app/drygate         status gate
+/app/tblkit          mill glue
+/app/unitpit         C units
+/app/lotbay          dumps
+/app/inkwell         span.atlas and clip.out
+/app/touchbay        optional touch list some desks keep around
+/app/baycard         grammar
+
+Symptom on this bench: clip of shift.dmp shows a neighbour body even though
+reknit returns success. Other dumps that still sit on their original units
+already clip cleanly.
+
+A later row for the same name can look tempting when a unit recently moved.
+Twin helper names in two live units still have to clip from the dump's own unit.
+Grade-time dumps may appear under /app/lotbay and extra units under /app/unitpit.
+
+--- forms ---
+Atlas files begin with SPAN1 then one row per line:
+<name> <abspath> <lo> <hi>
+lo and hi are 1-based inclusive source lines.
+
+Dump files begin with DUMP1 then one line:
+<name> <abspath> <line>
+
+clip.out begins with CLIP <name> then the extracted source lines.
+[?2004hroot@9ab0d9879cf3:/app# printf '\n--- tree ---\n'; find /app -maxdepth 3 -type f -printf '%p\n' | sort
+[?2004l
+--- tree ---
+/app/baycard/BAY_NOTES.txt
+/app/baycard/forms.txt
+/app/bin/lotxref
+/app/cupeel/pick.c
+/app/drygate/gap.c
+/app/inkwell/span.atlas
+/app/lotbay/pump.dmp
+/app/lotbay/shift.dmp
+/app/lotbay/twin.dmp
+/app/sidecue/mtime.c
+/app/sidecue/mtime.h
+/app/slitmill/scan.c
+/app/tblkit/gap.h
+/app/tblkit/hull.mk
+/app/tblkit/hull_cli.c
+/app/tblkit/pick.h
+/app/tblkit/scan.h
+/app/tblkit/token.c
+/app/tblkit/token.h
+/app/touchbay/delta.lst
+/app/unitpit/alpha/aux.c
+/app/unitpit/alpha/pump.c
+/app/unitpit/beta/aux.c
+/app/unitpit/beta/tank.c
+/app/unitpit/gamma/shift.c
+[?2004hroot@9ab0d9879cf3:/app# printf '\n--- dump ---\n'; cat /app/lotbay/shift.dmp; printf '\n--- atlas ---\n'; cat /app/inkwell/span.atlas; printf '\n--- clip ---\n'; cat /app/inkwell/clip.out
+[?2004l
+--- dump ---
+DUMP1
+shift_move /app/unitpit/gamma/shift.c 8
+
+--- atlas ---
+SPAN1
+shift_move /app/unitpit/gamma/prior.c 1 4
+idle_stub /app/unitpit/gamma/shift.c 1 4
+helper_q /app/unitpit/beta/aux.c 1 4
+helper_q /app/unitpit/alpha/aux.c 1 4
+pump_fill /app/unitpit/alpha/pump.c 1 4
+tank_drain /app/unitpit/beta/tank.c 1 4
+
+--- clip ---
+cat: /app/inkwell/clip.out: No such file or directory
+[?2004hroot@9ab0d9879cf3:/app# printf '\n--- binary ---\n'; file /app/bin/lotxref; printf '\n--- source/build candidates ---\n'; find /app -maxdepth 3 -type f \( -name '*.c' -o -name '*.h' -o -name 'Makefile' -o -name '*.mk' \) -print
+[?2004l
+--- binary ---
+/app/bin/lotxref: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, not stripped
+
+--- source/build candidates ---
+/app/unitpit/beta/aux.c
+/app/unitpit/beta/tank.c
+/app/unitpit/gamma/shift.c
+/app/unitpit/alpha/aux.c
+/app/unitpit/alpha/pump.c
+/app/drygate/gap.c
+/app/cupeel/pick.c
+/app/sidecue/mtime.c
+/app/sidecue/mtime.h
+/app/tblkit/token.h
+/app/tblkit/scan.h
+/app/tblkit/gap.h
+/app/tblkit/pick.h
+/app/tblkit/hull_cli.c
+/app/tblkit/hull.mk
+/app/tblkit/token.c
+/app/slitmill/scan.c
+[?2004hroot@9ab0d9879cf3:/app# for f in /app/tblkit/hull.mk /app/tblkit/*.h /app/tblkit/*.c /app/slitmill/*.c /app/cupeel/*.c /app/drygate/*.c /app/sidecue/*.h /app/sidecue/*.c; do echo "--- $f ---"; nl -ba "$f"; done
+[?2004l--- /app/tblkit/hull.mk ---
+     1	CC ?= gcc
+     2	CFLAGS ?= -O2 -Wall -Wextra -I/app/tblkit -I/app/slitmill -I/app/cupeel -I/app/drygate -I/app/sidecue
+     3	SRC := $(wildcard /app/tblkit/*.c) $(wildcard /app/slitmill/*.c) $(wildcard /app/cupeel/*.c) $(wildcard /app/drygate/*.c) $(wildcard /app/sidecue/*.c)
+     4	BIN := /app/bin/lotxref
+     5	
+     6	.PHONY: hull
+     7	hull:
+     8		mkdir -p /app/bin /app/inkwell
+     9		$(CC) $(CFLAGS) -o $(BIN) $(SRC)
+--- /app/tblkit/gap.h ---
+     1	#ifndef GAP_H
+     2	#define GAP_H
+     3	int n_miss(void);
+     4	#endif
+--- /app/tblkit/pick.h ---
+     1	#ifndef PICK_H
+     2	#define PICK_H
+     3	int op_b(const char *p);
+     4	#endif
+--- /app/tblkit/scan.h ---
+     1	#ifndef SCAN_H
+     2	#define SCAN_H
+     3	int op_a(void);
+     4	#endif
+--- /app/tblkit/token.h ---
+     1	#ifndef TOKEN_H
+     2	#define TOKEN_H
+     3	enum { ROW_MAX = 128, NAME_MAX = 64, PATH_MAX_X = 256 };
+     4	typedef struct {
+     5	    char name[NAME_MAX];
+     6	    char path[PATH_MAX_X];
+     7	    int lo;
+     8	    int hi;
+     9	} Row;
+    10	int parse_unit(const char *path, Row *rows, int max);
+    11	int parse_lot(const char *path, char *name, char *orig, int *line);
+    12	int load_tbl(const char *path, Row *rows, int max);
+    13	int save_tbl(const char *path, Row *rows, int n);
+    14	int walk_units(const char *root, char paths[][PATH_MAX_X], int max);
+    15	int extract_span(const char *path, int lo, int hi, char *out, int cap);
+    16	int file_here(const char *path);
+    17	#endif
+--- /app/tblkit/hull_cli.c ---
+     1	#include "scan.h"
+     2	#include "pick.h"
+     3	#include <stdio.h>
+     4	#include <string.h>
+     5	
+     6	int main(int argc, char **argv) {
+     7	    if (argc < 2) {
+     8	        fprintf(stderr, "usage: lotxref reknit|clip PATH\n");
+     9	        return 2;
+    10	    }
+    11	    if (strcmp(argv[1], "reknit") == 0) return op_a();
+    12	    if (strcmp(argv[1], "clip") == 0 && argc >= 3) return op_b(argv[2]);
+    13	    fprintf(stderr, "usage: lotxref reknit|clip PATH\n");
+    14	    return 2;
+    15	}
+--- /app/tblkit/token.c ---
+     1	#include "token.h"
+     2	#include <dirent.h>
+     3	#include <stdio.h>
+     4	#include <stdlib.h>
+     5	#include <string.h>
+     6	#include <sys/stat.h>
+     7	
+     8	int file_here(const char *path) {
+     9	    struct stat st;
+    10	    return path && path[0] && stat(path, &st) == 0 && S_ISREG(st.st_mode);
+    11	}
+    12	
+    13	static int is_c_name(const char *n) {
+    14	    size_t L = strlen(n);
+    15	    return L > 2 && n[L - 2] == '.' && n[L - 1] == 'c';
+    16	}
+    17	
+    18	static void walk_rec(const char *dir, char paths[][PATH_MAX_X], int *n, int max) {
+    19	    DIR *d = opendir(dir);
+    20	    if (!d) return;
+    21	    struct dirent *ent;
+    22	    while ((ent = readdir(d)) != NULL && *n < max) {
+    23	        if (ent->d_name[0] == '.') continue;
+    24	        char sub[PATH_MAX_X];
+    25	        snprintf(sub, sizeof sub, "%s/%s", dir, ent->d_name);
+    26	        struct stat st;
+    27	        if (stat(sub, &st) != 0) continue;
+    28	        if (S_ISDIR(st.st_mode)) walk_rec(sub, paths, n, max);
+    29	        else if (S_ISREG(st.st_mode) && is_c_name(ent->d_name)) {
+    30	            snprintf(paths[*n], PATH_MAX_X, "%s", sub);
+    31	            (*n)++;
+    32	        }
+    33	    }
+    34	    closedir(d);
+    35	}
+    36	
+    37	int walk_units(const char *root, char paths[][PATH_MAX_X], int max) {
+    38	    int n = 0;
+    39	    walk_rec(root, paths, &n, max);
+    40	    return n;
+    41	}
+    42	
+    43	int parse_unit(const char *path, Row *rows, int max) {
+    44	    FILE *f = fopen(path, "r");
+    45	    if (!f) return 0;
+    46	    char line[512];
+    47	    int lineno = 0, n = 0, open_lo = 0;
+    48	    char cur[NAME_MAX];
+    49	    cur[0] = 0;
+    50	    while (fgets(line, sizeof line, f)) {
+    51	        lineno++;
+    52	        char nm[NAME_MAX];
+    53	        if (sscanf(line, "void %63[A-Za-z0-9_](", nm) == 1) {
+    54	            snprintf(cur, sizeof cur, "%s", nm);
+    55	            open_lo = lineno;
+    56	        } else if (cur[0] && (strcmp(line, "}\n") == 0 || strcmp(line, "}\r\n") == 0 || strcmp(line, "}") == 0)) {
+    57	            if (n < max) {
+    58	                snprintf(rows[n].name, NAME_MAX, "%s", cur);
+    59	                snprintf(rows[n].path, PATH_MAX_X, "%s", path);
+    60	                rows[n].lo = open_lo;
+    61	                rows[n].hi = lineno;
+    62	                n++;
+    63	            }
+    64	            cur[0] = 0;
+    65	        }
+    66	    }
+    67	    fclose(f);
+    68	    return n;
+    69	}
+    70	
+    71	int parse_lot(const char *path, char *name, char *orig, int *line) {
+    72	    FILE *f = fopen(path, "r");
+    73	    if (!f) return -1;
+    74	    char hdr[64];
+    75	    if (!fgets(hdr, sizeof hdr, f)) { fclose(f); return -1; }
+    76	    if (strncmp(hdr, "DUMP1", 5) != 0) { fclose(f); return -1; }
+    77	    char rest[512];
+    78	    if (!fgets(rest, sizeof rest, f)) { fclose(f); return -1; }
+    79	    fclose(f);
+    80	    if (sscanf(rest, "%63s %255s %d", name, orig, line) != 3) return -1;
+    81	    return 0;
+    82	}
+    83	
+    84	int load_tbl(const char *path, Row *rows, int max) {
+    85	    FILE *f = fopen(path, "r");
+    86	    if (!f) return 0;
+    87	    char line[512];
+    88	    if (!fgets(line, sizeof line, f)) { fclose(f); return 0; }
+    89	    int n = 0;
+    90	    while (fgets(line, sizeof line, f) && n < max) {
+    91	        if (sscanf(line, "%63s %255s %d %d", rows[n].name, rows[n].path, &rows[n].lo, &rows[n].hi) == 4)
+    92	            n++;
+    93	    }
+    94	    fclose(f);
+    95	    return n;
+    96	}
+    97	
+    98	int save_tbl(const char *path, Row *rows, int n) {
+    99	    FILE *f = fopen(path, "w");
+   100	    if (!f) return -1;
+   101	    fprintf(f, "SPAN1\n");
+   102	    for (int i = 0; i < n; i++)
+   103	        fprintf(f, "%s %s %d %d\n", rows[i].name, rows[i].path, rows[i].lo, rows[i].hi);
+   104	    fclose(f);
+   105	    return 0;
+   106	}
+   107	
+   108	int extract_span(const char *path, int lo, int hi, char *out, int cap) {
+   109	    FILE *f = fopen(path, "r");
+   110	    if (!f) { out[0] = 0; return -1; }
+   111	    char line[512];
+   112	    int lineno = 0, used = 0;
+   113	    out[0] = 0;
+   114	    while (fgets(line, sizeof line, f)) {
+   115	        lineno++;
+   116	        if (lineno < lo || lineno > hi) continue;
+   117	        int L = (int)strlen(line);
+   118	        if (used + L + 1 >= cap) break;
+   119	        memcpy(out + used, line, L);
+   120	        used += L;
+   121	        out[used] = 0;
+   122	    }
+   123	    fclose(f);
+   124	    return 0;
+   125	}
+--- /app/slitmill/scan.c ---
+     1	#include "scan.h"
+     2	#include "token.h"
+     3	#include "gap.h"
+     4	#include <stdio.h>
+     5	#include <stdlib.h>
+     6	#include <string.h>
+     7	#include <sys/stat.h>
+     8	
+     9	static int find_name(Row *rows, int n, const char *name) {
+    10	    for (int i = 0; i < n; i++) {
+    11	        if (strcmp(rows[i].name, name) == 0) return i;
+    12	    }
+    13	    return -1;
+    14	}
+    15	
+    16	int op_a(void) {
+    17	    mkdir("/app/inkwell", 0755);
+    18	    if (n_miss() != 0) return 1;
+    19	
+    20	    Row rows[ROW_MAX];
+    21	    int n = load_tbl("/app/inkwell/span.atlas", rows, ROW_MAX);
+    22	
+    23	    FILE *df = fopen("/app/touchbay/delta.lst", "r");
+    24	    if (df) {
+    25	        char pth[PATH_MAX_X];
+    26	        while (fgets(pth, sizeof pth, df)) {
+    27	            size_t L = strlen(pth);
+    28	            while (L && (pth[L - 1] == '\n' || pth[L - 1] == '\r')) pth[--L] = 0;
+    29	            if (!L) continue;
+    30	            Row got[32];
+    31	            int k = parse_unit(pth, got, 32);
+    32	            for (int i = 0; i < k; i++) {
+    33	                int idx = find_name(rows, n, got[i].name);
+    34	                if (idx >= 0) continue;
+    35	                if (n < ROW_MAX) rows[n++] = got[i];
+    36	            }
+    37	        }
+    38	        fclose(df);
+    39	    }
+    40	    save_tbl("/app/inkwell/span.atlas", rows, n);
+    41	    return n_miss();
+    42	}
+--- /app/cupeel/pick.c ---
+     1	#include "pick.h"
+     2	#include "token.h"
+     3	#include "mtime.h"
+     4	#include <stdio.h>
+     5	#include <string.h>
+     6	#include <sys/stat.h>
+     7	
+     8	int op_b(const char *p) {
+     9	    mkdir("/app/inkwell", 0755);
+    10	    char name[NAME_MAX], orig[PATH_MAX_X];
+    11	    int line = 0;
+    12	    if (parse_lot(p, name, orig, &line) != 0) return 2;
+    13	
+    14	    Row rows[ROW_MAX];
+    15	    int n = load_tbl("/app/inkwell/span.atlas", rows, ROW_MAX);
+    16	    int idx = -1;
+    17	    for (int i = 0; i < n; i++) {
+    18	        if (strcmp(rows[i].name, name) == 0) { idx = i; break; }
+    19	    }
+    20	    (void)pick_last;
+    21	    if (idx < 0) return 1;
+    22	
+    23	    const char *use = rows[idx].path;
+    24	    if (!file_here(use)) use = orig;
+    25	
+    26	    char body[8192];
+    27	    extract_span(use, rows[idx].lo, rows[idx].hi, body, sizeof body);
+    28	
+    29	    FILE *out = fopen("/app/inkwell/clip.out", "w");
+    30	    if (!out) return 1;
+    31	    fprintf(out, "CLIP %s\n%s", name, body);
+    32	    fclose(out);
+    33	    return 0;
+    34	}
+--- /app/drygate/gap.c ---
+     1	#include "gap.h"
+     2	#include "token.h"
+     3	#include <dirent.h>
+     4	#include <stdio.h>
+     5	#include <string.h>
+     6	
+     7	int n_miss(void) {
+     8	    DIR *d = opendir("/app/lotbay");
+     9	    int seen = 0;
+    10	    if (d) {
+    11	        struct dirent *ent;
+    12	        while ((ent = readdir(d)) != NULL) {
+    13	            if (ent->d_name[0] != '.') seen++;
+    14	        }
+    15	        closedir(d);
+    16	    }
+    17	    (void)seen;
+    18	    return 0;
+    19	}
+--- /app/sidecue/mtime.h ---
+     1	#ifndef MTIME_H
+     2	#define MTIME_H
+     3	#include "token.h"
+     4	int pick_last(Row *rows, int n, const char *name);
+     5	#endif
+--- /app/sidecue/mtime.c ---
+     1	#include "mtime.h"
+     2	#include <string.h>
+     3	
+     4	int pick_last(Row *rows, int n, const char *name) {
+     5	    int idx = -1;
+     6	    for (int i = 0; i < n; i++) {
+     7	        if (strcmp(rows[i].name, name) == 0) idx = i;
+     8	    }
+     9	    return idx;
+    10	}
+[?2004hroot@9ab0d9879cf3:/app# for f in /app/unitpit/*/*.c /app/lotbay/*.dmp; do echo "--- $f ---"; nl -ba "$f"; done
+[?2004l--- /app/unitpit/alpha/aux.c ---
+     1	void helper_q(void)
+     2	{
+     3	    /* ALPHA_MARK */
+     4	}
+--- /app/unitpit/alpha/pump.c ---
+     1	void pump_fill(void)
+     2	{
+     3	    /* PUMP_MARK */
+     4	}
+--- /app/unitpit/beta/aux.c ---
+     1	void helper_q(void)
+     2	{
+     3	    /* BETA_MARK */
+     4	}
+--- /app/unitpit/beta/tank.c ---
+     1	void tank_drain(void)
+     2	{
+     3	    /* TANK_MARK */
+     4	}
+--- /app/unitpit/gamma/shift.c ---
+     1	void idle_stub(void)
+     2	{
+     3	    /* IDLE_MARK */
+     4	}
+     5	
+     6	void shift_move(void)
+     7	{
+     8	    /* SHIFT_OWN */
+     9	}
+--- /app/lotbay/pump.dmp ---
+     1	DUMP1
+     2	pump_fill /app/unitpit/alpha/pump.c 3
+--- /app/lotbay/shift.dmp ---
+     1	DUMP1
+     2	shift_move /app/unitpit/gamma/shift.c 8
+--- /app/lotbay/twin.dmp ---
+     1	DUMP1
+     2	helper_q /app/unitpit/alpha/aux.c 3
+[?2004hroot@9ab0d9879cf3:/app# /app/bin/lotxref reknit; s=$?; echo "reknit_status=$s"; cat /app/inkwell/span.atlas; /app/bin/lotxref clip /app/lotbay/shift.dmp; s=$?; echo "clip_status=$s"; cat /app/inkwell/clip.out 2>/dev/null || true
+[?2004lreknit_status=0
+SPAN1
+shift_move /app/unitpit/gamma/prior.c 1 4
+idle_stub /app/unitpit/gamma/shift.c 1 4
+helper_q /app/unitpit/beta/aux.c 1 4
+helper_q /app/unitpit/alpha/aux.c 1 4
+pump_fill /app/unitpit/alpha/pump.c 1 4
+tank_drain /app/unitpit/beta/tank.c 1 4
+clip_status=0
+CLIP shift_move
+void idle_stub(void)
+{
+    /* IDLE_MARK */
+}
+[?2004hroot@9ab0d9879cf3:/app# echo '--- token.c 40-end ---'; nl -ba /app/tblkit/token.c | sed -n '40,240p'; echo '--- scan.c ---'; nl -ba /app/slitmill/scan.c; echo '--- delta ---'; nl -ba /app/touchbay/delta.lst
+[?2004l--- token.c 40-end ---
+    40	    return n;
+    41	}
+    42	
+    43	int parse_unit(const char *path, Row *rows, int max) {
+    44	    FILE *f = fopen(path, "r");
+    45	    if (!f) return 0;
+    46	    char line[512];
+    47	    int lineno = 0, n = 0, open_lo = 0;
+    48	    char cur[NAME_MAX];
+    49	    cur[0] = 0;
+    50	    while (fgets(line, sizeof line, f)) {
+    51	        lineno++;
+    52	        char nm[NAME_MAX];
+    53	        if (sscanf(line, "void %63[A-Za-z0-9_](", nm) == 1) {
+    54	            snprintf(cur, sizeof cur, "%s", nm);
+    55	            open_lo = lineno;
+    56	        } else if (cur[0] && (strcmp(line, "}\n") == 0 || strcmp(line, "}\r\n") == 0 || strcmp(line, "}") == 0)) {
+    57	            if (n < max) {
+    58	                snprintf(rows[n].name, NAME_MAX, "%s", cur);
+    59	                snprintf(rows[n].path, PATH_MAX_X, "%s", path);
+    60	                rows[n].lo = open_lo;
+    61	                rows[n].hi = lineno;
+    62	                n++;
+    63	            }
+    64	            cur[0] = 0;
+    65	        }
+    66	    }
+    67	    fclose(f);
+    68	    return n;
+    69	}
+    70	
+    71	int parse_lot(const char *path, char *name, char *orig, int *line) {
+    72	    FILE *f = fopen(path, "r");
+    73	    if (!f) return -1;
+    74	    char hdr[64];
+    75	    if (!fgets(hdr, sizeof hdr, f)) { fclose(f); return -1; }
+    76	    if (strncmp(hdr, "DUMP1", 5) != 0) { fclose(f); return -1; }
+    77	    char rest[512];
+    78	    if (!fgets(rest, sizeof rest, f)) { fclose(f); return -1; }
+    79	    fclose(f);
+    80	    if (sscanf(rest, "%63s %255s %d", name, orig, line) != 3) return -1;
+    81	    return 0;
+    82	}
+    83	
+    84	int load_tbl(const char *path, Row *rows, int max) {
+    85	    FILE *f = fopen(path, "r");
+    86	    if (!f) return 0;
+    87	    char line[512];
+    88	    if (!fgets(line, sizeof line, f)) { fclose(f); return 0; }
+    89	    int n = 0;
+    90	    while (fgets(line, sizeof line, f) && n < max) {
+    91	        if (sscanf(line, "%63s %255s %d %d", rows[n].name, rows[n].path, &rows[n].lo, &rows[n].hi) == 4)
+    92	            n++;
+    93	    }
+    94	    fclose(f);
+    95	    return n;
+    96	}
+    97	
+    98	int save_tbl(const char *path, Row *rows, int n) {
+    99	    FILE *f = fopen(path, "w");
+   100	    if (!f) return -1;
+   101	    fprintf(f, "SPAN1\n");
+   102	    for (int i = 0; i < n; i++)
+   103	        fprintf(f, "%s %s %d %d\n", rows[i].name, rows[i].path, rows[i].lo, rows[i].hi);
+   104	    fclose(f);
+   105	    return 0;
+   106	}
+   107	
+   108	int extract_span(const char *path, int lo, int hi, char *out, int cap) {
+   109	    FILE *f = fopen(path, "r");
+   110	    if (!f) { out[0] = 0; return -1; }
+   111	    char line[512];
+   112	    int lineno = 0, used = 0;
+   113	    out[0] = 0;
+   114	    while (fgets(line, sizeof line, f)) {
+   115	        lineno++;
+   116	        if (lineno < lo || lineno > hi) continue;
+   117	        int L = (int)strlen(line);
+   118	        if (used + L + 1 >= cap) break;
+   119	        memcpy(out + used, line, L);
+   120	        used += L;
+   121	        out[used] = 0;
+   122	    }
+   123	    fclose(f);
+   124	    return 0;
+   125	}
+--- scan.c ---
+     1	#include "scan.h"
+     2	#include "token.h"
+     3	#include "gap.h"
+     4	#include <stdio.h>
+     5	#include <stdlib.h>
+     6	#include <string.h>
+     7	#include <sys/stat.h>
+     8	
+     9	static int find_name(Row *rows, int n, const char *name) {
+    10	    for (int i = 0; i < n; i++) {
+    11	        if (strcmp(rows[i].name, name) == 0) return i;
+    12	    }
+    13	    return -1;
+    14	}
+    15	
+    16	int op_a(void) {
+    17	    mkdir("/app/inkwell", 0755);
+    18	    if (n_miss() != 0) return 1;
+    19	
+    20	    Row rows[ROW_MAX];
+    21	    int n = load_tbl("/app/inkwell/span.atlas", rows, ROW_MAX);
+    22	
+    23	    FILE *df = fopen("/app/touchbay/delta.lst", "r");
+    24	    if (df) {
+    25	        char pth[PATH_MAX_X];
+    26	        while (fgets(pth, sizeof pth, df)) {
+    27	            size_t L = strlen(pth);
+    28	            while (L && (pth[L - 1] == '\n' || pth[L - 1] == '\r')) pth[--L] = 0;
+    29	            if (!L) continue;
+    30	            Row got[32];
+    31	            int k = parse_unit(pth, got, 32);
+    32	            for (int i = 0; i < k; i++) {
+    33	                int idx = find_name(rows, n, got[i].name);
+    34	                if (idx >= 0) continue;
+    35	                if (n < ROW_MAX) rows[n++] = got[i];
+    36	            }
+    37	        }
+    38	        fclose(df);
+    39	    }
+    40	    save_tbl("/app/inkwell/span.atlas", rows, n);
+    41	    return n_miss();
+    42	}
+--- delta ---
+     1	/app/unitpit/gamma/shift.c
+[?2004hroot@9ab0d9879cf3:/app# cat > /app/slitmill/scan.c <<'EOF'
+[?2004l[?2004h> #include "scan.h"
+[?2004l[?2004h> #include "token.h"
+[?2004l[?2004h> #include "gap.h"
+[?2004l[?2004h> #include <sys/stat.h>
+[?2004l[?2004h> 
+[?2004l[?2004h> int op_a(void) {
+[?2004l[?2004h>     mkdir("/app/inkwell", 0755);
+[?2004l[?2004h> 
+[?2004l[?2004h>     /* Reject missing dump origins before publishing a new atlas. */
+[?2004l[?2004h>     if (n_miss() != 0) return 1;
+[?2004l[?2004h> 
+[?2004l[?2004h>     char paths[ROW_MAX][PATH_MAX_X];
+[?2004l[?2004h>     Row rows[ROW_MAX];
+[?2004l[?2004h>     int np = walk_units("/app/unitpit", paths, ROW_MAX);
+[?2004l[?2004h>     int n = 0;
+[?2004l[?2004h> 
+[?2004l[?2004h>     for (int i = 0; i < np; i++) {
+[?2004l[?2004h>         if (!file_here(paths[i])) return 1;
+[?2004l[?2004h>         Row got[ROW_MAX];
+[?2004l[?2004h>         int room = ROW_MAX - n;
+[?2004l[?2004h>         int k = parse_unit(paths[i], got, room);
+[?2004l[?2004h>         for (int j = 0; j < k && n < ROW_MAX; j++) {
+[?2004l[?2004h>             if (!file_here(got[j].path)) return 1;
+[?2004l[?2004h>             rows[n++] = got[j];
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     if (save_tbl("/app/inkwell/span.atlas", rows, n) != 0) return 1;
+[?2004l[?2004h>     return n_miss() == 0 ? 0 : 1;
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@9ab0d9879cf3:/app# cat > /app/drygate/gap.c <<'EOF'
+[?2004l[?2004h> #include "gap.h"
+[?2004l[?2004h> #include "token.h"
+[?2004l[?2004h> #include <dirent.h>
+[?2004l[?2004h> #include <stdio.h>
+[?2004l[?2004h> #include <string.h>
+[?2004l[?2004h> 
+[?2004l[?2004h> static int under_unitpit(const char *path) {
+[?2004l[?2004h>     static const char root[] = "/app/unitpit/";
+[?2004l[?2004h>     return path && strncmp(path, root, sizeof(root) - 1) == 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> int n_miss(void) {
+[?2004l[?2004h>     int bad = 0;
+[?2004l[?2004h>     DIR *d = opendir("/app/lotbay");
+[?2004l[?2004h>     if (!d) return 1;
+[?2004l[?2004h> 
+[?2004l[?2004h>     struct dirent *ent;
+[?2004l[?2004h>     while ((ent = readdir(d)) != NULL) {
+[?2004l[?2004h>         if (ent->d_name[0] == '.') continue;
+[?2004l[?2004h>         char dump[PATH_MAX_X];
+[?2004l[?2004h>         char name[NAME_MAX], orig[PATH_MAX_X];
+[?2004l[?2004h>         int line;
+[?2004l[?2004h>         snprintf(dump, sizeof dump, "/app/lotbay/%s", ent->d_name);
+[?2004l[?2004h>         if (parse_lot(dump, name, orig, &line) != 0 ||
+[?2004l[?2004h>             !under_unitpit(orig) || !file_here(orig) || line < 1) {
+[?2004l[?2004h>             bad = 1;
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     closedir(d);
+[?2004l[?2004h> 
+[?2004l[?2004h>     FILE *f = fopen("/app/inkwell/span.atlas", "r");
+[?2004l[?2004h>     if (f) {
+[?2004l[?2004h>         char text[512];
+[?2004l[?2004h>         if (!fgets(text, sizeof text, f) || strncmp(text, "SPAN1", 5) != 0)
+[?2004l[?2004h>             bad = 1;
+[?2004l[?2004h>         while (fgets(text, sizeof text, f)) {
+[?2004l[?2004h>             Row r;
+[?2004l[?2004h>             char extra;
+[?2004l[?2004h>             if (sscanf(text, "%63s %255s %d %d %c",
+[?2004l[?2004h>                        r.name, r.path, &r.lo, &r.hi, &extra) != 4 ||
+[?2004l[?2004h>                 !under_unitpit(r.path) || !file_here(r.path) ||
+[?2004l[?2004h>                 r.lo < 1 || r.hi < r.lo) {
+[?2004l[?2004h>                 bad = 1;
+[?2004l[?2004h>             }
+[?2004l[?2004h>         }
+[?2004l[?2004h>         fclose(f);
+[?2004l[?2004h>     }
+[?2004l[?2004h>     return bad;
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@9ab0d9879cf3:/app# cat > /app/cupeel/pick.c <<'EOF'
+[?2004l[?2004h> #include "pick.h"
+[?2004l[?2004h> #include "token.h"
+[?2004l[?2004h> #include <stdio.h>
+[?2004l[?2004h> #include <string.h>
+[?2004l[?2004h> #include <sys/stat.h>
+[?2004l[?2004h> 
+[?2004l[?2004h> int op_b(const char *p) {
+[?2004l[?2004h>     mkdir("/app/inkwell", 0755);
+[?2004l[?2004h>     char name[NAME_MAX], orig[PATH_MAX_X];
+[?2004l[?2004h>     int line = 0;
+[?2004l[?2004h>     if (parse_lot(p, name, orig, &line) != 0 || !file_here(orig)) return 2;
+[?2004l[?2004h> 
+[?2004l[?2004h>     Row rows[ROW_MAX];
+[?2004l[?2004h>     int n = load_tbl("/app/inkwell/span.atlas", rows, ROW_MAX);
+[?2004l[?2004h>     int idx = -1;
+[?2004l[?2004h>     for (int i = 0; i < n; i++) {
+[?2004l[?2004h>         if (strcmp(rows[i].name, name) == 0 &&
+[?2004l[?2004h>             strcmp(rows[i].path, orig) == 0 &&
+[?2004l[?2004h>             line >= rows[i].lo && line <= rows[i].hi) {
+[?2004l[?2004h>             idx = i;
+[?2004l[?2004h>             break;
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if (idx < 0 || !file_here(rows[idx].path)) return 1;
+[?2004l[?2004h> 
+[?2004l[?2004h>     char body[8192];
+[?2004l[?2004h>     if (extract_span(rows[idx].path, rows[idx].lo, rows[idx].hi,
+[?2004l[?2004h>                      body, sizeof body) != 0) return 1;
+[?2004l[?2004h> 
+[?2004l[?2004h>     FILE *out = fopen("/app/inkwell/clip.out", "w");
+[?2004l[?2004h>     if (!out) return 1;
+[?2004l[?2004h>     fprintf(out, "CLIP %s\n%s", name, body);
+[?2004l[?2004h>     fclose(out);
+[?2004l[?2004h>     return 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@9ab0d9879cf3:/app# python3 - <<'PY'
+[?2004l[?2004h> p='/app/tblkit/token.h'
+[?2004l[?2004h> s=open(p).read().replace('ROW_MAX = 128', 'ROW_MAX = 1024')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@9ab0d9879cf3:/app# make -f /app/tblkit/hull.mk hull
+[?2004lmkdir -p /app/bin /app/inkwell
+cc -O2 -Wall -Wextra -I/app/tblkit -I/app/slitmill -I/app/cupeel -I/app/drygate -I/app/sidecue -o /app/bin/lotxref /app/tblkit/hull_cli.c /app/tblkit/token.c /app/slitmill/scan.c /app/cupeel/pick.c /app/drygate/gap.c /app/sidecue/mtime.c
+[01m[K/app/tblkit/token.c:[m[K In function ‘[01m[Kwalk_rec[m[K’:
+[01m[K/app/tblkit/token.c:25:41:[m[K [01;35m[Kwarning: [m[K‘[01m[Ksnprintf[m[K’ output may be truncated before the last format character [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wformat-truncation=-Wformat-truncation=]8;;[m[K]
+   25 |         snprintf(sub, sizeof sub, "%s/%s[01;35m[K"[m[K, dir, ent->d_name);
+      |                                         [01;35m[K^[m[K
+[01m[K/app/tblkit/token.c:25:9:[m[K [01;36m[Knote: [m[K‘[01m[Ksnprintf[m[K’ output 2 or more bytes (assuming 257) into a destination of size 256
+   25 |         [01;36m[Ksnprintf(sub, sizeof sub, "%s/%s", dir, ent->d_name)[m[K;
+      |         [01;36m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/app/drygate/gap.c:[m[K In function ‘[01m[Kn_miss[m[K’:
+[01m[K/app/drygate/gap.c:23:50:[m[K [01;35m[Kwarning: [m[K‘[01m[K%s[m[K’ directive output may be truncated writing up to 255 bytes into a region of size 244 [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wformat-truncation=-Wformat-truncation=]8;;[m[K]
+   23 |         snprintf(dump, sizeof dump, "/app/lotbay/[01;35m[K%s[m[K", ent->d_name);
+      |                                                  [01;35m[K^~[m[K
+[01m[K/app/drygate/gap.c:23:9:[m[K [01;36m[Knote: [m[K‘[01m[Ksnprintf[m[K’ output between 13 and 268 bytes into a destination of size 256
+   23 |         [01;36m[Ksnprintf(dump, sizeof dump, "/app/lotbay/%s", ent->d_name)[m[K;
+      |         [01;36m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[?2004hroot@9ab0d9879cf3:/app# /app/bin/lotxref reknit; echo "reknit_status=$?"; cat /app/inkwell/span.atlas; /app/bin/lotxref clip /app/lotbay/shift.dmp; echo "shift_status=$?"; cat /app/inkwell/clip.out; /app/bin/lotxref clip /app/lotbay/twin.dmp; echo "twin_status=$?"; cat /app/inkwell/clip.out
+[?2004lreknit_status=1
+SPAN1
+shift_move /app/unitpit/gamma/prior.c 1 4
+idle_stub /app/unitpit/gamma/shift.c 1 4
+helper_q /app/unitpit/beta/aux.c 1 4
+helper_q /app/unitpit/alpha/aux.c 1 4
+pump_fill /app/unitpit/alpha/pump.c 1 4
+tank_drain /app/unitpit/beta/tank.c 1 4
+shift_status=1
+CLIP shift_move
+void idle_stub(void)
+{
+    /* IDLE_MARK */
+}
+twin_status=0
+CLIP helper_q
+void helper_q(void)
+{
+    /* ALPHA_MARK */
+}
+[?2004hroot@9ab0d9879cf3:/app# python3 - <<'PY'
+[?2004l[?2004h> p='/app/slitmill/scan.c'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> s=s.replace('    /* Reject missing dump origins before publishing a new atlas. */\n    if (n_miss() != 0) return 1;\n\n', '')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@9ab0d9879cf3:/app# make -f /app/tblkit/hull.mk hull
+[?2004lmkdir -p /app/bin /app/inkwell
+cc -O2 -Wall -Wextra -I/app/tblkit -I/app/slitmill -I/app/cupeel -I/app/drygate -I/app/sidecue -o /app/bin/lotxref /app/tblkit/hull_cli.c /app/tblkit/token.c /app/slitmill/scan.c /app/cupeel/pick.c /app/drygate/gap.c /app/sidecue/mtime.c
+[01m[K/app/tblkit/token.c:[m[K In function ‘[01m[Kwalk_rec[m[K’:
+[01m[K/app/tblkit/token.c:25:41:[m[K [01;35m[Kwarning: [m[K‘[01m[Ksnprintf[m[K’ output may be truncated before the last format character [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wformat-truncation=-Wformat-truncation=]8;;[m[K]
+   25 |         snprintf(sub, sizeof sub, "%s/%s[01;35m[K"[m[K, dir, ent->d_name);
+      |                                         [01;35m[K^[m[K
+[01m[K/app/tblkit/token.c:25:9:[m[K [01;36m[Knote: [m[K‘[01m[Ksnprintf[m[K’ output 2 or more bytes (assuming 257) into a destination of size 256
+   25 |         [01;36m[Ksnprintf(sub, sizeof sub, "%s/%s", dir, ent->d_name)[m[K;
+      |         [01;36m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[K/app/drygate/gap.c:[m[K In function ‘[01m[Kn_miss[m[K’:
+[01m[K/app/drygate/gap.c:23:50:[m[K [01;35m[Kwarning: [m[K‘[01m[K%s[m[K’ directive output may be truncated writing up to 255 bytes into a region of size 244 [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wformat-truncation=-Wformat-truncation=]8;;[m[K]
+   23 |         snprintf(dump, sizeof dump, "/app/lotbay/[01;35m[K%s[m[K", ent->d_name);
+      |                                                  [01;35m[K^~[m[K
+[01m[K/app/drygate/gap.c:23:9:[m[K [01;36m[Knote: [m[K‘[01m[Ksnprintf[m[K’ output between 13 and 268 bytes into a destination of size 256
+   23 |         [01;36m[Ksnprintf(dump, sizeof dump, "/app/lotbay/%s", ent->d_name)[m[K;
+      |         [01;36m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[?2004hroot@9ab0d9879cf3:/app# /app/bin/lotxref reknit; echo "reknit_status=$?"; cat /app/inkwell/span.atlas; for d in /app/lotbay/*.dmp; do /app/bin/lotxref clip "$d"; s=$?; echo "--- $d status=$s ---"; cat /app/inkwell/clip.out; done
+[?2004lreknit_status=0
+SPAN1
+helper_q /app/unitpit/beta/aux.c 1 4
+tank_drain /app/unitpit/beta/tank.c 1 4
+idle_stub /app/unitpit/gamma/shift.c 1 4
+shift_move /app/unitpit/gamma/shift.c 6 9
+helper_q /app/unitpit/alpha/aux.c 1 4
+pump_fill /app/unitpit/alpha/pump.c 1 4
+--- /app/lotbay/pump.dmp status=0 ---
+CLIP pump_fill
+void pump_fill(void)
+{
+    /* PUMP_MARK */
+}
+--- /app/lotbay/shift.dmp status=0 ---
+CLIP shift_move
+void shift_move(void)
+{
+    /* SHIFT_OWN */
+}
+--- /app/lotbay/twin.dmp status=0 ---
+CLIP helper_q
+void helper_q(void)
+{
+    /* ALPHA_MARK */
+}
+[?2004hroot@9ab0d9879cf3:/app# printf 'DUMP1\nghost /app/unitpit/no/such.c 1\n' > /app/lotbay/__missing_test.dmp; /app/bin/lotxref reknit >/dev/null; echo "missing_dump_reknit_status=$?"; rm /app/lotbay/__missing_test.dmp; printf 'ghost /app/unitpit/no/such.c 1 2\n' >> /app/inkwell/span.atlas; /app/bin/lotxref reknit >/dev/null; echo "stale_atlas_repair_status=$?"; /app/bin/lotxref reknit >/dev/null; echo "final_reknit_status=$?"; awk 'NR>1 {print $2}' /app/inkwell/span.atlas | while read p; do test -f "$p" || echo "MISSING:$p"; done; file /app/bin/lotxref; cat /app/inkwell/span.atlas
+[?2004lmissing_dump_reknit_status=1
+stale_atlas_repair_status=0
+final_reknit_status=0
+/app/bin/lotxref: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, not stripped
+SPAN1
+helper_q /app/unitpit/beta/aux.c 1 4
+tank_drain /app/unitpit/beta/tank.c 1 4
+idle_stub /app/unitpit/gamma/shift.c 1 4
+shift_move /app/unitpit/gamma/shift.c 6 9
+helper_q /app/unitpit/alpha/aux.c 1 4
+pump_fill /app/unitpit/alpha/pump.c 1 4
+[?2004hroot@9ab0d9879cf3:/app# set -e
+[?2004l[?2004hroot@9ab0d9879cf3:/app# /app/bin/lotxref reknit
+[?2004l[?2004hroot@9ab0d9879cf3:/app# /app/bin/lotxref clip /app/lotbay/shift.dmp
+[?2004l[?2004hroot@9ab0d9879cf3:/app# grep -q '^SPAN1$' /app/inkwell/span.atlas
+[?2004l[?2004hroot@9ab0d9879cf3:/app# grep -q 'SHIFT_OWN' /app/inkwell/clip.out
+[?2004l[?2004hroot@9ab0d9879cf3:/app# awk 'NR > 1 { if ($2 !~ "^/app/unitpit/" ) exit 1; print $2 }' /app/inkwell/span.atlas | while IFS= read -r p; do test -f "$p"; done
+[?2004l[?2004hroot@9ab0d9879cf3:/app# printf '%s\n' '--- ELF magic ---'
+[?2004l--- ELF magic ---
+[?2004hroot@9ab0d9879cf3:/app# od -An -tx1 -N4 /app/bin/lotxref
+[?2004l 7f 45 4c 46
+[?2004hroot@9ab0d9879cf3:/app# printf '%s\n' '--- final atlas ---'
+[?2004l--- final atlas ---
+[?2004hroot@9ab0d9879cf3:/app# cat /app/inkwell/span.atlas
+[?2004lSPAN1
+helper_q /app/unitpit/beta/aux.c 1 4
+tank_drain /app/unitpit/beta/tank.c 1 4
+idle_stub /app/unitpit/gamma/shift.c 1 4
+shift_move /app/unitpit/gamma/shift.c 6 9
+helper_q /app/unitpit/alpha/aux.c 1 4
+pump_fill /app/unitpit/alpha/pump.c 1 4
+[?2004hroot@9ab0d9879cf3:/app# printf '%s\n' '--- final clip ---'
+[?2004l--- final clip ---
+[?2004hroot@9ab0d9879cf3:/app# cat /app/inkwell/clip.out
+[?2004lCLIP shift_move
+void shift_move(void)
+{
+    /* SHIFT_OWN */
+}
+[?2004hroot@9ab0d9879cf3:/app# 

@@ -1,0 +1,659 @@
+[?2004hroot@0fcd86363751:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@0fcd86363751:/app# clear
+[?2004l[H[J[3J[?2004hroot@0fcd86363751:/app# cat /app/tracekit/notes/wire.txt && printf '\n--- layout ---\n' && cat /app/tracekit/notes/layout.txt && printf '\n--- schema ---\n' && cat /app/tracekit/schema/span.json
+[?2004lTrace wire layout (big-endian):
+- 4-byte ASCII magic
+- uint16 lane id
+- uint16 UTF-8 name length, then name bytes
+- uint32 grams
+
+Regression corpus files are regenerated whenever forge runs.
+
+--- layout ---
+Holdtrace toolkit layout:
+  schema/span.json â€” wire constants and corpus seeds
+  pkga/vars.py â€” schema context for template substitution
+  pkgb/sync.py â€” emit_runtime regeneration driver
+  pkgc/rdr.tpl â€” reader template consumed by forge
+  pkgc/wrt.tpl â€” writer template consumed by forge
+  runtime/ â€” generated reader and writer modules
+  corpus/ â€” regression traces emitted by forge
+  smoke/ â€” local size-only corpus checks
+
+Absolute forge repair paths:
+  /app/pkga/vars.py
+  /app/pkgb/sync.py
+  /app/pkgc/rdr.tpl
+  /app/pkgc/wrt.tpl
+
+--- schema ---
+{
+  "version": 2,
+  "magic": "HLT2",
+  "legacy_magic": "HLT1",
+  "lane_bits": 16,
+  "name_len_bits": 16,
+  "grams_bits": 32,
+  "corpus_events": [
+    {"event": "dock_idle", "lane_id": 3, "grams": 400},
+    {"event": "lift_done", "lane_id": 11, "grams": 980}
+  ]
+}
+[?2004hroot@0fcd86363751:/app# printf '\n--- files ---\n'; find /app/tracekit -maxdepth 4 -type f -printf '%p\n' | sort; printf '\n--- holdtrace ---\n'; file /app/bin/holdtrace; sed -n '1,240p' /app/bin/holdtrace
+[?2004l
+--- files ---
+/app/tracekit/__init__.py
+/app/tracekit/cli.py
+/app/tracekit/cmd/__init__.py
+/app/tracekit/cmd/decode.py
+/app/tracekit/cmd/forge.py
+/app/tracekit/cmd/record.py
+/app/tracekit/corpus/__init__.py
+/app/tracekit/corpus/refresh.py
+/app/tracekit/corpus/sample_0.trc
+/app/tracekit/corpus/sample_1.trc
+/app/tracekit/holdtrace_cli.sh
+/app/tracekit/notes/layout.txt
+/app/tracekit/notes/wire.txt
+/app/tracekit/runtime/__init__.py
+/app/tracekit/runtime/pack.py
+/app/tracekit/runtime/reader.py
+/app/tracekit/runtime/writer.py
+/app/tracekit/schema/span.json
+/app/tracekit/smoke/corpus_len.py
+/app/tracekit/version.py
+
+--- holdtrace ---
+bash: file: command not found
+#!/usr/bin/env python3
+import sys
+sys.path.insert(0, "/app")
+from tracekit.cli import main
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+[?2004hroot@0fcd86363751:/app# printf '\n--- likely sources/runtime ---\n'; find /app/tracekit -type f \( -name '*.py' -o -name '*.tmpl' -o -name '*.j2' \) -print -exec sh -c 'echo "### $1"; sed -n "1,260p" "$1"' _ {} \;
+[?2004l
+--- likely sources/runtime ---
+/app/tracekit/cli.py
+### /app/tracekit/cli.py
+"""Holdtrace command-line entry."""
+
+from __future__ import annotations
+
+import argparse
+
+from tracekit.cmd import decode, forge, record
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="holdtrace")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("forge")
+    rec = sub.add_parser("record")
+    rec.add_argument("--lane", type=int, required=True)
+    rec.add_argument("--event", required=True)
+    rec.add_argument("--grams", type=int, required=True)
+    rec.add_argument("--out", default="")
+    dec = sub.add_parser("decode")
+    dec.add_argument("path")
+    args = parser.parse_args(argv)
+    if args.cmd == "forge":
+        return forge.run(args)
+    if args.cmd == "record":
+        return record.run(args)
+    if args.cmd == "decode":
+        return decode.run(args)
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+/app/tracekit/version.py
+### /app/tracekit/version.py
+"""Version tag for the holdtrace toolkit."""
+
+TOOLKIT_VERSION = "0.4.1"
+/app/tracekit/runtime/writer.py
+### /app/tracekit/runtime/writer.py
+"""Generated trace writer (schema v2)."""
+
+from __future__ import annotations
+
+from tracekit.runtime.pack import encode_trace
+
+MAGIC = b"HLT2"
+NAME_LEN_BITS = 16
+
+
+def emit_lane(lane_id: int, event: str, grams: int) -> bytes:
+    return encode_trace(MAGIC, lane_id, event, grams, NAME_LEN_BITS)
+/app/tracekit/runtime/reader.py
+### /app/tracekit/runtime/reader.py
+"""Generated trace reader (stale layout â€” magic not synced)."""
+
+from __future__ import annotations
+
+from tracekit.runtime.pack import decode_trace
+
+MAGIC = b"HLT1"
+LEGACY = (MAGIC,)
+NAME_LEN_BITS = 8
+
+
+def ingest_blob(blob: bytes) -> tuple[int, str, int]:
+    return decode_trace(blob, LEGACY, NAME_LEN_BITS)
+/app/tracekit/runtime/pack.py
+### /app/tracekit/runtime/pack.py
+"""Shared wire helpers for holdtrace traces."""
+
+from __future__ import annotations
+
+import struct
+from typing import Tuple
+
+
+def encode_trace(magic: bytes, lane_id: int, event: str, grams: int, name_len_bits: int) -> bytes:
+    if len(magic) != 4:
+        raise ValueError("magic must be four bytes")
+    name_b = event.encode("utf-8")
+    if name_len_bits == 8:
+        if len(name_b) > 255:
+            raise ValueError("name too long for 8-bit length")
+        nlen = struct.pack(">B", len(name_b))
+    elif name_len_bits == 16:
+        nlen = struct.pack(">H", len(name_b))
+    else:
+        raise ValueError("unsupported name length width")
+    return magic + struct.pack(">H", lane_id) + nlen + name_b + struct.pack(">I", grams)
+
+
+def decode_trace(
+    blob: bytes,
+    accept_magics: Tuple[bytes, ...],
+    name_len_bits: int,
+) -> Tuple[int, str, int]:
+    if len(blob) < 11:
+        raise ValueError("truncated")
+    magic = blob[:4]
+    if magic not in accept_magics:
+        raise ValueError("bad magic")
+    lane_id = struct.unpack(">H", blob[4:6])[0]
+    off = 6
+    if name_len_bits == 8:
+        nlen = blob[off]
+        off += 1
+    else:
+        nlen = struct.unpack(">H", blob[off : off + 2])[0]
+        off += 2
+    name = blob[off : off + nlen].decode("utf-8")
+    off += nlen
+    grams = struct.unpack(">I", blob[off : off + 4])[0]
+    return lane_id, name, grams
+/app/tracekit/runtime/__init__.py
+### /app/tracekit/runtime/__init__.py
+"""Runtime reader and writer modules."""
+/app/tracekit/__init__.py
+### /app/tracekit/__init__.py
+"""Holdtrace toolkit package."""
+/app/tracekit/corpus/refresh.py
+### /app/tracekit/corpus/refresh.py
+"""Refresh corpus traces from the live writer."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from pkgb.step_b import step_b
+from tracekit.runtime import writer as wmod
+
+CORPUS = Path("/app/tracekit/corpus")
+
+
+def refresh_pool() -> None:
+    schema = step_b()
+    CORPUS.mkdir(parents=True, exist_ok=True)
+    for old in CORPUS.glob("*.trc"):
+        old.unlink()
+    for idx, row in enumerate(schema.get("corpus_events", [])):
+        blob = wmod.emit_lane(int(row["lane_id"]), str(row["event"]), int(row["grams"]))
+        (CORPUS / f"sample_{idx}.trc").write_bytes(blob)
+/app/tracekit/corpus/__init__.py
+### /app/tracekit/corpus/__init__.py
+/app/tracekit/cmd/decode.py
+### /app/tracekit/cmd/decode.py
+"""Holdtrace decode subcommand."""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+from tracekit.runtime import reader as rmod
+
+
+def run(args: argparse.Namespace) -> int:
+    path = Path(args.path)
+    try:
+        lane_id, event, grams = rmod.ingest_blob(path.read_bytes())
+    except (ValueError, OSError):
+        print(json.dumps({"error": "bad_trace"}))
+        return 1
+    if not event:
+        print(json.dumps({"error": "bad_trace"}))
+        return 1
+    print(json.dumps({"event": event, "lane_id": lane_id, "grams": grams}))
+    return 0
+/app/tracekit/cmd/forge.py
+### /app/tracekit/cmd/forge.py
+"""Holdtrace forge subcommand."""
+
+from __future__ import annotations
+
+import argparse
+
+from pkgb.sync import emit_runtime
+
+
+def run(_: argparse.Namespace) -> int:
+    emit_runtime()
+    return 0
+/app/tracekit/cmd/__init__.py
+### /app/tracekit/cmd/__init__.py
+/app/tracekit/cmd/record.py
+### /app/tracekit/cmd/record.py
+"""Holdtrace record subcommand."""
+
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
+from tracekit.runtime import writer as wmod
+
+
+def run(args: argparse.Namespace) -> int:
+    blob = wmod.emit_lane(args.lane, args.event, args.grams)
+    out = Path(args.out) if args.out else Path("/tmp/holdtrace_last.trc")
+    out.write_bytes(blob)
+    return 0
+/app/tracekit/smoke/corpus_len.py
+### /app/tracekit/smoke/corpus_len.py
+#!/usr/bin/env python3
+"""Local smoke helper â€” only checks corpus files exist (not decode)."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+CORPUS = Path("/app/tracekit/corpus")
+
+
+def main() -> int:
+    files = list(CORPUS.glob("*.trc"))
+    if not files:
+        return 1
+    for p in files:
+        if p.stat().st_size < 8:
+            return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+[?2004hroot@0fcd86363751:/app# for f in /app/pkga/vars.py /app/pkgb/sync.py /app/pkgc/rdr.tpl /app/pkgc/wrt.tpl; do echo "### $f"; sed -n '1,300p' "$f"; done
+[?2004l### /app/pkga/vars.py
+"""Map span schema fields into template substitution context."""
+
+from __future__ import annotations
+
+
+def span_ctx(schema: dict) -> dict:
+    return {
+        "version": schema.get("version", 1),
+        "magic": schema.get("magic", "HLT2"),
+        "name_len_bits": schema.get("name_len_bits", 16),
+    }
+### /app/pkgb/sync.py
+"""Regenerate runtime modules and corpus from span.json."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+from pkga.vars import span_ctx
+from pkgb.render import render_tpl
+from pkgb.step_b import step_b
+from tracekit.corpus.refresh import refresh_pool
+
+
+def emit_runtime() -> None:
+    schema = step_b()
+    ctx = span_ctx(schema)
+    runtime = Path("/app/tracekit/runtime")
+    runtime.mkdir(parents=True, exist_ok=True)
+    (runtime / "writer.py").write_text(render_tpl("wrt.tpl", ctx))
+    pkgc = Path(__file__).resolve().parent.parent / "pkgc"
+    (runtime / "reader.py").write_text((pkgc / "rdr.tpl").read_text())
+    refresh_pool()
+
+
+if __name__ == "__main__":
+    emit_runtime()
+    print("forge complete", file=sys.stderr)
+### /app/pkgc/rdr.tpl
+"""Generated trace reader (schema v{{ version }})."""
+
+from __future__ import annotations
+
+from tracekit.runtime.pack import decode_trace
+
+MAGICS = (b"{{ legacy_magic }}", b"{{ magic }}")
+NAME_BITS = {{ name_len_bits }}
+
+
+def ingest_blob(blob: bytes) -> tuple[int, str, int]:
+    return decode_trace(blob, MAGICS, NAME_BITS)
+### /app/pkgc/wrt.tpl
+"""Generated trace writer (schema v{{ version }})."""
+
+from __future__ import annotations
+
+from tracekit.runtime.pack import encode_trace
+
+MAGIC = b"{{ magic }}"
+NAME_LEN_BITS = {{ name_len_bits }}
+
+
+def emit_lane(lane_id: int, event: str, grams: int) -> bytes:
+    return encode_trace(MAGIC, lane_id, event, grams, NAME_LEN_BITS)
+[?2004hroot@0fcd86363751:/app# echo '--- archive ---'; od -An -tx1c /app/archive/deployed/lane_ops.trc; echo '--- corpus ---'; for f in /app/tracekit/corpus/*.trc; do echo "$f"; od -An -tx1c "$f"; done; echo '--- decode status ---'; /app/bin/holdtrace decode /app/archive/deployed/lane_ops.trc; echo archive_rc=$?; for f in /app/tracekit/corpus/*.trc; do /app/bin/holdtrace decode "$f"; echo rc=$?; done
+[?2004l--- archive ---
+  48  4c  54  31  00  07  00  09  6c  61  6e  65  5f  6f  70  65
+   H   L   T   1  \0  \a  \0  \t   l   a   n   e   _   o   p   e
+  6e  00  00  04  e2
+   n  \0  \0 004 342
+--- corpus ---
+/app/tracekit/corpus/sample_0.trc
+  48  4c  54  32  00  03  00  09  64  6f  63  6b  5f  69  64  6c
+   H   L   T   2  \0 003  \0  \t   d   o   c   k   _   i   d   l
+  65  00  00  01  90
+   e  \0  \0 001 220
+/app/tracekit/corpus/sample_1.trc
+  48  4c  54  32  00  0b  00  09  6c  69  66  74  5f  64  6f  6e
+   H   L   T   2  \0  \v  \0  \t   l   i   f   t   _   d   o   n
+  65  00  00  03  d4
+   e  \0  \0 003 324
+--- decode status ---
+{"error": "bad_trace"}
+archive_rc=1
+{"error": "bad_trace"}
+rc=1
+{"error": "bad_trace"}
+rc=1
+[?2004hroot@0fcd86363751:/app# find /app/pkga /app/pkgb /app/pkgc -maxdepth 2 -type f -print -exec sed -n '1,220p' {} \;
+[?2004l/app/pkga/__init__.py
+/app/pkga/vars.py
+"""Map span schema fields into template substitution context."""
+
+from __future__ import annotations
+
+
+def span_ctx(schema: dict) -> dict:
+    return {
+        "version": schema.get("version", 1),
+        "magic": schema.get("magic", "HLT2"),
+        "name_len_bits": schema.get("name_len_bits", 16),
+    }
+/app/pkga/__pycache__/__init__.cpython-313.pyc
+ó
+    ’õœj    ã                   ó   • g )N© r   ó    Ú/app/pkga/__init__.pyÚ<module>r      s   ñr   /app/pkga/__pycache__/vars.cpython-313.pyc
+ó
+    ªâœj3  ã                  ó   • S r SSKJr  SS jrg)z:Map span schema fields into template substitution context.é    )Úannotationsc                ón   • U R                  SS5      U R                  SS5      U R                  SS5      S.$ )NÚversioné   ÚmagicÚHLT2Úname_len_bitsé   )r   r   r	   )Úget)Úschemas    Ú/app/pkga/vars.pyÚspan_ctxr      s6   € à—:‘:˜i¨Ó+Ø—‘˜G VÓ,ØŸ™ O°RÓ8ñğ ó    N)r   ÚdictÚreturnr   )Ú__doc__Ú
+__future__r   r   © r   r   Ú<module>r      s   ğÙ @å "õr   /app/pkgb/render.py
+"""Minimal placeholder substitution for layout templates."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+LAYOUT = Path(__file__).resolve().parent.parent / "pkgc"
+
+
+def render_tpl(name: str, ctx: dict) -> str:
+    text = (LAYOUT / name).read_text()
+    for key, val in ctx.items():
+        text = text.replace("{{ " + key + " }}", str(val))
+    return text
+/app/pkgb/step_b.py
+"""Load span schema for the forge driver."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+SCHEMA_PATH = Path("/app/tracekit/schema/span.json")
+
+
+def step_b() -> dict:
+    data = json.loads(SCHEMA_PATH.read_text())
+    if not isinstance(data, dict):
+        raise ValueError("schema must be a mapping")
+    return data
+/app/pkgb/__init__.py
+/app/pkgb/sync.py
+"""Regenerate runtime modules and corpus from span.json."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+from pkga.vars import span_ctx
+from pkgb.render import render_tpl
+from pkgb.step_b import step_b
+from tracekit.corpus.refresh import refresh_pool
+
+
+def emit_runtime() -> None:
+    schema = step_b()
+    ctx = span_ctx(schema)
+    runtime = Path("/app/tracekit/runtime")
+    runtime.mkdir(parents=True, exist_ok=True)
+    (runtime / "writer.py").write_text(render_tpl("wrt.tpl", ctx))
+    pkgc = Path(__file__).resolve().parent.parent / "pkgc"
+    (runtime / "reader.py").write_text((pkgc / "rdr.tpl").read_text())
+    refresh_pool()
+
+
+if __name__ == "__main__":
+    emit_runtime()
+    print("forge complete", file=sys.stderr)
+/app/pkgb/__pycache__/__init__.cpython-313.pyc
+ó
+    ’õœj    ã                   ó   • g )N© r   ó    Ú/app/pkgb/__init__.pyÚ<module>r      s   ñr   /app/pkgb/__pycache__/sync.cpython-313.pyc
+ó
+    ‘õœj÷  ã                  ó    • S r SSKJr  SSKrSSKJr  SSKJr  SSKJ	r	  SSK
+Jr  SSKJr  SS	 jr\S
+:X  a  \" 5         \" S\R"                  S9  gg)z5Regenerate runtime modules and corpus from span.json.é    )ÚannotationsN)ÚPath)Úspan_ctx)Ú
+render_tpl)Ústep_b)Úrefresh_poolc                 óf  • [        5       n [        U 5      n[        S5      nUR                  SSS9  US-  R	                  [        SU5      5        [        [        5      R                  5       R                  R                  S-  nUS-  R	                  US-  R                  5       5        [        5         g )	Nz/app/tracekit/runtimeT)ÚparentsÚexist_okz	writer.pyzwrt.tplÚpkgcz	reader.pyzrdr.tpl)r   r   r   ÚmkdirÚ
+write_textr   Ú__file__ÚresolveÚparentÚ	read_textr   )ÚschemaÚctxÚruntimer   s       Ú/app/pkgb/sync.pyÚemit_runtimer      s‘   € Ü‹X€FÜ
+6Ó
+€CÜĞ*Ó+€GØ‡MM˜$¨€MÑ.Øˆ{Ñ×&Ñ&¤z°)¸SÓ'AÔBÜ”‹>×!Ñ!Ó#×*Ñ*×1Ñ1°FÑ:€DØˆ{Ñ×&Ñ&¨¨yÑ(8×'CÑ'CÓ'EÔFÜ…Nó    Ú__main__zforge complete)Úfile)ÚreturnÚNone)Ú__doc__Ú
+__future__r   ÚsysÚpathlibr   Ú	pkga.varsr   Úpkgb.renderr   Úpkgb.step_br   Útracekit.corpus.refreshr   r   Ú__name__ÚprintÚstderr© r   r   Ú<module>r)      sE   ğÙ ;å "ã 
+İ å İ "İ İ 0ôğ ˆzÓÙ„NÙ	Ğ
+ §¡Ó,ğ r   /app/pkgb/__pycache__/render.cpython-313.pyc
+ó
+    ’õœjw  ã                  ó„   • S r SSKJr  SSKJr  \" \5      R                  5       R                  R                  S-  rSS jr	g)z6Minimal placeholder substitution for layout templates.é    )Úannotations)ÚPathÚpkgcc                ó¨   • [         U -  R                  5       nUR                  5        H&  u  p4UR                  SU-   S-   [	        U5      5      nM(     U$ )Nz{{ z }})ÚLAYOUTÚ	read_textÚitemsÚreplaceÚstr)ÚnameÚctxÚtextÚkeyÚvals        Ú/app/pkgb/render.pyÚ
+render_tplr   
+   sH   € ÜT‰M×$Ñ$Ó&€DØ—I‘I–K‰ˆØ|‰|˜E C™K¨%Ñ/´°S³Ó:Šñ  à€Kó    N)r   r   r   ÚdictÚreturnr   )
+Ú__doc__Ú
+__future__r   Úpathlibr   Ú__file__ÚresolveÚparentr   r   © r   r   Ú<module>r      s6   ğÙ <å "å á	ˆh‹×	Ñ	Ó	!×	(Ñ	(×	/Ñ	/°&Ñ	8€õr   /app/pkgb/__pycache__/step_b.cpython-313.pyc
+ó
+    ’õœj\  ã                  óB   • S r SSKJr  SSKrSSKJr  \" S5      rSS jrg)z&Load span schema for the forge driver.é    )ÚannotationsN)ÚPathz/app/tracekit/schema/span.jsonc                 ó–   • [         R                  " [        R                  5       5      n [	        U [
+        5      (       d  [        S5      eU $ )Nzschema must be a mapping)ÚjsonÚloadsÚSCHEMA_PATHÚ	read_textÚ
+isinstanceÚdictÚ
+ValueError)Údatas    Ú/app/pkgb/step_b.pyÚstep_br      s7   € Ü:Š:”k×+Ñ+Ó-Ó.€DÜdœD×!Ñ!ÜĞ3Ó4Ğ4Ø€Kó    )Úreturnr   )Ú__doc__Ú
+__future__r   r   Úpathlibr   r   r   © r   r   Ú<module>r      s!   ğÙ ,å "ã İ áĞ3Ó4€õr   /app/pkgc/__init__.py
+/app/pkgc/rdr.tpl
+"""Generated trace reader (schema v{{ version }})."""
+
+from __future__ import annotations
+
+from tracekit.runtime.pack import decode_trace
+
+MAGICS = (b"{{ legacy_magic }}", b"{{ magic }}")
+NAME_BITS = {{ name_len_bits }}
+
+
+def ingest_blob(blob: bytes) -> tuple[int, str, int]:
+    return decode_trace(blob, MAGICS, NAME_BITS)
+/app/pkgc/wrt.tpl
+"""Generated trace writer (schema v{{ version }})."""
+
+from __future__ import annotations
+
+from tracekit.runtime.pack import encode_trace
+
+MAGIC = b"{{ magic }}"
+NAME_LEN_BITS = {{ name_len_bits }}
+
+
+def emit_lane(lane_id: int, event: str, grams: int) -> bytes:
+    return encode_trace(MAGIC, lane_id, event, grams, NAME_LEN_BITS)
+[?2004hroot@0fcd86363751:/app# cat > /app/pkga/vars.py <<'PY'
+[?2004l[?2004h> """Map span schema fields into template substitution context."""
+[?2004l[?2004h> 
+[?2004l[?2004h> from __future__ import annotations
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def span_ctx(schema: dict) -> dict:
+[?2004l[?2004h>     return {
+[?2004l[?2004h>         "version": schema.get("version", 1),
+[?2004l[?2004h>         "magic": schema.get("magic", "HLT2"),
+[?2004l[?2004h>         "legacy_magic": schema.get("legacy_magic", "HLT1"),
+[?2004l[?2004h>         "name_len_bits": schema.get("name_len_bits", 16),
+[?2004l[?2004h>     }
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@0fcd86363751:/app# cat > /app/pkgb/sync.py <<'PY'
+[?2004l[?2004h> """Regenerate runtime modules and corpus from span.json."""
+[?2004l[?2004h> 
+[?2004l[?2004h> from __future__ import annotations
+[?2004l[?2004h> 
+[?2004l[?2004h> import importlib
+[?2004l[?2004h> import sys
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> 
+[?2004l[?2004h> from pkga.vars import span_ctx
+[?2004l[?2004h> from pkgb.render import render_tpl
+[?2004l[?2004h> from pkgb.step_b import step_b
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def emit_runtime() -> None:
+[?2004l[?2004h>     schema = step_b()
+[?2004l[?2004h>     ctx = span_ctx(schema)
+[?2004l[?2004h>     runtime = Path("/app/tracekit/runtime")
+[?2004l[?2004h>     runtime.mkdir(parents=True, exist_ok=True)
+[?2004l[?2004h>     (runtime / "writer.py").write_text(render_tpl("wrt.tpl", ctx))
+[?2004l[?2004h>     (runtime / "reader.py").write_text(render_tpl("rdr.tpl", ctx))
+[?2004l[?2004h> 
+[?2004l[?2004h>     # The CLI imports runtime modules before dispatching forge. Reload the
+[?2004l[?2004h>     # newly generated writer so corpus refresh uses the new wire constants.
+[?2004l[?2004h>     importlib.invalidate_caches()
+[?2004l[?2004h>     from tracekit.runtime import writer
+[?2004l[?2004h>     importlib.reload(writer)
+[?2004l[?2004h>     from tracekit.corpus.refresh import refresh_pool
+[?2004l[?2004h>     refresh_pool()
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> if __name__ == "__main__":
+[?2004l[?2004h>     emit_runtime()
+[?2004l[?2004h>     print("forge complete", file=sys.stderr)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@0fcd86363751:/app# cat > /app/pkgc/rdr.tpl <<'PY'
+[?2004l[?2004h> """Generated trace reader (schema v{{ version }})."""
+[?2004l[?2004h> 
+[?2004l[?2004h> from __future__ import annotations
+[?2004l[?2004h> 
+[?2004l[?2004h> from tracekit.runtime.pack import decode_trace
+[?2004l[?2004h> 
+[?2004l[?2004h> MAGIC = b"{{ magic }}"
+[?2004l[?2004h> LEGACY_MAGIC = b"{{ legacy_magic }}"
+[?2004l[?2004h> MAGICS = (MAGIC, LEGACY_MAGIC)
+[?2004l[?2004h> NAME_LEN_BITS = {{ name_len_bits }}
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def ingest_blob(blob: bytes) -> tuple[int, str, int]:
+[?2004l[?2004h>     # The fixed portion is magic + lane + name length + grams. Requiring the
+[?2004l[?2004h>     # exact encoded size prevents truncated and trailing data from decoding.
+[?2004l[?2004h>     if NAME_LEN_BITS != 16 or len(blob) < 12 or blob[:4] not in MAGICS:
+[?2004l[?2004h>         raise ValueError("bad trace")
+[?2004l[?2004h>     name_len = int.from_bytes(blob[6:8], "big")
+[?2004l[?2004h>     if len(blob) != 12 + name_len:
+[?2004l[?2004h>         raise ValueError("bad trace")
+[?2004l[?2004h>     return decode_trace(blob, MAGICS, NAME_LEN_BITS)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@0fcd86363751:/app# /app/bin/holdtrace forge
+[?2004l[?2004hroot@0fcd86363751:/app# echo '--- generated reader ---'; cat /app/tracekit/runtime/reader.py; echo '--- generated writer ---'; cat /app/tracekit/runtime/writer.py; echo '--- archive decode ---'; /app/bin/holdtrace decode /app/archive/deployed/lane_ops.trc; echo rc=$?; echo '--- corpus decode ---'; for f in /app/tracekit/corpus/*.trc; do printf '%s: ' "$f"; /app/bin/holdtrace decode "$f"; echo rc=$?; done
+[?2004l--- generated reader ---
+"""Generated trace reader (schema v2)."""
+
+from __future__ import annotations
+
+from tracekit.runtime.pack import decode_trace
+
+MAGIC = b"HLT2"
+LEGACY_MAGIC = b"HLT1"
+MAGICS = (MAGIC, LEGACY_MAGIC)
+NAME_LEN_BITS = 16
+
+
+def ingest_blob(blob: bytes) -> tuple[int, str, int]:
+    # The fixed portion is magic + lane + name length + grams. Requiring the
+    # exact encoded size prevents truncated and trailing data from decoding.
+    if NAME_LEN_BITS != 16 or len(blob) < 12 or blob[:4] not in MAGICS:
+        raise ValueError("bad trace")
+    name_len = int.from_bytes(blob[6:8], "big")
+    if len(blob) != 12 + name_len:
+        raise ValueError("bad trace")
+    return decode_trace(blob, MAGICS, NAME_LEN_BITS)
+--- generated writer ---
+"""Generated trace writer (schema v2)."""
+
+from __future__ import annotations
+
+from tracekit.runtime.pack import encode_trace
+
+MAGIC = b"HLT2"
+NAME_LEN_BITS = 16
+
+
+def emit_lane(lane_id: int, event: str, grams: int) -> bytes:
+    return encode_trace(MAGIC, lane_id, event, grams, NAME_LEN_BITS)
+--- archive decode ---
+{"event": "lane_open", "lane_id": 7, "grams": 1250}
+rc=0
+--- corpus decode ---
+/app/tracekit/corpus/sample_0.trc: {"event": "dock_idle", "lane_id": 3, "grams": 400}
+rc=0
+/app/tracekit/corpus/sample_1.trc: {"event": "lift_done", "lane_id": 11, "grams": 980}
+rc=0
+[?2004hroot@0fcd86363751:/app# /app/bin/holdtrace record --lane 7 --event lane_open --grams 1250 --out /tmp/holdtrace_grade.trc && echo '--- grade bytes ---' && od -An -tx1c /tmp/holdtrace_grade.trc && echo '--- grade decode ---' && /app/bin/holdtrace decode /tmp/holdtrace_grade.trc; echo rc=$?
+[?2004l--- grade bytes ---
+  48  4c  54  32  00  07  00  09  6c  61  6e  65  5f  6f  70  65
+   H   L   T   2  \0  \a  \0  \t   l   a   n   e   _   o   p   e
+  6e  00  00  04  e2
+   n  \0  \0 004 342
+--- grade decode ---
+{"event": "lane_open", "lane_id": 7, "grams": 1250}
+rc=0
+[?2004hroot@0fcd86363751:/app# printf 'HLT2' > /tmp/bad.trc; out=$(/app/bin/holdtrace decode /tmp/bad.trc); rc=$?; printf 'malformed_rc=%s output=%s\n' "$rc" "$out"; cp /tmp/holdtrace_grade.trc /tmp/bad_trailing.trc; printf X >> /tmp/bad_trailing.trc; out=$(/app/bin/holdtrace decode /tmp/bad_trailing.trc); rc=$?; printf 'trailing_rc=%s output=%s\n' "$rc" "$out"; python3 /app/tracekit/smoke/corpus_len.py; echo smoke_rc=$?
+[?2004lmalformed_rc=1 output={"error": "bad_trace"}
+trailing_rc=1 output={"error": "bad_trace"}
+smoke_rc=0
+[?2004hroot@0fcd86363751:/app# 

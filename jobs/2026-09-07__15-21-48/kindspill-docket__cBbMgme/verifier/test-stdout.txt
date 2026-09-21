@@ -1,0 +1,244 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py FFFFFFFFFFFF                                    [100%]
+
+=================================== FAILURES ===================================
+____________________________ test_ks01_rank_parity _____________________________
+
+    def test_ks01_rank_parity() -> None:
+        """peek severity equals each sheet RANK after brew."""
+        _restore()
+        proc = _brew()
+        assert proc.returncode == 0, proc.stderr
+>       assert _got_map() == _parse_sheets()
+E       AssertionError: assert {'HTTP-Pause'...ause': 1, ...} == {'brim_alert'...atch': 2, ...}
+E         
+E         Omitting 3 identical items, use -vv to show
+E         Differing items:
+E         {'deny_gate': 1} != {'deny_gate': 4}
+E         {'stall_watch': 7} != {'stall_watch': 2}
+E         Left contains 1 more item:
+E         {'HTTP-Pause': 1}
+E         Use -v to get more diff
+
+/tests/test_outputs.py:97: AssertionError
+____________________________ test_ks02_holdout_mid _____________________________
+
+    def test_ks02_holdout_mid() -> None:
+        """a sheet added at grade time files at its declared RANK."""
+        _restore()
+        extra = "mid" + "_" + "lane"
+        (DESC / (extra + ".kind")).write_text("KIND " + extra + "\nRANK 5\n")
+        proc = _brew()
+        assert proc.returncode == 0, proc.stderr
+        want = _parse_sheets()
+        assert extra in want
+>       assert _got_map() == want
+E       AssertionError: assert {'HTTP-Pause'...ause': 1, ...} == {'brim_alert'...lane': 5, ...}
+E         
+E         Omitting 5 identical items, use -vv to show
+E         Differing items:
+E         {'stall_watch': 7} != {'stall_watch': 2}
+E         Left contains 1 more item:
+E         {'HTTP-Pause': 1}
+E         Use -v to get more diff
+
+/tests/test_outputs.py:109: AssertionError
+_____________________________ test_ks03_ord_lines ______________________________
+
+    def test_ks03_ord_lines() -> None:
+        """kinds.ord lists each unique id once."""
+        _restore()
+        assert _brew().returncode == 0
+        lines = [ln.strip() for ln in ORD_PATH.read_text().splitlines() if ln.strip()]
+        want = set(_parse_sheets())
+>       assert set(lines) == want
+E       AssertionError: assert {'HTTP-Pause'... 'vault_slip'} == {'brim_alert'... 'vault_slip'}
+E         
+E         Extra items in the left set:
+E         'HTTP-Pause'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:118: AssertionError
+_____________________________ test_ks04_unique_ids _____________________________
+
+    def test_ks04_unique_ids() -> None:
+        """peek tokens are unique folded ids."""
+        _restore()
+        assert _brew().returncode == 0
+        tokens = [row["token"] for row in _findings()]
+        assert len(tokens) == len(set(tokens))
+>       assert set(tokens) == set(_parse_sheets())
+E       AssertionError: assert {'HTTP-Pause'... 'vault_slip'} == {'brim_alert'... 'vault_slip'}
+E         
+E         Extra items in the left set:
+E         'HTTP-Pause'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:128: AssertionError
+___________________________ test_ks05_named_records ____________________________
+
+    def test_ks05_named_records() -> None:
+        """ranks.bin records carry names and ranks."""
+        _restore()
+        assert _brew().returncode == 0
+        recs = _parse_recs(RANKS.read_bytes())
+>       assert recs, "ranks.bin must carry named records"
+E       AssertionError: ranks.bin must carry named records
+E       assert []
+
+/tests/test_outputs.py:139: AssertionError
+___________________________ test_ks06_shift_visible ____________________________
+
+    def test_ks06_shift_visible() -> None:
+        """filed.bin records match sheet RANKs for every id."""
+        _restore()
+        assert _brew().returncode == 0
+>       assert {n: r for n, r in _parse_recs(FILED.read_bytes())} == _parse_sheets()
+E       AssertionError: assert {'HTTP-Pause'...ause': 1, ...} == {'brim_alert'...atch': 2, ...}
+E         
+E         Omitting 3 identical items, use -vv to show
+E         Differing items:
+E         {'deny_gate': 1} != {'deny_gate': 4}
+E         {'stall_watch': 7} != {'stall_watch': 2}
+E         Left contains 1 more item:
+E         {'HTTP-Pause': 1}
+E         Use -v to get more diff
+
+/tests/test_outputs.py:147: AssertionError
+___________________________ test_ks08_mismatch_exit ____________________________
+
+    def test_ks08_mismatch_exit() -> None:
+        """brew exits non-zero when two sheets disagree on one id."""
+        _restore()
+        assert _brew().returncode == 0
+        before = FILED.read_bytes()
+        token = next(iter(_parse_sheets()))
+        alias = token.replace("_", "-")
+        (DESC / (alias + ".kind")).write_text("KIND " + alias + "\nRANK 8\n")
+        proc = _brew()
+>       assert proc.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/kindspill', 'brew'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:159: AssertionError
+____________________________ test_ks09_fold_hyphen _____________________________
+
+    def test_ks09_fold_hyphen() -> None:
+        """hyphen and case variants collapse to one token."""
+        _restore()
+        assert _brew().returncode == 0
+        tokens = [row["token"] for row in _findings()]
+>       assert len(tokens) == len(_parse_sheets())
+E       AssertionError: assert 6 == 5
+E        +  where 6 = len(['HTTP-Pause', 'brim_alert', 'deny_gate', 'http_pause', 'stall_watch', 'vault_slip'])
+E        +  and   5 = len({'brim_alert': 3, 'deny_gate': 4, 'http_pause': 1, 'stall_watch': 2, ...})
+E        +    where {'brim_alert': 3, 'deny_gate': 4, 'http_pause': 1, 'stall_watch': 2, ...} = _parse_sheets()
+
+/tests/test_outputs.py:169: AssertionError
+____________________________ test_ks11_peek_schema _____________________________
+
+    def test_ks11_peek_schema() -> None:
+        """peek JSON has findings with token and severity."""
+        _restore()
+        assert _brew().returncode == 0
+        proc = _peek()
+        assert proc.returncode == 0
+        body = json.loads(proc.stdout)
+        assert isinstance(body["findings"], list)
+        for row in body["findings"]:
+            assert set(row) >= {"token", "severity"}
+            assert isinstance(row["token"], str)
+            assert isinstance(row["severity"], int)
+            assert 0 <= row["severity"] <= 9
+>           assert row["token"] == row["token"].lower()
+E           AssertionError: assert 'HTTP-Pause' == 'http-pause'
+E             
+E             - http-pause
+E             + HTTP-Pause
+
+/tests/test_outputs.py:186: AssertionError
+_____________________________ test_ks12_zz_corrupt _____________________________
+
+    def test_ks12_zz_corrupt() -> None:
+        """brew restores ranks.bin and filed.bin after they are clobbered."""
+        _restore()
+        assert _brew().returncode == 0
+        RANKS.write_bytes(b"\x00\x00junk")
+        FILED.write_bytes(b"xxxx")
+        proc = subprocess.run(
+            ["/app/bin/kindspill", "brew"],
+            capture_output=True,
+            text=True,
+        )
+        assert proc.returncode == 0, proc.stderr
+        want = _parse_sheets()
+>       assert {n: r for n, r in _parse_recs(RANKS.read_bytes())} == want
+E       AssertionError: assert {} == {'brim_alert'...atch': 2, ...}
+E         
+E         Right contains 5 more items:
+E         {'brim_alert': 3,
+E          'deny_gate': 4,
+E          'http_pause': 1,
+E          'stall_watch': 2,
+E          'vault_slip': 7}
+E         Use -v to get more diff
+
+/tests/test_outputs.py:203: AssertionError
+_____________________________ test_ks13_brew_once ______________________________
+
+    def test_ks13_brew_once() -> None:
+        """one brew subprocess refreshes the docket from sheets."""
+        _restore()
+        proc = _brew()
+        assert proc.returncode == 0
+>       assert _got_map() == _parse_sheets()
+E       AssertionError: assert {'HTTP-Pause'...ause': 1, ...} == {'brim_alert'...atch': 2, ...}
+E         
+E         Omitting 3 identical items, use -vv to show
+E         Differing items:
+E         {'deny_gate': 1} != {'deny_gate': 4}
+E         {'stall_watch': 7} != {'stall_watch': 2}
+E         Left contains 1 more item:
+E         {'HTTP-Pause': 1}
+E         Use -v to get more diff
+
+/tests/test_outputs.py:212: AssertionError
+____________________________ test_ks14_cold_ignored ____________________________
+
+    def test_ks14_cold_ignored() -> None:
+        """brew overwrites a copied archive docket."""
+        _restore()
+        shutil.copy(COLD, FILED)
+        assert _brew().returncode == 0
+        assert FILED.read_bytes() != COLD.read_bytes()
+>       assert _got_map() == _parse_sheets()
+E       AssertionError: assert {'HTTP-Pause'...ause': 1, ...} == {'brim_alert'...atch': 2, ...}
+E         
+E         Omitting 3 identical items, use -vv to show
+E         Differing items:
+E         {'deny_gate': 1} != {'deny_gate': 4}
+E         {'stall_watch': 7} != {'stall_watch': 2}
+E         Left contains 1 more item:
+E         {'HTTP-Pause': 1}
+E         Use -v to get more diff
+
+/tests/test_outputs.py:221: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_ks01_rank_parity - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_ks02_holdout_mid - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_ks03_ord_lines - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_ks04_unique_ids - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_ks05_named_records - AssertionError: ra...
+FAILED ../tests/test_outputs.py::test_ks06_shift_visible - AssertionError: as...
+FAILED ../tests/test_outputs.py::test_ks08_mismatch_exit - AssertionError: as...
+FAILED ../tests/test_outputs.py::test_ks09_fold_hyphen - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_ks11_peek_schema - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_ks12_zz_corrupt - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_ks13_brew_once - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_ks14_cold_ignored - AssertionError: ass...
+============================== 12 failed in 0.25s ==============================

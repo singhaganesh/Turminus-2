@@ -1,0 +1,257 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py FFFFFFFFFFFF                                    [100%]
+
+=================================== FAILURES ===================================
+_______________________________ test_tf00_magic ________________________________
+
+    def test_tf00_magic():
+        """Mill is ELF, matches on-disk Go mill, and two sews of eve agree on rows.ndjson."""
+        blob = Path(BIN).read_bytes()
+        assert blob[:4] == b"\x7fELF"
+>       _same_sew(EVE, "eve-a", "eve-b")
+
+/tests/test_outputs.py:145: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+dump = '/app/cordbay/eve.yarn', left = 'eve-a', right = 'eve-b'
+
+    def _same_sew(dump: str, left: str, right: str) -> None:
+        a = Path("/tmp/tf-ag") / left
+        b = Path("/tmp/tf-rf") / right
+        shutil.rmtree(a, ignore_errors=True)
+        shutil.rmtree(b, ignore_errors=True)
+        ref = str(_link_ref())
+        assert _sew(dump, str(a), BIN).returncode == 0
+        assert _sew(dump, str(b), ref).returncode == 0
+>       assert (a / "rows.ndjson").read_bytes() == (b / "rows.ndjson").read_bytes()
+E       assert b'{"id":"e01"...tok":"t_r"}\n' == b'{"id":"e01"...tok":"t_q"}\n'
+E         
+E         At index 48 diff: b'2' != b'7'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:137: AssertionError
+________________________________ test_tf01_twin ________________________________
+
+    def test_tf01_twin():
+        """Two separate sew invocations of eve agree on hitch.idx."""
+        a = Path("/tmp/tf-ia")
+        b = Path("/tmp/tf-ib")
+        shutil.rmtree(a, ignore_errors=True)
+        shutil.rmtree(b, ignore_errors=True)
+        assert _sew(EVE, str(a)).returncode == 0
+        assert _sew(EVE, str(b)).returncode == 0
+>       assert (a / "hitch.idx").read_bytes() == (b / "hitch.idx").read_bytes()
+E       AssertionError: assert b't_z e04\nt_...t_q e09,e07\n' == b't_a e06,e02...03\nt_b e05\n'
+E         
+E         At index 2 diff: b'z' != b'a'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:166: AssertionError
+________________________________ test_tf02_book ________________________________
+
+    def test_tf02_book():
+        """hitch.idx lines are sorted and match the independent recompute."""
+        assert _sew(EVE, str(DOCK)).returncode == 0
+        _, want = _expected(EVE)
+        got = IDX.read_text()
+>       assert got == want
+E       AssertionError: assert 't_q e09,e07\...04\nt_b e05\n' == 't_a e02,e06\...t_r e08,e10\n'
+E         
+E         + t_q e09,e07
+E         + t_r e10,e08
+E         + t_m e01,e03
+E           t_a e02,e06
+E         + t_z e04
+E         - t_b e04,e05...
+E         
+E         ...Full output truncated (5 lines hidden), use '-vv' to show
+
+/tests/test_outputs.py:174: AssertionError
+________________________________ test_tf03_seq _________________________________
+
+    def test_tf03_seq():
+        """rows.ndjson follows eve dump line sequence."""
+        assert _sew(EVE, str(DOCK)).returncode == 0
+        want_rows, _ = _expected(EVE)
+        got = _load_rows(ROWS)
+>       assert [r["id"] for r in got] == [r["id"] for r in want_rows]
+E       AssertionError: assert ['e07', 'e08'...', 'e10', ...] == ['e01', 'e02'...', 'e06', ...]
+E         
+E         At index 0 diff: 'e07' != 'e01'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:183: AssertionError
+_______________________________ test_tf04_clump ________________________________
+
+    def test_tf04_clump():
+        """Each group's hitch is the least token in that group."""
+        assert _sew(EVE, str(DOCK)).returncode == 0
+        want_rows, _ = _expected(EVE)
+        got = {r["id"]: r["hitch"] for r in _load_rows(ROWS)}
+        for row in want_rows:
+>           assert got[row["id"]] == row["hitch"]
+E           AssertionError: assert 't_z' == 't_b'
+E             
+E             - t_b
+E             + t_z
+
+/tests/test_outputs.py:193: AssertionError
+________________________________ test_tf05_span ________________________________
+
+    def test_tf05_span():
+        """Alias-joined tokens share one hitch."""
+        assert _sew(EVE, str(DOCK)).returncode == 0
+        want_rows, _ = _expected(EVE)
+        got = {r["id"]: r["hitch"] for r in _load_rows(ROWS)}
+        joined = {a for a, b in _pairs()} | {b for a, b in _pairs()}
+        pair_ids = [eid for eid, tok in _scan(EVE) if tok in joined]
+>       assert got[pair_ids[0]] == got[pair_ids[1]]
+E       AssertionError: assert 't_z' == 't_b'
+E         
+E         - t_b
+E         + t_z
+
+/tests/test_outputs.py:203: AssertionError
+________________________________ test_tf06_peer ________________________________
+
+    def test_tf06_peer():
+        """mornbox hitch per id matches eve and both match the independent mark."""
+        assert _sew(EVE, str(DOCK)).returncode == 0
+        shutil.rmtree(MBOX, ignore_errors=True)
+        assert _sew(MORN, str(MBOX)).returncode == 0
+        eve_h = {r["id"]: r["hitch"] for r in _load_rows(ROWS)}
+        morn_h = {r["id"]: r["hitch"] for r in _load_rows(MBOX / "rows.ndjson")}
+        assert eve_h == morn_h
+        want_eve, _ = _expected(EVE)
+        want_morn, _ = _expected(MORN)
+        for row in want_eve:
+>           assert eve_h[row["id"]] == row["hitch"]
+E           AssertionError: assert 't_z' == 't_b'
+E             
+E             - t_b
+E             + t_z
+
+/tests/test_outputs.py:219: AssertionError
+________________________________ test_tf07_held ________________________________
+
+    def test_tf07_held():
+        """Hold-out yarn not in cordbay follows the same hitch-to-id rule."""
+        held = Path("/tmp/tf-held.yarn")
+        dest = Path("/tmp/tf-held-out")
+        held.write_text("x01 u_aa\nx02 u_cc\nx03 u_bb\n")
+        c1 = CUE / "hold.cue"
+        c2 = CUE / "hold2.cue"
+        c1.write_text("left=u_aa\nright=u_cc\norigin=desk\n")
+        c2.write_text("left=u_cc\nright=u_bb\norigin=desk\n")
+        shutil.rmtree(dest, ignore_errors=True)
+        try:
+            assert _sew(str(held), str(dest)).returncode == 0
+            want_rows, want_idx = _expected(str(held))
+            got = _load_rows(dest / "rows.ndjson")
+>           assert got == want_rows
+E           AssertionError: assert [{'hitch': 't...tok': 'u_bb'}] == [{'hitch': 'u...tok': 'u_bb'}]
+E             
+E             At index 0 diff: {'id': 'x01', 'hitch': 't_z', 'tok': 'u_aa'} != {'id': 'x01', 'hitch': 'u_aa', 'tok': 'u_aa'}
+E             Use -v to get more diff
+
+/tests/test_outputs.py:238: AssertionError
+________________________________ test_tf08_hush ________________________________
+
+    def test_tf08_hush():
+        """scrapped origin makes sew fail and leaves berth.ok absent."""
+        scrap = CUE / "tmp.cue"
+        scrap.write_text("left=t_a\nright=t_m\norigin=scrapped\n")
+        if OK.exists():
+            OK.unlink()
+        try:
+            proc = _sew(EVE, str(DOCK))
+>           assert proc.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/twinefuse', 'sew', '/app/cordbay/eve.yarn', '/app/dockurn'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:253: AssertionError
+_______________________________ test_tf09_guard ________________________________
+
+    def test_tf09_guard():
+        """Successful sew writes berth.ok and idx digest matches recompute."""
+        if OK.exists():
+            OK.unlink()
+        assert _sew(EVE, str(DOCK)).returncode == 0
+        assert OK.read_text() == "ok\n"
+        _, want = _expected(EVE)
+>       assert IDX.read_text() == want
+E       AssertionError: assert 't_b e05\nt_q...t_r e08,e10\n' == 't_a e02,e06\...t_r e08,e10\n'
+E         
+E         + t_b e05
+E         + t_q e09,e07
+E           t_a e02,e06
+E         - t_b e04,e05
+E         ?   ^   ^   ^
+E         + t_m e03,e01...
+E         
+E         ...Full output truncated (5 lines hidden), use '-vv' to show
+
+/tests/test_outputs.py:266: AssertionError
+________________________________ test_tf10_hits ________________________________
+
+    def test_tf10_hits():
+        """A hitch copied from a row selects the same id set in hitch.idx."""
+        assert _sew(EVE, str(DOCK)).returncode == 0
+        rows = _load_rows(ROWS)
+        table = {}
+        for line in IDX.read_text().splitlines():
+            h, ids = line.split(" ", 1)
+            table[h] = ids.split(",")
+        by_h: dict[str, set[str]] = defaultdict(set)
+        for r in rows:
+            by_h[r["hitch"]].add(r["id"])
+        for r in rows:
+            assert set(table[r["hitch"]]) == by_h[r["hitch"]]
+        want_rows, _ = _expected(EVE)
+        joined = {a for a, b in _pairs()} | {b for a, b in _pairs()}
+        pair_ids = [eid for eid, tok in _scan(EVE) if tok in joined]
+        want_h = next(r["hitch"] for r in want_rows if r["id"] == pair_ids[0])
+        want_ids = {r["id"] for r in want_rows if r["hitch"] == want_h}
+>       assert set(table[want_h]) == want_ids
+E       AssertionError: assert {'e05'} == {'e04', 'e05'}
+E         
+E         Extra items in the right set:
+E         'e04'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:287: AssertionError
+________________________________ test_tf11_redo ________________________________
+
+    def test_tf11_redo():
+        """Corrupt dockurn then sew recovers independently computed rows."""
+        DOCK.mkdir(parents=True, exist_ok=True)
+        ROWS.write_text("{}\n")
+        IDX.write_text("junk\n")
+        assert _sew(EVE, str(DOCK)).returncode == 0
+        want_rows, want_idx = _expected(EVE)
+>       assert _load_rows(ROWS) == want_rows
+E       AssertionError: assert [{'hitch': 't...: 't_r'}, ...] == [{'hitch': 't...: 't_a'}, ...]
+E         
+E         At index 2 diff: {'id': 'e04', 'hitch': 't_z', 'tok': 't_z'} != {'id': 'e03', 'hitch': 't_m', 'tok': 't_m'}
+E         Use -v to get more diff
+
+/tests/test_outputs.py:297: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_tf00_magic - assert b'{"id":"e01"...tok...
+FAILED ../tests/test_outputs.py::test_tf01_twin - AssertionError: assert b't_...
+FAILED ../tests/test_outputs.py::test_tf02_book - AssertionError: assert 't_q...
+FAILED ../tests/test_outputs.py::test_tf03_seq - AssertionError: assert ['e07...
+FAILED ../tests/test_outputs.py::test_tf04_clump - AssertionError: assert 't_...
+FAILED ../tests/test_outputs.py::test_tf05_span - AssertionError: assert 't_z...
+FAILED ../tests/test_outputs.py::test_tf06_peer - AssertionError: assert 't_z...
+FAILED ../tests/test_outputs.py::test_tf07_held - AssertionError: assert [{'h...
+FAILED ../tests/test_outputs.py::test_tf08_hush - AssertionError: assert 0 != 0
+FAILED ../tests/test_outputs.py::test_tf09_guard - AssertionError: assert 't_...
+FAILED ../tests/test_outputs.py::test_tf10_hits - AssertionError: assert {'e0...
+FAILED ../tests/test_outputs.py::test_tf11_redo - AssertionError: assert [{'h...
+============================== 12 failed in 0.81s ==============================

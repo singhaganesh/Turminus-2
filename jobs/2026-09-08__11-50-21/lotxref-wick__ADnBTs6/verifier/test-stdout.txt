@@ -1,0 +1,186 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 13 items
+
+../tests/test_outputs.py FFFFF.FFF.FFF                                   [100%]
+
+=================================== FAILURES ===================================
+_________________________ test_aa_binary_magic_own_fn __________________________
+
+    def test_aa_binary_magic_own_fn():
+        """Linked mill is ELF and shift clip shows the origin function mark."""
+        blob = BIN.read_bytes()
+        assert blob.startswith(b"\x7fELF")
+        r = _reknit()
+        assert r.returncode == 0
+        c = _clip(str(SHIFT))
+        assert c.returncode == 0
+        text = CLIP.read_text()
+>       assert "SHIFT_OWN" in text
+E       AssertionError: assert 'SHIFT_OWN' in 'CLIP shift_move\nvoid idle_stub(void)\n{\n    /* IDLE_MARK */\n}\n'
+
+/tests/test_outputs.py:41: AssertionError
+____________________________ test_bb_cu_still_there ____________________________
+
+    def test_bb_cu_still_there():
+        """Every atlas row after reknit names a file that still exists."""
+        r = _reknit()
+        assert r.returncode == 0
+        for ln in _atlas_rows():
+            parts = ln.split()
+            assert len(parts) >= 4
+>           assert Path(parts[1]).is_file()
+E           AssertionError: assert False
+E            +  where False = is_file()
+E            +    where is_file = PosixPath('/app/unitpit/gamma/prior.c').is_file
+E            +      where PosixPath('/app/unitpit/gamma/prior.c') = Path('/app/unitpit/gamma/prior.c')
+
+/tests/test_outputs.py:51: AssertionError
+_____________________________ test_cc_holdout_unit _____________________________
+
+    def test_cc_holdout_unit():
+        """A unit added at grade time lands in the atlas and clips its own mark."""
+        p = Path("/app/unitpit/gamma/held.c")
+        p.write_text("void held_fn(void)\n{\n    /* HELD_MARK */\n}\n")
+        dmp = Path("/app/lotbay/held.dmp")
+        dmp.write_text("DUMP1\nheld_fn /app/unitpit/gamma/held.c 3\n")
+        r = _reknit()
+        assert r.returncode == 0
+        c = _clip(str(dmp))
+>       assert c.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/app/bin/lotxref', 'clip', '/app/lotbay/held.dmp'], returncode=1, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:63: AssertionError
+___________________________ test_dd_absent_cu_dirty ____________________________
+
+    def test_dd_absent_cu_dirty():
+        """Hiding a dump origin makes reknit exit non-zero."""
+        bak = UNIT.read_text()
+        UNIT.unlink()
+        r = _reknit()
+        UNIT.write_text(bak)
+>       assert r.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/lotxref', 'reknit'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:73: AssertionError
+____________________________ test_ee_twin_share_cu _____________________________
+
+    def test_ee_twin_share_cu():
+        """Twin helper names clip the dump origin mark, not the other unit."""
+        r = _reknit()
+        assert r.returncode == 0
+        c = _clip(str(TWIN))
+        assert c.returncode == 0
+        text = CLIP.read_text()
+>       assert "ALPHA_MARK" in text
+E       AssertionError: assert 'ALPHA_MARK' in 'CLIP helper_q\nvoid helper_q(void)\n{\n    /* BETA_MARK */\n}\n'
+
+/tests/test_outputs.py:83: AssertionError
+___________________________ test_gg_lead_moves_mark ____________________________
+
+    def test_gg_lead_moves_mark():
+        """Leading comments then reknit still clips the origin function mark."""
+        raw = UNIT.read_text()
+        UNIT.write_text("/* lead */\n" * 10 + raw)
+        r = _reknit()
+        assert r.returncode == 0
+        c = _clip(str(SHIFT))
+        UNIT.write_text(raw)
+        assert c.returncode == 0
+>       assert "SHIFT_OWN" in CLIP.read_text()
+E       AssertionError: assert 'SHIFT_OWN' in 'CLIP shift_move\n/* lead */\n/* lead */\n/* lead */\n/* lead */\n'
+E        +  where 'CLIP shift_move\n/* lead */\n/* lead */\n/* lead */\n/* lead */\n' = read_text()
+E        +    where read_text = PosixPath('/app/inkwell/clip.out').read_text
+
+/tests/test_outputs.py:106: AssertionError
+____________________________ test_hh_cu_body_token _____________________________
+
+    def test_hh_cu_body_token():
+        """clip.out for the twin dump starts with CLIP and the origin token."""
+        r = _reknit()
+        assert r.returncode == 0
+        c = _clip(str(TWIN))
+>       assert c.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/app/bin/lotxref', 'clip', '/app/lotbay/twin.dmp'], returncode=1, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:114: AssertionError
+_____________________________ test_ii_holdout_twin _____________________________
+
+    def test_ii_holdout_twin():
+        """A third live helper_q added at grade time clips its own mark."""
+        p = Path("/app/unitpit/alpha/extra.c")
+        p.write_text("void helper_q(void)\n{\n    /* HOLD_MARK */\n}\n")
+        dmp = Path("/app/lotbay/holdq.dmp")
+        dmp.write_text("DUMP1\nhelper_q /app/unitpit/alpha/extra.c 3\n")
+        r = _reknit()
+        assert r.returncode == 0
+        c = _clip(str(dmp))
+>       assert c.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/app/bin/lotxref', 'clip', '/app/lotbay/holdq.dmp'], returncode=1, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:129: AssertionError
+__________________________ test_nn_hidden_keeps_prior __________________________
+
+    def test_nn_hidden_keeps_prior():
+        """Failed reknit leaves the previous atlas bytes in place."""
+        _reknit()
+        prior = ATLAS.read_bytes()
+        bak = UNIT.read_text()
+        UNIT.unlink()
+        r = _reknit()
+        now = ATLAS.read_bytes()
+        UNIT.write_text(bak)
+>       assert r.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/lotxref', 'reknit'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:155: AssertionError
+___________________________ test_pp_second_cu_dirty ____________________________
+
+    def test_pp_second_cu_dirty():
+        """Hiding a different dump origin also makes reknit exit non-zero."""
+        bak = PUMP.read_text()
+        PUMP.unlink()
+        r = _reknit()
+        PUMP.write_text(bak)
+>       assert r.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/lotxref', 'reknit'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:165: AssertionError
+__________________________ test_qq_restore_then_clean __________________________
+
+    def test_qq_restore_then_clean():
+        """After restoring a hidden origin, reknit returns success."""
+        bak = UNIT.read_text()
+        UNIT.unlink()
+        dirty = _reknit()
+        UNIT.write_text(bak)
+        clean = _reknit()
+>       assert dirty.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/lotxref', 'reknit'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:175: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_ff_corrupt_then_regen
+PASSED ../tests/test_outputs.py::test_rr_idle_absent
+FAILED ../tests/test_outputs.py::test_aa_binary_magic_own_fn - AssertionError...
+FAILED ../tests/test_outputs.py::test_bb_cu_still_there - AssertionError: ass...
+FAILED ../tests/test_outputs.py::test_cc_holdout_unit - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_dd_absent_cu_dirty - AssertionError: as...
+FAILED ../tests/test_outputs.py::test_ee_twin_share_cu - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_gg_lead_moves_mark - AssertionError: as...
+FAILED ../tests/test_outputs.py::test_hh_cu_body_token - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_ii_holdout_twin - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_nn_hidden_keeps_prior - AssertionError:...
+FAILED ../tests/test_outputs.py::test_pp_second_cu_dirty - AssertionError: as...
+FAILED ../tests/test_outputs.py::test_qq_restore_then_clean - AssertionError:...
+========================= 11 failed, 2 passed in 0.16s =========================

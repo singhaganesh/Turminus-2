@@ -1,0 +1,247 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 13 items
+
+../tests/test_outputs.py FFFFFFFFFFFFF                                   [100%]
+
+=================================== FAILURES ===================================
+____________________________ test_qs01_native_magic ____________________________
+
+    def test_qs01_native_magic():
+        """Linked mill is ELF; after in-place rewrite, scribe refreshes flame names."""
+        blob = BIN.read_bytes()
+        assert blob[:4] == b"\x7fELF"
+        _prime()
+        _churn()
+        r = _ql("scribe")
+        assert r.returncode == 0
+        assert QMAP.read_text().startswith("QMAP1")
+        flame = {_canon(k): v for k, v in _flame().items()}
+        nm = {_canon(k): v for k, v in _nm_names(_ref_elf()).items()}
+        for pc in _pcs():
+>           assert flame[_canon(pc)] == nm[_canon(pc)]
+                   ^^^^^^^^^^^^^^^^^
+E           KeyError: '401117'
+
+/tests/test_outputs.py:128: KeyError
+______________________________ test_qs02_row_path ______________________________
+
+    def test_qs02_row_path():
+        """After in-place rewrite, weigh is dirty until scribe; qmap still names the elf."""
+        _prime()
+        ino = ELF.stat().st_ino
+        _churn()
+        assert ELF.stat().st_ino == ino
+>       assert _ql("weigh").returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/quillay', 'weigh'], returncode=0, stdout='', stderr='').returncode
+E        +    where CompletedProcess(args=['/app/bin/quillay', 'weigh'], returncode=0, stdout='', stderr='') = _ql('weigh')
+
+/tests/test_outputs.py:138: AssertionError
+_____________________________ test_qs03_name_live ______________________________
+
+    def test_qs03_name_live():
+        """Flame names match nm of the live elf for every PC in pc.lst."""
+        _prime()
+        _churn()
+        r = _ql("scribe")
+        assert r.returncode == 0
+        assert QPRF.read_text().startswith("QPRF1")
+        flame = {_canon(k): v for k, v in _flame().items()}
+        nm = {_canon(k): v for k, v in _nm_names(_ref_elf()).items()}
+        for pc in _pcs():
+            c = _canon(pc)
+>           assert c in flame
+E           AssertionError: assert '401117' in {'401106': 'ring_pump', '401127': 'dusk_lamp'}
+
+/tests/test_outputs.py:159: AssertionError
+____________________________ test_qs04_dirty_status ____________________________
+
+    def test_qs04_dirty_status():
+        """weigh exits non-zero when elf bytes change under the same inode."""
+        _prime()
+        orig = ELF.read_bytes()
+        ino = ELF.stat().st_ino
+        mtime = ELF.stat().st_mtime
+        data = bytearray(orig)
+        data[-1] ^= 0x5A
+        ELF.write_bytes(bytes(data))
+        os.utime(ELF, (mtime, mtime))
+        assert ELF.stat().st_ino == ino
+        r = _ql("weigh")
+        ELF.write_bytes(orig)
+        os.utime(ELF, (mtime, mtime))
+>       assert r.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/quillay', 'weigh'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:178: AssertionError
+____________________________ test_qs05_holdout_wave ____________________________
+
+    def test_qs05_holdout_wave():
+        """WAVE 3 tamp then scribe files held_wick."""
+        _prime()
+        WAVE.write_text("3\n")
+        assert _ql("tamp").returncode == 0
+        r = _ql("scribe")
+        assert r.returncode == 0
+>       assert "held_wick" in _flame().values()
+E       AssertionError: assert 'held_wick' in dict_values(['dusk_lamp', 'ring_pump'])
+E        +  where dict_values(['dusk_lamp', 'ring_pump']) = <built-in method values of dict object at 0x7f5c764db740>()
+E        +    where <built-in method values of dict object at 0x7f5c764db740> = {'401106': 'ring_pump', '401127': 'dusk_lamp'}.values
+E        +      where {'401106': 'ring_pump', '401127': 'dusk_lamp'} = _flame()
+
+/tests/test_outputs.py:189: AssertionError
+_________________________ test_qs06_corrupt_then_mint __________________________
+
+    def test_qs06_corrupt_then_mint():
+        """Corrupt flame then one scribe restores live names for current pcs."""
+        _prime()
+        QPRF.write_text("QPRF1\n0 dead\n")
+        r = _ql("scribe")
+        assert r.returncode == 0
+        flame = _flame()
+        for pc in _pcs():
+>           assert pc in flame
+E           AssertionError: assert '401127' in {'0': 'dead'}
+
+/tests/test_outputs.py:201: AssertionError
+____________________________ test_qs07_sheet_prefix ____________________________
+
+    def test_qs07_sheet_prefix():
+        """QPRF1 then pc_hex name lines cover every PC in pc.lst."""
+        _prime()
+        _churn()
+        r = _ql("scribe")
+        assert r.returncode == 0
+        lines = QPRF.read_text().splitlines()
+        assert lines[0] == "QPRF1"
+        got = {ln.split()[0] for ln in lines[1:] if ln.strip()}
+>       assert set(_pcs()) <= got
+E       AssertionError: assert {'401106', '401117'} <= {'401106', '401127'}
+E         
+E         Extra items in the left set:
+E         '401117'
+
+/tests/test_outputs.py:214: AssertionError
+___________________________ test_qs08_identity_holds ___________________________
+
+    def test_qs08_identity_holds():
+        """weigh is dirty after an in-place byte flip that keeps device and inode."""
+        _ql("scribe")
+        st0 = ELF.stat()
+        orig = ELF.read_bytes()
+        data = bytearray(orig)
+        data[0] ^= 0x01
+        ELF.write_bytes(bytes(data))
+        os.utime(ELF, (st0.st_mtime, st0.st_mtime))
+        st1 = ELF.stat()
+        r = _ql("weigh")
+        ELF.write_bytes(orig)
+        os.utime(ELF, (st0.st_mtime, st0.st_mtime))
+        assert st0.st_ino == st1.st_ino
+        assert st0.st_dev == st1.st_dev
+>       assert r.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/quillay', 'weigh'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:232: AssertionError
+____________________________ test_qs09_second_mint _____________________________
+
+    def test_qs09_second_mint():
+        """weigh stays dirty after a second tamp without scribe."""
+        WAVE.write_text("2\n")
+        _ql("scribe")
+        WAVE.write_text("1\n")
+        assert _ql("tamp").returncode == 0
+        r = _ql("weigh")
+        WAVE.write_text("2\n")
+>       assert r.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/quillay', 'weigh'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:243: AssertionError
+___________________________ test_qs10_neighbour_gap ____________________________
+
+    def test_qs10_neighbour_gap():
+        """dusk_lamp PC is not attributed to ring_pump."""
+        _prime()
+        _churn()
+        r = _ql("scribe")
+        assert r.returncode == 0
+        flame = {_canon(k): v for k, v in _flame().items()}
+        nm = {_canon(k): v for k, v in _nm_names(_ref_elf()).items()}
+        dusk_pc = None
+        for addr, name in nm.items():
+            if name == "dusk_lamp":
+                dusk_pc = addr
+        assert dusk_pc is not None
+>       assert flame.get(dusk_pc) == "dusk_lamp"
+E       AssertionError: assert None == 'dusk_lamp'
+E        +  where None = <built-in method get of dict object at 0x7f5c7648fb80>('401117')
+E        +    where <built-in method get of dict object at 0x7f5c7648fb80> = {'401106': 'ring_pump', '401127': 'dusk_lamp'}.get
+
+/tests/test_outputs.py:259: AssertionError
+_____________________________ test_qs13_wave_swap ______________________________
+
+    def test_qs13_wave_swap():
+        """weigh exits non-zero after tamp without a following scribe."""
+        _ql("scribe")
+        WAVE.write_text("1\n")
+        assert _ql("tamp").returncode == 0
+        r = _ql("weigh")
+        WAVE.write_text("2\n")
+        _ql("tamp")
+>       assert r.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/quillay', 'weigh'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:270: AssertionError
+__________________________ test_qs11_after_tamp_live ___________________________
+
+    def test_qs11_after_tamp_live():
+        """After tamp with a zeroed stamp, scribe still files live symbol names."""
+        _prime()
+        _churn()
+        r = _ql("scribe")
+        assert r.returncode == 0
+        flame = {_canon(k): v for k, v in _flame().items()}
+        nm = {_canon(k): v for k, v in _nm_names(_ref_elf()).items()}
+        for pc in _pcs():
+>           assert flame[_canon(pc)] == nm[_canon(pc)]
+                   ^^^^^^^^^^^^^^^^^
+E           KeyError: '401117'
+
+/tests/test_outputs.py:282: KeyError
+___________________________ test_qs12_one_pass_pair ____________________________
+
+    def test_qs12_one_pass_pair():
+        """One scribe subprocess refreshes both wickbin products."""
+        _prime()
+        _churn()
+        QPRF.write_text("QPRF1\n0 dead\n")
+        r = _ql("scribe")
+        assert r.returncode == 0
+        assert _ql("weigh").returncode == 0
+>       assert _flame()[_pcs()[0]] != "dead"
+               ^^^^^^^^^^^^^^^^^^^
+E       KeyError: '401117'
+
+/tests/test_outputs.py:293: KeyError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_qs01_native_magic - KeyError: '401117'
+FAILED ../tests/test_outputs.py::test_qs02_row_path - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_qs03_name_live - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_qs04_dirty_status - AssertionError: ass...
+FAILED ../tests/test_outputs.py::test_qs05_holdout_wave - AssertionError: ass...
+FAILED ../tests/test_outputs.py::test_qs06_corrupt_then_mint - AssertionError...
+FAILED ../tests/test_outputs.py::test_qs07_sheet_prefix - AssertionError: ass...
+FAILED ../tests/test_outputs.py::test_qs08_identity_holds - AssertionError: a...
+FAILED ../tests/test_outputs.py::test_qs09_second_mint - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_qs10_neighbour_gap - AssertionError: as...
+FAILED ../tests/test_outputs.py::test_qs13_wave_swap - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_qs11_after_tamp_live - KeyError: '401117'
+FAILED ../tests/test_outputs.py::test_qs12_one_pass_pair - KeyError: '401117'
+============================== 13 failed in 1.39s ==============================

@@ -1,0 +1,196 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 13 items
+
+../tests/test_outputs.py FFFFFFFFFFFFF                                   [100%]
+
+=================================== FAILURES ===================================
+____________________________ test_lx00_native_mill _____________________________
+
+    def test_lx00_native_mill():
+        """Mill at /app/bin/lanternix is ELF and links every generated unit."""
+        blob = Path(BIN).read_bytes()
+        assert blob[:4] == b"\x7fELF"
+        reg = REG.read_text()
+        names = sorted(p.name for p in UNITS.iterdir() if p.is_dir())
+        assert names
+        for name in names:
+>           assert f"packbay/units/{name}" in reg
+E           assert 'packbay/units/unitc' in 'package packbay\n\nimport (\n\tunita "loft.local/lanternix/packbay/units/unita"\n\tunitb "loft.local/lanternix/packbay/units/unitb"\n)\n\nfunc Fill() {\n\tunita.Load()\n\tunitb.Load()\n}\n'
+
+/tests/test_outputs.py:71: AssertionError
+_____________________________ test_lx01_id_parity ______________________________
+
+    def test_lx01_id_parity():
+        """Every recipe id must appear in bindset codes."""
+        doc = _bind()
+        codes = list(doc["codes"])
+>       assert sorted(codes) == _card_ids()
+E       AssertionError: assert ['LAN_BEAM_44', 'LAN_WARM_01'] == ['LAN_BEAM_44...'LAN_WARM_01']
+E         
+E         At index 1 diff: 'LAN_WARM_01' != 'LAN_FLASH_9C'
+E         Right contains 2 more items, first extra item: 'LAN_GLOW_2B'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:87: AssertionError
+____________________________ test_lx02_anchor_pair _____________________________
+
+    def test_lx02_anchor_pair():
+        """Flash lamp must decode candela and dwell_s from the take."""
+        data, rc = _readout(FLASH)
+        code, vals = _lamp_vals(FLASH)
+>       assert rc == 0
+E       assert 2 == 0
+
+/tests/test_outputs.py:94: AssertionError
+_____________________________ test_lx03_held_pair ______________________________
+
+    def test_lx03_held_pair():
+        """Held lamp must decode trimmed hue and period_s."""
+        data, rc = _readout(HELD)
+        code, vals = _lamp_vals(HELD)
+>       assert rc == 0
+E       assert 2 == 0
+
+/tests/test_outputs.py:104: AssertionError
+_____________________________ test_lx04_prior_pair _____________________________
+
+    def test_lx04_prior_pair():
+        """Warm lamp must still decode lux and hold_s."""
+        data, rc = _readout(WARM)
+        code, vals = _lamp_vals(WARM)
+>       assert rc == 0
+E       assert 2 == 0
+
+/tests/test_outputs.py:114: AssertionError
+_____________________________ test_lx05_alien_exit _____________________________
+
+    def test_lx05_alien_exit():
+        """Lamp codes absent from recipes report void and exit non-zero."""
+        data, rc = _readout(ALIEN)
+        assert rc != 0
+>       assert data.get("code") == "void"
+E       AssertionError: assert None == 'void'
+E        +  where None = <built-in method get of dict object at 0x71421bab4480>('code')
+E        +    where <built-in method get of dict object at 0x71421bab4480> = {}.get
+
+/tests/test_outputs.py:124: AssertionError
+_____________________________ test_lx06_gap_abort ______________________________
+
+    def test_lx06_gap_abort():
+        """A recipe id missing from codes must abort readout and keep prior JSON."""
+        orig = BIND.read_text()
+        sentinel = '{"code":"sentinel","slots":{}}\n'
+        READ.write_text(sentinel)
+        try:
+            ids = _card_ids()
+            BIND.write_text(json.dumps({"codes": ids[:1], "size": 1}) + "\n")
+            proc = subprocess.run(
+                [BIN, "readout", "--lamp", FLASH],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            assert proc.returncode != 0
+            assert READ.read_text() == sentinel
+        finally:
+            BIND.write_text(orig)
+            data, rc = _readout(FLASH)
+>           assert rc == 0
+E           assert 2 == 0
+
+/tests/test_outputs.py:147: AssertionError
+_____________________________ test_lx07_json_shape _____________________________
+
+    def test_lx07_json_shape():
+        """Readout JSON has string code and object slots."""
+        data, rc = _readout(BEAM)
+>       assert rc == 0
+E       assert 2 == 0
+
+/tests/test_outputs.py:154: AssertionError
+____________________________ test_lx08_index_shape _____________________________
+
+    def test_lx08_index_shape():
+        """Bindset size equals the length of sorted unique codes and the recipe count."""
+        doc = _bind()
+        codes = list(doc["codes"])
+        assert codes == sorted(set(codes))
+        assert doc["size"] == len(codes)
+>       assert doc["size"] == len(_card_ids())
+E       AssertionError: assert 2 == 4
+E        +  where 4 = len(['LAN_BEAM_44', 'LAN_FLASH_9C', 'LAN_GLOW_2B', 'LAN_WARM_01'])
+E        +    where ['LAN_BEAM_44', 'LAN_FLASH_9C', 'LAN_GLOW_2B', 'LAN_WARM_01'] = _card_ids()
+
+/tests/test_outputs.py:167: AssertionError
+_____________________________ test_lx09_cross_bind _____________________________
+
+    def test_lx09_cross_bind():
+        """Cross-check bindset codes against the recipe id set."""
+>       assert set(_bind()["codes"]) == set(_card_ids())
+E       AssertionError: assert {'LAN_BEAM_44', 'LAN_WARM_01'} == {'LAN_BEAM_44...'LAN_WARM_01'}
+E         
+E         Extra items in the right set:
+E         'LAN_FLASH_9C'
+E         'LAN_GLOW_2B'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:172: AssertionError
+____________________________ test_lx10_held_second _____________________________
+
+    def test_lx10_held_second():
+        """Second held-style lamp (beam) must decode both declared slots."""
+        data, rc = _readout(BEAM)
+        _, vals = _lamp_vals(BEAM)
+>       assert rc == 0
+E       assert 2 == 0
+
+/tests/test_outputs.py:179: AssertionError
+____________________________ test_lx11_twice_stable ____________________________
+
+    def test_lx11_twice_stable():
+        """A second readout of the flash lamp must match the first payload."""
+        a, ra = _readout(FLASH)
+        b, rb = _readout(FLASH)
+>       assert ra == 0 and rb == 0
+E       assert (2 == 0)
+
+/tests/test_outputs.py:188: AssertionError
+__________________________ test_lx_zz_corrupt_recover __________________________
+
+    def test_lx_zz_corrupt_recover():
+        """Cast must rebuild bindset codes from recipes after a corrupt file."""
+        BIND.write_text("{}\n")
+        proc = subprocess.run(
+            [BIN, "cast"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert proc.returncode == 0
+        doc = _bind()
+>       assert sorted(doc["codes"]) == _card_ids()
+E       AssertionError: assert ['LAN_BEAM_44', 'LAN_WARM_01'] == ['LAN_BEAM_44...'LAN_WARM_01']
+E         
+E         At index 1 diff: 'LAN_WARM_01' != 'LAN_FLASH_9C'
+E         Right contains 2 more items, first extra item: 'LAN_GLOW_2B'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:203: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_lx00_native_mill - assert 'packbay/unit...
+FAILED ../tests/test_outputs.py::test_lx01_id_parity - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_lx02_anchor_pair - assert 2 == 0
+FAILED ../tests/test_outputs.py::test_lx03_held_pair - assert 2 == 0
+FAILED ../tests/test_outputs.py::test_lx04_prior_pair - assert 2 == 0
+FAILED ../tests/test_outputs.py::test_lx05_alien_exit - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_lx06_gap_abort - assert 2 == 0
+FAILED ../tests/test_outputs.py::test_lx07_json_shape - assert 2 == 0
+FAILED ../tests/test_outputs.py::test_lx08_index_shape - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_lx09_cross_bind - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_lx10_held_second - assert 2 == 0
+FAILED ../tests/test_outputs.py::test_lx11_twice_stable - assert (2 == 0)
+FAILED ../tests/test_outputs.py::test_lx_zz_corrupt_recover - AssertionError:...
+============================== 13 failed in 2.83s ==============================

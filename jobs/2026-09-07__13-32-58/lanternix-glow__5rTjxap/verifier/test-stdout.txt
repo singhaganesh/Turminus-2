@@ -1,0 +1,185 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 13 items
+
+../tests/test_outputs.py FFFFFFFFFFFFF                                   [100%]
+
+=================================== FAILURES ===================================
+____________________________ test_lx00_native_mill _____________________________
+
+    def test_lx00_native_mill():
+        """Mill at /app/bin/lanternix is ELF and links every generated unit."""
+        blob = Path(BIN).read_bytes()
+        assert blob[:4] == b"\x7fELF"
+        reg = REG.read_text()
+        names = sorted(p.name for p in UNITS.iterdir() if p.is_dir())
+        assert names
+        for name in names:
+>           assert f"packbay/units/{name}" in reg
+E           assert 'packbay/units/unitc' in 'package packbay\n\nimport (\n\tunita "loft.local/lanternix/packbay/units/unita"\n\tunitb "loft.local/lanternix/packbay/units/unitb"\n)\n\nfunc Fill() {\n\tunita.Load()\n\tunitb.Load()\n}\n'
+
+/tests/test_outputs.py:67: AssertionError
+_____________________________ test_lx01_id_parity ______________________________
+
+    def test_lx01_id_parity():
+        """Every recipe lamp must decode with a mill that covers that card id."""
+        seen: set[str] = set()
+        for lamp in RECIPE_LAMPS:
+            data, rc = _readout(lamp)
+            code, _ = _lamp_vals(lamp)
+>           assert rc == 0
+E           assert 2 == 0
+
+/tests/test_outputs.py:76: AssertionError
+____________________________ test_lx02_anchor_pair _____________________________
+
+    def test_lx02_anchor_pair():
+        """Flash lamp must decode candela and dwell_s from the take."""
+        data, rc = _readout(FLASH)
+        code, vals = _lamp_vals(FLASH)
+>       assert rc == 0
+E       assert 2 == 0
+
+/tests/test_outputs.py:86: AssertionError
+_____________________________ test_lx03_held_pair ______________________________
+
+    def test_lx03_held_pair():
+        """Held lamp must decode trimmed hue and period_s."""
+        data, rc = _readout(HELD)
+        code, vals = _lamp_vals(HELD)
+>       assert rc == 0
+E       assert 2 == 0
+
+/tests/test_outputs.py:96: AssertionError
+_____________________________ test_lx04_prior_pair _____________________________
+
+    def test_lx04_prior_pair():
+        """Warm lamp must still decode lux and hold_s."""
+        data, rc = _readout(WARM)
+        code, vals = _lamp_vals(WARM)
+>       assert rc == 0
+E       assert 2 == 0
+
+/tests/test_outputs.py:106: AssertionError
+_____________________________ test_lx05_alien_exit _____________________________
+
+    def test_lx05_alien_exit():
+        """Lamp codes absent from recipes report void and exit non-zero."""
+        data, rc = _readout(ALIEN)
+        assert rc != 0
+>       assert data.get("code") == "void"
+E       AssertionError: assert None == 'void'
+E        +  where None = <built-in method get of dict object at 0x71a24d15a740>('code')
+E        +    where <built-in method get of dict object at 0x71a24d15a740> = {}.get
+
+/tests/test_outputs.py:116: AssertionError
+_____________________________ test_lx06_gap_abort ______________________________
+
+    def test_lx06_gap_abort():
+        """A recipe card the mill does not carry must abort readout and keep prior JSON."""
+        ghost = CARDS / "ghost.card"
+        sentinel = '{"code":"sentinel","slots":{}}\n'
+        READ.write_text(sentinel)
+        ghost.write_text("id: LAN_MISS_00\nslots: x\n")
+        try:
+            proc = subprocess.run(
+                [BIN, "readout", "--lamp", FLASH],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            assert proc.returncode != 0
+            assert READ.read_text() == sentinel
+        finally:
+            if ghost.exists():
+                ghost.unlink()
+        data, rc = _readout(FLASH)
+>       assert rc == 0
+E       assert 2 == 0
+
+/tests/test_outputs.py:139: AssertionError
+_____________________________ test_lx07_json_shape _____________________________
+
+    def test_lx07_json_shape():
+        """Readout JSON has string code and object slots."""
+        data, rc = _readout(BEAM)
+>       assert rc == 0
+E       assert 2 == 0
+
+/tests/test_outputs.py:146: AssertionError
+_____________________________ test_lx08_slot_width _____________________________
+
+    def test_lx08_slot_width():
+        """Flash readout slot count matches the candela/dwell_s pair on the lamp."""
+        data, rc = _readout(FLASH)
+        _, vals = _lamp_vals(FLASH)
+>       assert rc == 0
+E       assert 2 == 0
+
+/tests/test_outputs.py:157: AssertionError
+_____________________________ test_lx09_cross_bind _____________________________
+
+    def test_lx09_cross_bind():
+        """Decoded recipe codes match the card id set."""
+        got = set()
+        for lamp in RECIPE_LAMPS:
+            data, rc = _readout(lamp)
+>           assert rc == 0
+E           assert 2 == 0
+
+/tests/test_outputs.py:167: AssertionError
+____________________________ test_lx10_held_second _____________________________
+
+    def test_lx10_held_second():
+        """Second held-style lamp (beam) must decode both declared slots."""
+        data, rc = _readout(BEAM)
+        _, vals = _lamp_vals(BEAM)
+>       assert rc == 0
+E       assert 2 == 0
+
+/tests/test_outputs.py:176: AssertionError
+____________________________ test_lx11_twice_stable ____________________________
+
+    def test_lx11_twice_stable():
+        """A second readout of the flash lamp must match the lamp file and the first payload."""
+        code, vals = _lamp_vals(FLASH)
+        a, ra = _readout(FLASH)
+        b, rb = _readout(FLASH)
+>       assert ra == 0 and rb == 0
+E       assert (2 == 0)
+
+/tests/test_outputs.py:186: AssertionError
+__________________________ test_lx_zz_corrupt_recover __________________________
+
+    def test_lx_zz_corrupt_recover():
+        """Cast must restore mill readout after a corrupt glowbank file."""
+        READ.write_text("{}\n")
+        proc = subprocess.run(
+            [BIN, "cast"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert proc.returncode == 0
+        data, rc = _readout(FLASH)
+>       assert rc == 0
+E       assert 2 == 0
+
+/tests/test_outputs.py:204: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_lx00_native_mill - assert 'packbay/unit...
+FAILED ../tests/test_outputs.py::test_lx01_id_parity - assert 2 == 0
+FAILED ../tests/test_outputs.py::test_lx02_anchor_pair - assert 2 == 0
+FAILED ../tests/test_outputs.py::test_lx03_held_pair - assert 2 == 0
+FAILED ../tests/test_outputs.py::test_lx04_prior_pair - assert 2 == 0
+FAILED ../tests/test_outputs.py::test_lx05_alien_exit - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_lx06_gap_abort - assert 2 == 0
+FAILED ../tests/test_outputs.py::test_lx07_json_shape - assert 2 == 0
+FAILED ../tests/test_outputs.py::test_lx08_slot_width - assert 2 == 0
+FAILED ../tests/test_outputs.py::test_lx09_cross_bind - assert 2 == 0
+FAILED ../tests/test_outputs.py::test_lx10_held_second - assert 2 == 0
+FAILED ../tests/test_outputs.py::test_lx11_twice_stable - assert (2 == 0)
+FAILED ../tests/test_outputs.py::test_lx_zz_corrupt_recover - assert 2 == 0
+============================== 13 failed in 2.70s ==============================

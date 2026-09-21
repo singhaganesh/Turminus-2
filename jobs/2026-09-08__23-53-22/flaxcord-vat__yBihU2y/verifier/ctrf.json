@@ -1,0 +1,164 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 12,
+            "passed": 0,
+            "failed": 12,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1788891814.0343618,
+            "stop": 1788891814.29908
+        },
+        "tests": [
+            {
+                "name": "test_outputs.py::test_fxv01_hdr",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.004417729971464723,
+                "start": 1788891814.1184728,
+                "stop": 1788891814.1479237,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_fxv01_hdr():\n        \"\"\"Linked mill is ELF and two process spins of day are byte-identical.\"\"\"\n        blob = BIN.read_bytes()\n        assert blob[:4] == b\"\\x7fELF\"\n        p1 = WELL / \"t1.pfl\"\n        p2 = WELL / \"t2.pfl\"\n        a = _spin(DAY, p1)\n        b = _spin(DAY, p2)\n        assert a.returncode == 0\n        assert b.returncode == 0\n>       assert p1.read_bytes() == p2.read_bytes()\nE       AssertionError: assert b'FLX1\\tN\\x1f...x06\\x00k2.chk' == b'FLX1\\x1bR\\x...x06\\x00k2.chk'\nE         \nE         At index 4 diff: b'\\t' != b'\\x1b'\nE         Use -v to get more diff\n\n/tests/test_outputs.py:65: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_fxv02_twin",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.005351268977392465,
+                "start": 1788891814.148528,
+                "stop": 1788891814.1617477,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_fxv02_twin():\n        \"\"\"Second pair of process spins still matches on day.\"\"\"\n        p1 = WELL / \"u1.pfl\"\n        p2 = WELL / \"u2.pfl\"\n        assert _spin(DAY, p1).returncode == 0\n        assert _spin(DAY, p2).returncode == 0\n>       assert p1.read_bytes() == p2.read_bytes()\nE       AssertionError: assert b'FLX1=\\xc3\\x...x06\\x00k2.chk' == b'FLX1\\xd5\\xc...x06\\x00k2.chk'\nE         \nE         At index 4 diff: b'=' != b'\\xd5'\nE         Use -v to get more diff\n\n/tests/test_outputs.py:74: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_fxv03_pair",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0072467889986000955,
+                "start": 1788891814.1622314,
+                "stop": 1788891814.177313,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_fxv03_pair():\n        \"\"\"Day and dusk compact files compare hush.\"\"\"\n        assert _spin(DAY, LIVE).returncode == 0\n        assert _spin(DUSK, ALT).returncode == 0\n        text = _differ(LIVE, ALT)\n>       assert text.strip() == \"quiet\"\nE       AssertionError: assert 'noisy' == 'quiet'\nE         \nE         - quiet\nE         + noisy\n\n/tests/test_outputs.py:83: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_fxv04_ord",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.005490955983987078,
+                "start": 1788891814.1776028,
+                "stop": 1788891814.1920915,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_fxv04_ord():\n        \"\"\"unreel lines are ordered by joined path.\"\"\"\n        assert _spin(DAY, LIVE).returncode == 0\n        lines = [ln for ln in _unreel(LIVE).splitlines() if ln.strip()]\n        keys = [ln.split(\" COUNT \")[0] for ln in lines]\n>       assert keys == sorted(keys)\nE       AssertionError: assert ['mu.idle', '... 'alpha.tick'] == ['alpha.tick'..., 'zeta.solo']\nE         \nE         At index 0 diff: 'mu.idle' != 'alpha.tick'\nE         Use -v to get more diff\n\n/tests/test_outputs.py:91: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_fxv05_hold",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.007031425018794835,
+                "start": 1788891814.1925762,
+                "stop": 1788891814.2085376,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_fxv05_hold():\n        \"\"\"Swapped SEQ holdout pair is hush.\"\"\"\n        ha = WELL / \"ha\"\n        hb = WELL / \"hb\"\n        shutil.rmtree(ha, ignore_errors=True)\n        shutil.rmtree(hb, ignore_errors=True)\n        _write_chk(ha, \"a0.chk\", 1, [\"rho.nock\"], 1)\n        _write_chk(ha, \"a1.chk\", 2, [\"alpha.tick\"], 3)\n        _write_chk(hb, \"b0.chk\", 1, [\"alpha.tick\"], 3)\n        _write_chk(hb, \"b1.chk\", 2, [\"rho.nock\"], 1)\n        oa = WELL / \"ha.pfl\"\n        ob = WELL / \"hb.pfl\"\n        assert _spin(ha, oa).returncode == 0\n        assert _spin(hb, ob).returncode == 0\n>       assert _differ(oa, ob).strip() == \"quiet\"\nE       AssertionError: assert 'noisy' == 'quiet'\nE         \nE         - quiet\nE         + noisy\n\n/tests/test_outputs.py:111: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_fxv06_tail",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.002331742987735197,
+                "start": 1788891814.2089584,
+                "stop": 1788891814.2201877,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_fxv06_tail():\n        \"\"\"Missing END makes spin exit non-zero.\"\"\"\n        bad = WELL / \"bad\"\n        shutil.rmtree(bad, ignore_errors=True)\n        _write_chk(bad, \"z.chk\", 1, [\"omega.x\"], 1, end=False)\n        r = _spin(bad, WELL / \"bad.pfl\")\n>       assert r.returncode != 0\nE       AssertionError: assert 0 != 0\nE        +  where 0 = CompletedProcess(args=['/app/bin/flaxcord', 'spin', '/app/cordwell/bad', '/app/cordwell/bad.pfl'], returncode=0, stdout='', stderr='').returncode\n\n/tests/test_outputs.py:120: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_fxv07_seal",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.002303501038113609,
+                "start": 1788891814.2205698,
+                "stop": 1788891814.228888,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_fxv07_seal():\n        \"\"\"Missing END does not write spin.ok.\"\"\"\n        if OK.exists():\n            OK.unlink()\n        bad = WELL / \"bad2\"\n        shutil.rmtree(bad, ignore_errors=True)\n        _write_chk(bad, \"z.chk\", 1, [\"omega.x\"], 1, end=False)\n        _spin(bad, WELL / \"bad2.pfl\")\n>       assert not OK.exists()\nE       AssertionError: assert not True\nE        +  where True = exists()\nE        +    where exists = PosixPath('/app/cordwell/spin.ok').exists\n\n/tests/test_outputs.py:131: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_fxv08_mint",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.005410723999375477,
+                "start": 1788891814.2294683,
+                "stop": 1788891814.2423718,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_fxv08_mint():\n        \"\"\"Corrupt live compact is restored by one spin of day.\"\"\"\n        WELL.mkdir(parents=True, exist_ok=True)\n        LIVE.write_bytes(b\"XXXX\")\n        r = _spin(DAY, LIVE)\n        assert r.returncode == 0\n        assert LIVE.read_bytes()[:4] == b\"FLX1\"\n        p2 = WELL / \"mint2.pfl\"\n        assert _spin(DAY, p2).returncode == 0\n>       assert LIVE.read_bytes() == p2.read_bytes()\nE       AssertionError: assert b'FLX1>\\xff \\...x06\\x00k2.chk' == b'FLX1a\\x06!\\...x06\\x00k2.chk'\nE         \nE         At index 4 diff: b'>' != b'a'\nE         Use -v to get more diff\n\n/tests/test_outputs.py:143: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_fxv09_hits",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.006189546984387562,
+                "start": 1788891814.24261,
+                "stop": 1788891814.2568603,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_fxv09_hits():\n        \"\"\"Second holdout permutation is hush.\"\"\"\n        ha = WELL / \"hc\"\n        hb = WELL / \"hd\"\n        shutil.rmtree(ha, ignore_errors=True)\n        shutil.rmtree(hb, ignore_errors=True)\n        _write_chk(ha, \"c0.chk\", 1, [\"gamma.q\"], 5)\n        _write_chk(ha, \"c1.chk\", 2, [\"beta.z\"], 1)\n        _write_chk(hb, \"d0.chk\", 1, [\"beta.z\"], 1)\n        _write_chk(hb, \"d1.chk\", 2, [\"gamma.q\"], 5)\n        oa = WELL / \"hc.pfl\"\n        ob = WELL / \"hd.pfl\"\n        assert _spin(ha, oa).returncode == 0\n        assert _spin(hb, ob).returncode == 0\n>       assert _differ(oa, ob).strip() == \"quiet\"\nE       AssertionError: assert 'noisy' == 'quiet'\nE         \nE         - quiet\nE         + noisy\n\n/tests/test_outputs.py:163: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_fxv10_child",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0034884249907918274,
+                "start": 1788891814.2572129,
+                "stop": 1788891814.270448,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_fxv10_child():\n        \"\"\"One spin child of dusk hush-compares with a spin of day.\"\"\"\n        r = subprocess.run(\n            [\"/app/bin/flaxcord\", \"spin\", str(DUSK), str(ALT)],\n            capture_output=True,\n            text=True,\n        )\n        assert r.returncode == 0\n        assert _spin(DAY, LIVE).returncode == 0\n>       assert _differ(LIVE, ALT).strip() == \"quiet\"\nE       AssertionError: assert 'noisy' == 'quiet'\nE         \nE         - quiet\nE         + noisy\n\n/tests/test_outputs.py:175: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_fxv11_hush",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.004082320025190711,
+                "start": 1788891814.270715,
+                "stop": 1788891814.2845695,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_fxv11_hush():\n        \"\"\"Two process day spins make differ write quiet.\"\"\"\n        x = WELL / \"x.pfl\"\n        y = WELL / \"y.pfl\"\n        assert _spin(DAY, x).returncode == 0\n        assert _spin(DAY, y).returncode == 0\n        text = _differ(x, y)\n>       assert text.strip() == \"quiet\"\nE       AssertionError: assert 'noisy' == 'quiet'\nE         \nE         - quiet\nE         + noisy\n\n/tests/test_outputs.py:185: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_fxv12_peer",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.004863005044171587,
+                "start": 1788891814.2853098,
+                "stop": 1788891814.2987401,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_fxv12_peer():\n        \"\"\"unreel of day and dusk share joined paths and totals.\"\"\"\n        assert _spin(DAY, LIVE).returncode == 0\n        assert _spin(DUSK, ALT).returncode == 0\n        a = [ln for ln in _unreel(LIVE).splitlines() if ln.strip()]\n        b = [ln for ln in _unreel(ALT).splitlines() if ln.strip()]\n>       assert a == b\nE       AssertionError: assert ['mu.idle COU...tick COUNT 4'] == ['alpha.tick ...idle COUNT 2']\nE         \nE         At index 0 diff: 'mu.idle COUNT 2' != 'alpha.tick COUNT 4'\nE         Use -v to get more diff\n\n/tests/test_outputs.py:194: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            }
+        ]
+    }
+}

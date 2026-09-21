@@ -1,0 +1,301 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 15 items
+
+../tests/test_outputs.py FFFFFFFFFFFF.FF                                 [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_klg01_tag_live ______________________________
+
+    def test_klg01_tag_live():
+        """procance.tag must be live: plus the running.release value after synctab."""
+        tag = PROCANCE.read_text().strip()
+>       assert tag == f"live:{_release()}"
+E       AssertionError: assert 'bundle:6.8.12' == 'live:6.8.12'
+E         
+E         - live:6.8.12
+E         ?  --
+E         + bundle:6.8.12
+E         ? ++++
+
+/tests/test_outputs.py:53: AssertionError
+______________________________ test_klg02_pulse_a ______________________________
+
+    def test_klg02_pulse_a():
+        """pulse_a inspect JSON must equal pulse_a.ref."""
+>       assert _inspect(LANE_A) == _card("pulse_a")
+E       AssertionError: assert {'pid': 4421,...weight': 1024} == {'migration_f..._entity', ...}
+E         
+E         Omitting 3 identical items, use -vv to show
+E         Differing items:
+E         {'slice_ns': 107374182400000007} != {'slice_ns': 25000000}
+E         Right contains 1 more item:
+E         {'migration_flags': 7}
+E         Use -v to get more diff
+
+/tests/test_outputs.py:58: AssertionError
+______________________________ test_klg03_pulse_b ______________________________
+
+    def test_klg03_pulse_b():
+        """Held-out pulse_b capture must match its reference card."""
+>       assert _inspect(LANE_B) == _card("pulse_b")
+E       AssertionError: assert {'pid': 9901,...'weight': 512} == {'migration_f..._entity', ...}
+E         
+E         Omitting 3 identical items, use -vv to show
+E         Differing items:
+E         {'slice_ns': 80530636800000002} != {'slice_ns': 18750000}
+E         Right contains 1 more item:
+E         {'migration_flags': 2}
+E         Use -v to get more diff
+
+/tests/test_outputs.py:63: AssertionError
+______________________________ test_klg04_order_d ______________________________
+
+    def test_klg04_order_d():
+        """layout.tbl must include migration_flags between weight and slice_ns."""
+        body = LAYOUT.read_text()
+>       assert "FIELD migration_flags u32 8 4" in body
+E       AssertionError: assert 'FIELD migration_flags u32 8 4' in 'STRUCT sched_entity\nFIELD pid u32 0 4\nFIELD weight u32 4 4\nFIELD slice_ns u64 8 8\n'
+
+/tests/test_outputs.py:69: AssertionError
+_____________________________ test_klg05_guard_ok ______________________________
+
+    def test_klg05_guard_ok():
+        """Successful synctab must leave offline_guard.ok enforced."""
+>       assert GUARD.read_text().strip() == "1"
+               ^^^^^^^^^^^^^^^^^
+
+/tests/test_outputs.py:75: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/local/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/app/lagpipe/synctab_out/offline_guard.ok'), mode = 'r'
+buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/app/lagpipe/synctab_out/offline_guard.ok'
+
+/usr/local/lib/python3.13/pathlib/_local.py:537: FileNotFoundError
+____________________________ test_klg06_all_pulses _____________________________
+
+    def test_klg06_all_pulses():
+        """Every memvault sample must match its sibling reference card."""
+        for capture in sorted(LANES.glob("*.mem")):
+>           assert _inspect(capture) == _card(capture.stem)
+E           AssertionError: assert {'pid': 4421,...weight': 1024} == {'migration_f..._entity', ...}
+E             
+E             Omitting 3 identical items, use -vv to show
+E             Differing items:
+E             {'slice_ns': 107374182400000007} != {'slice_ns': 25000000}
+E             Right contains 1 more item:
+E             {'migration_flags': 7}
+E             Use -v to get more diff
+
+/tests/test_outputs.py:81: AssertionError
+____________________________ test_klg07_live_parity ____________________________
+
+    def test_klg07_live_parity():
+        """synctab_out layout.tbl field lines must match the livekern export."""
+>       assert _field_lines(LAYOUT) == _field_lines(LIVE_EXPORT)
+E       AssertionError: assert ['FIELD pid u...e_ns u64 8 8'] == ['FIELD pid u..._ns u64 12 8']
+E         
+E         At index 2 diff: 'FIELD slice_ns u64 8 8' != 'FIELD migration_flags u32 8 4'
+E         Right contains one more item: 'FIELD slice_ns u64 12 8'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:86: AssertionError
+___________________________ test_klg08_stamp_prefix ____________________________
+
+    def test_klg08_stamp_prefix():
+        """procance.tag must record live: not bundle: after repair."""
+        tag = PROCANCE.read_text().strip()
+>       assert tag.startswith("live:")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7ad9baf40830>('live:')
+E        +    where <built-in method startswith of str object at 0x7ad9baf40830> = 'bundle:6.8.12'.startswith
+
+/tests/test_outputs.py:92: AssertionError
+____________________________ test_klg09_pulse_a_mig ____________________________
+
+    def test_klg09_pulse_a_mig():
+        """pulse_a migration_flags must match its reference card."""
+>       assert _inspect(LANE_A)["migration_flags"] == _card("pulse_a")["migration_flags"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'migration_flags'
+
+/tests/test_outputs.py:97: KeyError
+___________________________ test_klg10_pulse_a_slice ___________________________
+
+    def test_klg10_pulse_a_slice():
+        """pulse_a slice_ns must match its reference card."""
+>       assert _inspect(LANE_A)["slice_ns"] == _card("pulse_a")["slice_ns"]
+E       assert 107374182400000007 == 25000000
+
+/tests/test_outputs.py:102: AssertionError
+___________________________ test_klg11_pulse_b_slice ___________________________
+
+    def test_klg11_pulse_b_slice():
+        """Held-out pulse_b slice_ns must match its reference card."""
+>       assert _inspect(LANE_B)["slice_ns"] == _card("pulse_b")["slice_ns"]
+E       assert 80530636800000002 == 18750000
+
+/tests/test_outputs.py:107: AssertionError
+_____________________________ test_klg12_json_keys _____________________________
+
+    def test_klg12_json_keys():
+        """inspect JSON must expose pid, weight, migration_flags, and slice_ns."""
+        keys = set(_inspect(LANE_A).keys())
+>       assert keys == {"struct", "pid", "weight", "migration_flags", "slice_ns"}
+E       AssertionError: assert {'pid', 'slic...ct', 'weight'} == {'migration_f...ct', 'weight'}
+E         
+E         Extra items in the right set:
+E         'migration_flags'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:113: AssertionError
+____________________________ test_klg14_pick_reject ____________________________
+
+    def test_klg14_pick_reject():
+        """synctab must exit non-zero when layout pick would record a bundle origin."""
+        saved = LAGPICK.read_bytes()
+        GUARD.unlink(missing_ok=True)
+        LAGPICK.write_bytes(ORIGIN_FIXTURE.read_bytes())
+>       subprocess.run(LINK, check=True)
+
+/tests/test_outputs.py:126: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+input = None, capture_output = False, timeout = None, check = True
+popenargs = (['make', '-C', '/app/lagpipe', 'bind'],), kwargs = {}
+process = <Popen: returncode: 2 args: ['make', '-C', '/app/lagpipe', 'bind']>
+stdout = None, stderr = None, retcode = 2
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['make', '-C', '/app/lagpipe', 'bind']' returned non-zero exit status 2.
+
+/usr/local/lib/python3.13/subprocess.py:577: CalledProcessError
+----------------------------- Captured stdout call -----------------------------
+make: Entering directory '/app/lagpipe'
+mkdir -p /app/bin /app/lagpipe/synctab_out
+cc -O2 -Wall -Wextra -Isynclink -Itagc -o /app/bin/kernscribe synclink/driver.c synclink/field_emit.c synclink/parse_layout.c synclink/rebuild.c ../relc/input.c tblw/emit_writer.c tagc/gate.c
+make: Leaving directory '/app/lagpipe'
+----------------------------- Captured stderr call -----------------------------
+tblw/emit_writer.c:1:10: fatal error: ../lagpipe/synclink/common.h: No such file or directory
+    1 | #include "../lagpipe/synclink/common.h"
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+compilation terminated.
+make: *** [Makefile:9: bind] Error 1
+__________________________ test_klg_zz_stamp_recovery __________________________
+
+    def test_klg_zz_stamp_recovery():
+        """synctab must rebuild synctab_out after corrupt hand-written layout artifacts."""
+        LAYOUT.write_text("STRUCT sched_entity\nFIELD pid u32 0 4\nFIELD weight u32 4 4\n")
+        PROCANCE.write_text("bundle:6.8.12\n")
+        GUARD.write_text("1\n")
+        proc = _run_synctab()
+>       assert proc.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/app/bin/kernscribe', 'synctab'], returncode=1, stdout='', stderr='imprint: rebuild failed\n').returncode
+
+/tests/test_outputs.py:141: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_klg13_weight_value
+FAILED ../tests/test_outputs.py::test_klg01_tag_live - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_klg02_pulse_a - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_klg03_pulse_b - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_klg04_order_d - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_klg05_guard_ok - FileNotFoundError: [Er...
+FAILED ../tests/test_outputs.py::test_klg06_all_pulses - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_klg07_live_parity - AssertionError: ass...
+FAILED ../tests/test_outputs.py::test_klg08_stamp_prefix - AssertionError: as...
+FAILED ../tests/test_outputs.py::test_klg09_pulse_a_mig - KeyError: 'migratio...
+FAILED ../tests/test_outputs.py::test_klg10_pulse_a_slice - assert 1073741824...
+FAILED ../tests/test_outputs.py::test_klg11_pulse_b_slice - assert 8053063680...
+FAILED ../tests/test_outputs.py::test_klg12_json_keys - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_klg14_pick_reject - subprocess.CalledPr...
+FAILED ../tests/test_outputs.py::test_klg_zz_stamp_recovery - AssertionError:...
+========================= 14 failed, 1 passed in 0.70s =========================

@@ -1,0 +1,456 @@
+[?2004hroot@12ed7161f3a8:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@12ed7161f3a8:/app# clear
+[?2004l[H[J[3J[?2004hroot@12ed7161f3a8:/app# find /app/relaydesk -maxdepth 3 -type f -print | sort && printf '\n--- bin ---\n' && ls -l /app/bin/crashrail && printf '\n--- roster ---\n' && sed -n '1,240p' /app/faultdata/roster.toml
+[?2004l/app/relaydesk/__init__.py
+/app/relaydesk/cli_entry.py
+/app/relaydesk/gen/__init__.py
+/app/relaydesk/gen/routing_map.py
+/app/relaydesk/probes/file_present.py
+/app/relaydesk/switchboard/__init__.py
+/app/relaydesk/switchboard/direct.py
+/app/relaydesk/switchboard/load_map.py
+
+--- bin ---
+-rwxr-xr-x 1 root root 112 Sep  6 06:52 /app/bin/crashrail
+
+--- roster ---
+[roster]
+default_team = "platform-core"
+
+[[roster.signatures]]
+id = "SIG_NULL_DEREF_81c2"
+owner = "graphics-guild"
+
+[[roster.signatures]]
+id = "SIG_IO_TIMEOUT_4f91"
+owner = "storage-cell"
+
+[[roster.signatures]]
+id = "SIG_AUTH_LOOP_22bd"
+owner = "identity-ring"
+
+[[roster.signatures]]
+id = "SIG_NET_RESET_9e04"
+owner = "network-desk"
+
+[[roster.signatures]]
+id = "SIG_HEAP_OOM_7a3f"
+owner = "memory-squad"
+[?2004hroot@12ed7161f3a8:/app# printf '\n--- crashrail launcher ---\n'; sed -n '1,240p' /app/bin/crashrail; printf '\n--- python sources ---\n'; find /app/relaydesk -maxdepth 2 -type f -name '*.py' -not -path '*/probes/*' -exec sh -c 'echo "### $1"; sed -n "1,260p" "$1"' _ {} \;
+[?2004l
+--- crashrail launcher ---
+#!/bin/bash
+set -euo pipefail
+export PYTHONPATH="/app:${PYTHONPATH:-}"
+exec python3 -m relaydesk.cli_entry "$@"
+
+--- python sources ---
+### /app/relaydesk/switchboard/direct.py
+"""Signature to team routing."""
+
+from __future__ import annotations
+
+from relaydesk.switchboard.load_map import DEFAULT_TEAM, fetch_map
+
+
+def normalize(sig: str) -> str:
+    text = sig.strip().upper()
+    return text[4:]
+
+
+def direct(sig: str) -> tuple[str, str]:
+    table = fetch_map()
+    key = normalize(sig)
+    if key in table:
+        return table[key], "table"
+    return DEFAULT_TEAM, "default"
+### /app/relaydesk/switchboard/__init__.py
+"""Switchboard routing."""
+### /app/relaydesk/switchboard/load_map.py
+"""Load generated routing maps."""
+
+from __future__ import annotations
+
+from typing import Dict
+
+DEFAULT_TEAM = "platform-core"
+
+
+def fetch_map() -> Dict[str, str]:
+    try:
+        from relaydesk.gen.routing_map import SIGNATURE_OWNERS
+    except Exception:
+        return {}
+    if not isinstance(SIGNATURE_OWNERS, dict):
+        return {}
+    return {str(k): str(v) for k, v in SIGNATURE_OWNERS.items()}
+### /app/relaydesk/gen/__init__.py
+"""Generated routing map package."""
+### /app/relaydesk/gen/routing_map.py
+"""Generated routing map. Do not edit."""
+
+OWNERS = {
+    "SIG_NULL_DEREF_81c2": "graphics-guild",
+}
+### /app/relaydesk/__init__.py
+"""Relay desk crash routing."""
+### /app/relaydesk/cli_entry.py
+"""Crashrail command-line front door."""
+
+from __future__ import annotations
+
+import argparse
+import json
+
+from codemill.tablegen.driver import run_tablegen
+from relaydesk.switchboard.direct import direct
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="crashrail")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+
+    route = sub.add_parser("route")
+    route.add_argument("--signature", required=True)
+
+    sub.add_parser("compile")
+
+    args = parser.parse_args(argv)
+    if args.cmd == "compile":
+        return run_tablegen()
+    if args.cmd == "route":
+        team, source = direct(args.signature)
+        print(json.dumps({"team": team, "source": source}))
+        return 1 if source == "default" else 0
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+[?2004hroot@12ed7161f3a8:/app# /app/bin/crashrail compile; echo compile_rc=$?; /app/bin/crashrail route --signature SIG_NULL_DEREF_81c2; echo route_rc=$?; /app/bin/crashrail route --signature SIG_UNKNOWN_FFFF; echo unknown_rc=$?
+[?2004ltablegen done
+compile_rc=0
+{"team": "platform-core", "source": "default"}
+route_rc=1
+{"team": "platform-core", "source": "default"}
+unknown_rc=1
+[?2004hroot@12ed7161f3a8:/app# python3 - <<'PY'
+[?2004l[?2004h> import codemill.tablegen.driver as d
+[?2004l[?2004h> print(d.__file__)
+[?2004l[?2004h> PY
+[?2004l/app/codemill/tablegen/driver.py
+[?2004hroot@12ed7161f3a8:/app# find /app -type f \( -path '*/codemill/*' -o -name '*tablegen*' \) -print | sort
+[?2004l/app/codemill/__init__.py
+/app/codemill/__pycache__/__init__.cpython-313.pyc
+/app/codemill/tablegen/__init__.py
+/app/codemill/tablegen/__pycache__/__init__.cpython-313.pyc
+/app/codemill/tablegen/__pycache__/ast_read.cpython-313.pyc
+/app/codemill/tablegen/__pycache__/driver.cpython-313.pyc
+/app/codemill/tablegen/__pycache__/guard.cpython-313.pyc
+/app/codemill/tablegen/__pycache__/publish.cpython-313.pyc
+/app/codemill/tablegen/__pycache__/roster_read.cpython-313.pyc
+/app/codemill/tablegen/ast_read.py
+/app/codemill/tablegen/driver.py
+/app/codemill/tablegen/guard.py
+/app/codemill/tablegen/publish.py
+/app/codemill/tablegen/roster_read.py
+[?2004hroot@12ed7161f3a8:/app# printf '\n--- generated after compile ---\n'; cat /app/relaydesk/gen/routing_map.py
+[?2004l
+--- generated after compile ---
+"""Generated routing map. Do not edit."""
+
+OWNERS = {
+    "SIG_NULL_DEREF_81c2": "graphics-guild",
+}
+[?2004hroot@12ed7161f3a8:/app# python3 - <<'PY'
+[?2004l[?2004h> import codemill.tablegen.driver as d
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p=Path(d.__file__)
+[?2004l[?2004h> for f in sorted(p.parent.rglob('*')):
+[?2004l[?2004h>     if f.is_file() and f.suffix in {'.py','.toml','.json','.txt'}:
+[?2004l[?2004h>         print(f'### {f}')
+[?2004l[?2004h>         print(f.read_text())
+[?2004l[?2004h> PY
+[?2004l### /app/codemill/tablegen/__init__.py
+"""Roster-driven routing table compiler."""
+
+### /app/codemill/tablegen/ast_read.py
+"""AST helpers for generated maps."""
+
+from __future__ import annotations
+
+import ast
+from typing import Dict
+
+
+def read_map_literal(text: str) -> Dict[str, str]:
+    tree = ast.parse(text)
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == "SIGNATURE_OWNERS":
+                    raw = ast.literal_eval(node.value)
+                    if not isinstance(raw, dict):
+                        raise ValueError("not a dict")
+                    return {str(k): str(v) for k, v in raw.items()}
+    raise ValueError("SIGNATURE_OWNERS not found")
+
+### /app/codemill/tablegen/driver.py
+"""Compile driver."""
+
+from __future__ import annotations
+
+import sys
+
+from codemill.tablegen.publish import emit_map
+
+
+def run_tablegen() -> int:
+    emit_map()
+    print("tablegen done", file=sys.stderr)
+    return 0
+
+### /app/codemill/tablegen/guard.py
+"""Skip-if-unchanged guard for routing map writes."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from codemill.tablegen.ast_read import read_map_literal
+
+
+def should_emit(path: Path, fresh_body: str) -> bool:
+    if not path.exists():
+        return True
+    try:
+        on_disk = read_map_literal(path.read_text())
+    except (SyntaxError, ValueError):
+        on_disk = None
+    if on_disk is None:
+        return False
+    return on_disk == read_map_literal(fresh_body)
+
+### /app/codemill/tablegen/publish.py
+"""Write routing_map.py from roster rows."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from codemill.tablegen.guard import should_emit
+from codemill.tablegen.roster_read import load_pairs
+
+OUT = Path("/app/relaydesk/gen/routing_map.py")
+
+
+def build_source(rows: list[tuple[str, str]]) -> str:
+    lines = ['"""Generated routing map. Do not edit."""', "", "OWNERS = {"]
+    for sig, team in sorted(rows):
+        lines.append(f'    "{sig}": "{team}",')
+    lines.append("}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def emit_map(path: Path | None = None) -> bool:
+    target = path or OUT
+    target.parent.mkdir(parents=True, exist_ok=True)
+    body = build_source(load_pairs())
+    if not should_emit(target, body):
+        return False
+    target.write_text(body)
+    return True
+
+### /app/codemill/tablegen/roster_read.py
+"""Read fault roster TOML."""
+
+from __future__ import annotations
+
+import tomllib
+from pathlib import Path
+
+ROSTER = Path("/app/faultdata/roster.toml")
+
+
+def load_pairs(path: Path | None = None) -> list[tuple[str, str]]:
+    src = path or ROSTER
+    doc = tomllib.loads(src.read_text())
+    pairs: list[tuple[str, str]] = []
+    for row in doc.get("roster", {}).get("signatures", []):
+        sig = str(row.get("id", "")).strip().upper()
+        team = str(row.get("owner", "")).strip()
+        if sig and team:
+            pairs.append((sig, team))
+    if not pairs:
+        raise ValueError("empty roster")
+    return pairs
+
+[?2004hroot@12ed7161f3a8:/app# cat > /app/codemill/tablegen/guard.py <<'PY'
+[?2004l[?2004h> """Skip-if-unchanged guard for routing map writes."""
+[?2004l[?2004h> 
+[?2004l[?2004h> from __future__ import annotations
+[?2004l[?2004h> 
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> 
+[?2004l[?2004h> from codemill.tablegen.ast_read import read_map_literal
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def should_emit(path: Path, fresh_body: str) -> bool:
+[?2004l[?2004h>     """Return true when *path* must be replaced by the freshly built map."""
+[?2004l[?2004h>     if not path.exists():
+[?2004l[?2004h>         return True
+[?2004l[?2004h>     try:
+[?2004l[?2004h>         on_disk = read_map_literal(path.read_text())
+[?2004l[?2004h>         fresh = read_map_literal(fresh_body)
+[?2004l[?2004h>     except (OSError, SyntaxError, ValueError, TypeError):
+[?2004l[?2004h>         # A malformed or incomplete generated module must never block repair.
+[?2004l[?2004h>         return True
+[?2004l[?2004h>     return on_disk != fresh
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@12ed7161f3a8:/app# cat > /app/codemill/tablegen/roster_read.py <<'PY'
+[?2004l[?2004h> """Read fault roster TOML."""
+[?2004l[?2004h> 
+[?2004l[?2004h> from __future__ import annotations
+[?2004l[?2004h> 
+[?2004l[?2004h> import tomllib
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> 
+[?2004l[?2004h> ROSTER = Path("/app/faultdata/roster.toml")
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def load_pairs(path: Path | None = None) -> list[tuple[str, str]]:
+[?2004l[?2004h>     src = path or ROSTER
+[?2004l[?2004h>     doc = tomllib.loads(src.read_text())
+[?2004l[?2004h>     pairs: list[tuple[str, str]] = []
+[?2004l[?2004h>     seen: set[str] = set()
+[?2004l[?2004h>     for row in doc.get("roster", {}).get("signatures", []):
+[?2004l[?2004h>         sig = str(row.get("id", "")).strip()
+[?2004l[?2004h>         team = str(row.get("owner", "")).strip()
+[?2004l[?2004h>         if not sig or not team:
+[?2004l[?2004h>             continue
+[?2004l[?2004h>         if sig in seen:
+[?2004l[?2004h>             raise ValueError(f"duplicate signature id: {sig}")
+[?2004l[?2004h>         seen.add(sig)
+[?2004l[?2004h>         pairs.append((sig, team))
+[?2004l[?2004h>     if not pairs:
+[?2004l[?2004h>         raise ValueError("empty roster")
+[?2004l[?2004h>     return pairs
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@12ed7161f3a8:/app# cat > /app/codemill/tablegen/publish.py <<'PY'
+[?2004l[?2004h> """Write routing_map.py from roster rows."""
+[?2004l[?2004h> 
+[?2004l[?2004h> from __future__ import annotations
+[?2004l[?2004h> 
+[?2004l[?2004h> import os
+[?2004l[?2004h> import tempfile
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> 
+[?2004l[?2004h> from codemill.tablegen.guard import should_emit
+[?2004l[?2004h> from codemill.tablegen.roster_read import load_pairs
+[?2004l[?2004h> 
+[?2004l[?2004h> OUT = Path("/app/relaydesk/gen/routing_map.py")
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def build_source(rows: list[tuple[str, str]]) -> str:
+[?2004l[?2004h>     lines = ['"""Generated routing map. Do not edit."""', "", "SIGNATURE_OWNERS = {"]
+[?2004l[?2004h>     for sig, team in sorted(rows):
+[?2004l[?2004h>         lines.append(f"    {sig!r}: {team!r},")
+[?2004l[?2004h>     lines.extend(["}", ""])
+[?2004l[?2004h>     return "\n".join(lines)
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def emit_map(path: Path | None = None) -> bool:
+[?2004l[?2004h>     target = path or OUT
+[?2004l[?2004h>     target.parent.mkdir(parents=True, exist_ok=True)
+[?2004l[?2004h>     body = build_source(load_pairs())
+[?2004l[?2004h>     if not should_emit(target, body):
+[?2004l[?2004h>         return False
+[?2004l[?2004h> 
+[?2004l[?2004h>     # Publish atomically so readers see either the old complete module or the
+[?2004l[?2004h>     # new complete module, never a partially written Python file.
+[?2004l[?2004h>     fd, temporary = tempfile.mkstemp(prefix=f".{target.name}.", dir=target.parent)
+[?2004l[?2004h>     try:
+[?2004l[?2004h>         with os.fdopen(fd, "w") as stream:
+[?2004l[?2004h>             stream.write(body)
+[?2004l[?2004h>             stream.flush()
+[?2004l[?2004h>             os.fsync(stream.fileno())
+[?2004l[?2004h>         os.replace(temporary, target)
+[?2004l[?2004h>     except BaseException:
+[?2004l[?2004h>         try:
+[?2004l[?2004h>             os.unlink(temporary)
+[?2004l[?2004h>         except FileNotFoundError:
+[?2004l[?2004h>             pass
+[?2004l[?2004h>         raise
+[?2004l[?2004h>     return True
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@12ed7161f3a8:/app# cat > /app/relaydesk/switchboard/direct.py <<'PY'
+[?2004l[?2004h> """Signature to team routing."""
+[?2004l[?2004h> 
+[?2004l[?2004h> from __future__ import annotations
+[?2004l[?2004h> 
+[?2004l[?2004h> from relaydesk.switchboard.load_map import DEFAULT_TEAM, fetch_map
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def normalize(sig: str) -> str:
+[?2004l[?2004h>     return sig.strip()
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def direct(sig: str) -> tuple[str, str]:
+[?2004l[?2004h>     table = fetch_map()
+[?2004l[?2004h>     key = normalize(sig)
+[?2004l[?2004h>     if key in table:
+[?2004l[?2004h>         return table[key], "table"
+[?2004l[?2004h>     return DEFAULT_TEAM, "default"
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@12ed7161f3a8:/app# python3 -m py_compile /app/codemill/tablegen/*.py /app/relaydesk/switchboard/*.py /app/relaydesk/cli_entry.py
+[?2004l[?2004hroot@12ed7161f3a8:/app# /app/bin/crashrail compile
+[?2004ltablegen done
+[?2004hroot@12ed7161f3a8:/app# printf '%s\n' '--- generated ---'; cat /app/relaydesk/gen/routing_map.py
+[?2004l--- generated ---
+"""Generated routing map. Do not edit."""
+
+SIGNATURE_OWNERS = {
+    'SIG_AUTH_LOOP_22bd': 'identity-ring',
+    'SIG_HEAP_OOM_7a3f': 'memory-squad',
+    'SIG_IO_TIMEOUT_4f91': 'storage-cell',
+    'SIG_NET_RESET_9e04': 'network-desk',
+    'SIG_NULL_DEREF_81c2': 'graphics-guild',
+}
+[?2004hroot@12ed7161f3a8:/app# python3 - <<'PY'
+[?2004l[?2004h> import tomllib
+[?2004l[?2004h> from relaydesk.gen.routing_map import SIGNATURE_OWNERS
+[?2004l[?2004h> with open('/app/faultdata/roster.toml', 'rb') as f:
+[?2004l[?2004h>     rows = tomllib.load(f)['roster']['signatures']
+[?2004l[?2004h> expected = {row['id']: row['owner'] for row in rows}
+[?2004l[?2004h> assert SIGNATURE_OWNERS == expected, (SIGNATURE_OWNERS, expected)
+[?2004l[?2004h> print(f'verified {len(expected)} roster entries')
+[?2004l[?2004h> PY
+[?2004lverified 5 roster entries
+[?2004hroot@12ed7161f3a8:/app# /app/bin/crashrail route --signature SIG_NULL_DEREF_81c2; echo known_rc=$?
+[?2004l{"team": "graphics-guild", "source": "table"}
+known_rc=0
+[?2004hroot@12ed7161f3a8:/app# /app/bin/crashrail route --signature SIG_UNKNOWN_FFFF; echo unknown_rc=$?
+[?2004l{"team": "platform-core", "source": "default"}
+unknown_rc=1
+[?2004hroot@12ed7161f3a8:/app# printf 'this is not valid python = {\n' > /app/relaydesk/gen/routing_map.py
+[?2004l[?2004hroot@12ed7161f3a8:/app# /app/bin/crashrail compile; echo recovery_compile_rc=$?
+[?2004ltablegen done
+recovery_compile_rc=0
+[?2004hroot@12ed7161f3a8:/app# python3 -m py_compile /app/relaydesk/gen/routing_map.py
+[?2004l[?2004hroot@12ed7161f3a8:/app# python3 - <<'PY'
+[?2004l[?2004h> import tomllib
+[?2004l[?2004h> from relaydesk.gen.routing_map import SIGNATURE_OWNERS
+[?2004l[?2004h> with open('/app/faultdata/roster.toml', 'rb') as f:
+[?2004l[?2004h>     rows = tomllib.load(f)['roster']['signatures']
+[?2004l[?2004h> assert all(SIGNATURE_OWNERS.get(r['id']) == r['owner'] for r in rows)
+[?2004l[?2004h> assert len(SIGNATURE_OWNERS) == len(rows)
+[?2004l[?2004h> print('corruption recovery and completeness verified')
+[?2004l[?2004h> PY
+[?2004lcorruption recovery and completeness verified
+[?2004hroot@12ed7161f3a8:/app# /app/bin/crashrail route --signature SIG_NULL_DEREF_81c2; echo final_route_rc=$?
+[?2004l{"team": "graphics-guild", "source": "table"}
+final_route_rc=0
+[?2004hroot@12ed7161f3a8:/app# 

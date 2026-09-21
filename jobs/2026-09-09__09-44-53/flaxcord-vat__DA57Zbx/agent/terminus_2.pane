@@ -1,0 +1,1383 @@
+[?2004hroot@bf56991e393b:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@bf56991e393b:/app# clear
+[?2004l[H[J[3J[?2004hroot@bf56991e393b:/app# cat /app/vatnotes/ROUTE.txt && printf '\n--- forms ---\n' && cat /app/vatnotes/forms.txt
+[?2004lCapture mill modules:
+
+- /app/cordspin
+- /app/chunkvat
+- /app/emitbay
+
+CLI hull lives under /app/flaxcli. Rebuild with /app/hull.sh. Desk also links with make -C /app/flaxcli -f hull.mk OUT=/tmp/flaxcord.ref.
+
+`--serial-decode` joins decode workers one at a time. Ops turned it on when differ went red; unreels still matched.
+
+--- forms ---
+Compact file (little endian):
+
+FLX1
+u64 stamp
+u32 nstr
+nstr times: u16 len, len bytes (no NUL)
+u32 nsamp
+nsamp times: u16 depth, depth u32 ids, u32 hits
+u32 nlab
+nlab times: u16 len, len bytes (chunk label)
+
+unreel line: joined frames with '>' then space COUNT space hits
+
+differ writes /app/cordwell/differ.txt
+  quiet
+or
+  noisy
+
+Capture chunk text:
+SEQ <n>
+<frame>
+...
+HITS <n>
+END
+[?2004hroot@bf56991e393b:/app# printf '\n--- files ---\n'; find /app -maxdepth 3 -type f -printf '%p\n' | sort
+[?2004l
+--- files ---
+/app/bin/flaxcord
+/app/chunkvat/walk.c
+/app/chunkvat/walk.h
+/app/chunkvat/walk.o
+/app/cordspin/bag.c
+/app/cordspin/bag.h
+/app/cordspin/bag.o
+/app/cordwell/live.pfl
+/app/cordwell/spin.ok
+/app/differbay/cmp.c
+/app/differbay/cmp.h
+/app/differbay/cmp.o
+/app/emitbay/pour.c
+/app/emitbay/pour.h
+/app/emitbay/pour.o
+/app/flaxcli/hull.c
+/app/flaxcli/hull.mk
+/app/flaxcli/hull.o
+/app/flaxcli/serial.c
+/app/flaxcli/serial.h
+/app/flaxcli/serial.o
+/app/flaxcli/token.c
+/app/flaxcli/token.h
+/app/flaxcli/token.o
+/app/flaxcli/wire.h
+/app/hull.sh
+/app/spoolbay/day/k0.chk
+/app/spoolbay/day/k1.chk
+/app/spoolbay/day/k2.chk
+/app/spoolbay/dusk/m2.chk
+/app/spoolbay/dusk/m7.chk
+/app/spoolbay/dusk/m9.chk
+/app/unreelkit/show.c
+/app/unreelkit/show.h
+/app/unreelkit/show.o
+/app/vatnotes/ROUTE.txt
+/app/vatnotes/forms.txt
+[?2004hroot@bf56991e393b:/app# printf '\n--- binary ---\n'; file /app/bin/flaxcord; xxd -l 16 /app/bin/flaxcord
+[?2004l
+--- binary ---
+/app/bin/flaxcord: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, not stripped
+bash: xxd: command not found
+[?2004hroot@bf56991e393b:/app# for f in /app/cordspin/*.[ch] /app/chunkvat/*.[ch] /app/emitbay/*.[ch]; do echo "===== $f ====="; sed -n '1,260p' "$f"; done
+[?2004l===== /app/cordspin/bag.c =====
+#include "bag.h"
+
+#include <string.h>
+
+#define MAX_PLACE 256
+
+static char names[MAX_PLACE][80];
+static uint32_t ids[MAX_PLACE];
+static uint32_t ntab;
+
+void bag_reset(void)
+{
+	ntab = 0;
+}
+
+uint32_t op_bag(const char *a)
+{
+	uint32_t i;
+
+	if (!a)
+		a = "";
+	for (i = 0; i < ntab; i++) {
+		if (strcmp(names[i], a) == 0)
+			return ids[i];
+	}
+	if (ntab >= MAX_PLACE)
+		return 0;
+	strncpy(names[ntab], a, 79);
+	names[ntab][79] = 0;
+	ids[ntab] = ntab;
+	ntab++;
+	return ids[ntab - 1];
+}
+
+void bag_freeze(void)
+{
+}
+
+const char *bag_get(uint32_t id)
+{
+	uint32_t i;
+
+	for (i = 0; i < ntab; i++) {
+		if (ids[i] == id)
+			return names[i];
+	}
+	return "";
+}
+
+uint32_t bag_n(void)
+{
+	return ntab;
+}
+===== /app/cordspin/bag.h =====
+#ifndef BAG_H
+#define BAG_H
+
+#include <stdint.h>
+
+void bag_reset(void);
+uint32_t op_bag(const char *a);
+void bag_freeze(void);
+const char *bag_get(uint32_t id);
+uint32_t bag_n(void);
+
+#endif
+===== /app/chunkvat/walk.c =====
+#include "walk.h"
+
+#include <dirent.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "../flaxcli/serial.h"
+
+#define NB 16
+
+struct ent {
+	char path[512];
+	struct ent *next;
+};
+
+static struct samp tab[MAX_CH];
+static int ntab;
+static struct ent *buck[NB];
+
+static unsigned hname(const char *s)
+{
+	unsigned h = 2166136261u;
+
+	while (*s)
+		h = (h ^ (unsigned char)*s++) * 16777619u;
+	return h % NB;
+}
+
+static int parse_one(const char *path, struct samp *out)
+{
+	FILE *fp;
+	char line[128];
+	int got_end = 0;
+
+	memset(out, 0, sizeof(*out));
+	fp = fopen(path, "r");
+	if (!fp)
+		return -1;
+	while (fgets(line, sizeof(line), fp)) {
+		char *nl = strchr(line, '\n');
+		if (nl)
+			*nl = 0;
+		if (strncmp(line, "SEQ ", 4) == 0)
+			out->seq = (uint32_t)atoi(line + 4);
+		else if (strncmp(line, "HITS ", 5) == 0)
+			out->hits = (uint32_t)atoi(line + 5);
+		else if (strcmp(line, "END") == 0)
+			got_end = 1;
+		else if (line[0] && out->depth < MAX_FR) {
+			strncpy(out->fr[out->depth], line, MAX_LN - 1);
+			out->depth++;
+		}
+	}
+	fclose(fp);
+	(void)got_end;
+	return 0;
+}
+
+int cfg_walk(const char *a)
+{
+	DIR *d;
+	struct dirent *de;
+	int i;
+
+	ntab = 0;
+	for (i = 0; i < NB; i++)
+		buck[i] = NULL;
+	(void)g_join;
+	d = opendir(a ? a : ".");
+	if (!d)
+		return -1;
+	while ((de = readdir(d)) != NULL) {
+		struct ent *e;
+		unsigned h;
+
+		if (de->d_name[0] == '.')
+			continue;
+		if (!strstr(de->d_name, ".chk"))
+			continue;
+		h = hname(de->d_name);
+		e = calloc(1, sizeof(*e));
+		if (!e)
+			continue;
+		snprintf(e->path, sizeof(e->path), "%s/%s", a, de->d_name);
+		e->next = buck[h];
+		buck[h] = e;
+	}
+	closedir(d);
+	for (i = 0; i < NB; i++) {
+		struct ent *e = buck[i];
+		while (e) {
+			struct ent *n = e->next;
+			if (ntab < MAX_CH) {
+				if (parse_one(e->path, &tab[ntab]) == 0) {
+					const char *slash = strrchr(e->path, '/');
+					strncpy(tab[ntab].lab, slash ? slash + 1 : e->path, MAX_LN - 1);
+					ntab++;
+				}
+			}
+			free(e);
+			e = n;
+		}
+		buck[i] = NULL;
+	}
+	return 0;
+}
+
+int walk_n(void)
+{
+	return ntab;
+}
+
+struct samp *walk_at(int i)
+{
+	if (i < 0 || i >= ntab)
+		return NULL;
+	return &tab[i];
+}
+===== /app/chunkvat/walk.h =====
+#ifndef WALK_H
+#define WALK_H
+
+#include "../flaxcli/wire.h"
+
+int cfg_walk(const char *a);
+int walk_n(void);
+struct samp *walk_at(int i);
+
+#endif
+===== /app/emitbay/pour.c =====
+#include "pour.h"
+
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <time.h>
+
+#include "../cordspin/bag.h"
+#include "../chunkvat/walk.h"
+#include "../flaxcli/wire.h"
+
+static void wr16(FILE *fp, uint16_t v)
+{
+	unsigned char b[2];
+
+	b[0] = (unsigned char)(v & 0xff);
+	b[1] = (unsigned char)((v >> 8) & 0xff);
+	fwrite(b, 1, 2, fp);
+}
+
+static void wr32(FILE *fp, uint32_t v)
+{
+	unsigned char b[4];
+
+	b[0] = (unsigned char)(v & 0xff);
+	b[1] = (unsigned char)((v >> 8) & 0xff);
+	b[2] = (unsigned char)((v >> 16) & 0xff);
+	b[3] = (unsigned char)((v >> 24) & 0xff);
+	fwrite(b, 1, 4, fp);
+}
+
+static void wr64(FILE *fp, uint64_t v)
+{
+	unsigned char b[8];
+	int i;
+
+	for (i = 0; i < 8; i++)
+		b[i] = (unsigned char)((v >> (8 * i)) & 0xff);
+	fwrite(b, 1, 8, fp);
+}
+
+int n_pour(const char *a)
+{
+	FILE *fp;
+	struct timespec ts;
+	uint64_t stamp;
+	int i, j;
+	uint32_t ns, nlab;
+
+	if (!a)
+		return -1;
+	bag_reset();
+	for (i = 0; i < walk_n(); i++) {
+		struct samp *s = walk_at(i);
+		if (!s)
+			continue;
+		for (j = 0; j < s->depth; j++)
+			op_bag(s->fr[j]);
+	}
+	bag_freeze();
+	clock_gettime(CLOCK_REALTIME, &ts);
+	stamp = (uint64_t)ts.tv_sec * 1000000ull + (uint64_t)(ts.tv_nsec / 1000);
+	fp = fopen(a, "wb");
+	if (!fp)
+		return -1;
+	fwrite(MAGIC, 1, 4, fp);
+	wr64(fp, stamp);
+	ns = bag_n();
+	wr32(fp, ns);
+	for (i = 0; i < (int)ns; i++) {
+		const char *nm = bag_get((uint32_t)i);
+		uint16_t ln = (uint16_t)strlen(nm ? nm : "");
+		wr16(fp, ln);
+		fwrite(nm ? nm : "", 1, ln, fp);
+	}
+	wr32(fp, (uint32_t)walk_n());
+	for (i = 0; i < walk_n(); i++) {
+		struct samp *s = walk_at(i);
+		wr16(fp, (uint16_t)s->depth);
+		for (j = 0; j < s->depth; j++)
+			wr32(fp, op_bag(s->fr[j]));
+		wr32(fp, s->hits);
+	}
+	nlab = (uint32_t)walk_n();
+	wr32(fp, nlab);
+	for (i = 0; i < walk_n(); i++) {
+		struct samp *s = walk_at(i);
+		uint16_t ln = (uint16_t)strlen(s->lab);
+		wr16(fp, ln);
+		fwrite(s->lab, 1, ln, fp);
+	}
+	fclose(fp);
+	return 0;
+}
+===== /app/emitbay/pour.h =====
+#ifndef POUR_H
+#define POUR_H
+
+int n_pour(const char *a);
+
+#endif
+[?2004hroot@bf56991e393b:/app# for f in /app/flaxcli/*.[ch] /app/flaxcli/hull.mk /app/hull.sh; do echo "===== $f ====="; sed -n '1,300p' "$f"; done
+[?2004l===== /app/flaxcli/hull.c =====
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include "serial.h"
+#include "../cordspin/bag.h"
+#include "../chunkvat/walk.h"
+#include "../emitbay/pour.h"
+#include "../differbay/cmp.h"
+#include "../unreelkit/show.h"
+
+static void mark_ok(void)
+{
+	FILE *fp;
+
+	mkdir("/app/cordwell", 0755);
+	fp = fopen("/app/cordwell/spin.ok", "w");
+	if (fp) {
+		fputs("ok\n", fp);
+		fclose(fp);
+	}
+}
+
+static void clear_ok(void)
+{
+	unlink("/app/cordwell/spin.ok");
+}
+
+int main(int argc, char **argv)
+{
+	take_join(argc, argv);
+	if (argc < 2) {
+		fputs("usage\n", stderr);
+		return 2;
+	}
+	if (strcmp(argv[1], "spin") == 0) {
+		const char *dir;
+		const char *outp;
+
+		if (argc < 4)
+			return 2;
+		dir = argv[2];
+		outp = argv[3];
+		mkdir("/app/cordwell", 0755);
+		clear_ok();
+		bag_reset();
+		if (cfg_walk(dir) != 0)
+			return 1;
+		if (n_pour(outp) != 0)
+			return 1;
+		mark_ok();
+		return 0;
+	}
+	if (strcmp(argv[1], "unreel") == 0) {
+		if (argc < 3)
+			return 2;
+		return run_show(argv[2]);
+	}
+	if (strcmp(argv[1], "differ") == 0) {
+		if (argc < 4)
+			return 2;
+		mkdir("/app/cordwell", 0755);
+		return run_cmp(argv[2], argv[3], "/app/cordwell/differ.txt");
+	}
+	return 2;
+}
+===== /app/flaxcli/serial.c =====
+#include "serial.h"
+
+#include <string.h>
+
+int g_join;
+
+void take_join(int argc, char **argv)
+{
+	int i;
+
+	g_join = 0;
+	for (i = 1; i < argc; i++) {
+		if (strcmp(argv[i], "--serial-decode") == 0)
+			g_join = 1;
+	}
+}
+===== /app/flaxcli/serial.h =====
+#ifndef SERIAL_H
+#define SERIAL_H
+
+extern int g_join;
+void take_join(int argc, char **argv);
+
+#endif
+===== /app/flaxcli/token.c =====
+#include "token.h"
+
+#include <ctype.h>
+#include <string.h>
+
+void trim_copy(char *dst, const char *src, int cap)
+{
+	int n;
+
+	if (!dst || cap <= 0)
+		return;
+	dst[0] = 0;
+	if (!src)
+		return;
+	while (*src && isspace((unsigned char)*src))
+		src++;
+	strncpy(dst, src, (size_t)cap - 1);
+	dst[cap - 1] = 0;
+	n = (int)strlen(dst);
+	while (n > 0 && isspace((unsigned char)dst[n - 1])) {
+		dst[n - 1] = 0;
+		n--;
+	}
+}
+===== /app/flaxcli/token.h =====
+#ifndef TOKEN_H
+#define TOKEN_H
+
+void trim_copy(char *dst, const char *src, int cap);
+
+#endif
+===== /app/flaxcli/wire.h =====
+#ifndef WIRE_H
+#define WIRE_H
+
+#include <stdint.h>
+
+#define MAGIC "FLX1"
+#define MAX_NM 256
+#define MAX_FR 8
+#define MAX_CH 64
+#define MAX_LN 80
+
+struct samp {
+	char fr[MAX_FR][MAX_LN];
+	int depth;
+	uint32_t hits;
+	uint32_t seq;
+	char lab[MAX_LN];
+};
+
+#endif
+===== /app/flaxcli/hull.mk =====
+CC = gcc
+OUT ?= /app/bin/flaxcord
+CFLAGS = -O2 -Wall -I/app/flaxcli -I/app/cordspin -I/app/chunkvat -I/app/emitbay -I/app/differbay -I/app/unreelkit
+OBJS = hull.o serial.o token.o \
+	/app/cordspin/bag.o \
+	/app/chunkvat/walk.o \
+	/app/emitbay/pour.o \
+	/app/differbay/cmp.o \
+	/app/unreelkit/show.o
+
+.PHONY: hull
+
+hull: $(OUT)
+
+$(OUT): $(OBJS)
+	mkdir -p $(dir $(OUT))
+	$(CC) $(CFLAGS) -o $@ $(OBJS)
+
+hull.o: hull.c
+	$(CC) $(CFLAGS) -c hull.c -o hull.o
+
+serial.o: serial.c
+	$(CC) $(CFLAGS) -c serial.c -o serial.o
+
+token.o: token.c
+	$(CC) $(CFLAGS) -c token.c -o token.o
+
+/app/cordspin/bag.o: /app/cordspin/bag.c
+	$(CC) $(CFLAGS) -c /app/cordspin/bag.c -o /app/cordspin/bag.o
+
+/app/chunkvat/walk.o: /app/chunkvat/walk.c
+	$(CC) $(CFLAGS) -c /app/chunkvat/walk.c -o /app/chunkvat/walk.o
+
+/app/emitbay/pour.o: /app/emitbay/pour.c
+	$(CC) $(CFLAGS) -c /app/emitbay/pour.c -o /app/emitbay/pour.o
+
+/app/differbay/cmp.o: /app/differbay/cmp.c
+	$(CC) $(CFLAGS) -c /app/differbay/cmp.c -o /app/differbay/cmp.o
+
+/app/unreelkit/show.o: /app/unreelkit/show.c
+	$(CC) $(CFLAGS) -c /app/unreelkit/show.c -o /app/unreelkit/show.o
+===== /app/hull.sh =====
+#!/bin/bash
+set -euo pipefail
+mkdir -p /app/bin /app/cordwell
+make -C /app/flaxcli -f hull.mk hull
+[?2004hroot@bf56991e393b:/app# for d in day dusk; do echo "===== $d ====="; for f in /app/spoolbay/$d/*; do echo "--- $(basename "$f")"; cat "$f"; done; done
+[?2004l===== day =====
+--- k0.chk
+SEQ 1
+zeta.solo
+HITS 3
+END
+--- k1.chk
+SEQ 2
+mu.idle
+HITS 2
+END
+--- k2.chk
+SEQ 3
+alpha.tick
+HITS 4
+END
+===== dusk =====
+--- m2.chk
+SEQ 1
+zeta.solo
+HITS 3
+END
+--- m7.chk
+SEQ 2
+mu.idle
+HITS 2
+END
+--- m9.chk
+SEQ 3
+alpha.tick
+HITS 4
+END
+[?2004hroot@bf56991e393b:/app# nl -ba /app/emitbay/pour.c; echo '===== bag ====='; nl -ba /app/cordspin/bag.c; echo '===== walk ====='; nl -ba /app/chunkvat/walk.c
+[?2004l     1	#include "pour.h"
+     2	
+     3	#include <stdint.h>
+     4	#include <stdio.h>
+     5	#include <string.h>
+     6	#include <time.h>
+     7	
+     8	#include "../cordspin/bag.h"
+     9	#include "../chunkvat/walk.h"
+    10	#include "../flaxcli/wire.h"
+    11	
+    12	static void wr16(FILE *fp, uint16_t v)
+    13	{
+    14		unsigned char b[2];
+    15	
+    16		b[0] = (unsigned char)(v & 0xff);
+    17		b[1] = (unsigned char)((v >> 8) & 0xff);
+    18		fwrite(b, 1, 2, fp);
+    19	}
+    20	
+    21	static void wr32(FILE *fp, uint32_t v)
+    22	{
+    23		unsigned char b[4];
+    24	
+    25		b[0] = (unsigned char)(v & 0xff);
+    26		b[1] = (unsigned char)((v >> 8) & 0xff);
+    27		b[2] = (unsigned char)((v >> 16) & 0xff);
+    28		b[3] = (unsigned char)((v >> 24) & 0xff);
+    29		fwrite(b, 1, 4, fp);
+    30	}
+    31	
+    32	static void wr64(FILE *fp, uint64_t v)
+    33	{
+    34		unsigned char b[8];
+    35		int i;
+    36	
+    37		for (i = 0; i < 8; i++)
+    38			b[i] = (unsigned char)((v >> (8 * i)) & 0xff);
+    39		fwrite(b, 1, 8, fp);
+    40	}
+    41	
+    42	int n_pour(const char *a)
+    43	{
+    44		FILE *fp;
+    45		struct timespec ts;
+    46		uint64_t stamp;
+    47		int i, j;
+    48		uint32_t ns, nlab;
+    49	
+    50		if (!a)
+    51			return -1;
+    52		bag_reset();
+    53		for (i = 0; i < walk_n(); i++) {
+    54			struct samp *s = walk_at(i);
+    55			if (!s)
+    56				continue;
+    57			for (j = 0; j < s->depth; j++)
+    58				op_bag(s->fr[j]);
+    59		}
+    60		bag_freeze();
+    61		clock_gettime(CLOCK_REALTIME, &ts);
+    62		stamp = (uint64_t)ts.tv_sec * 1000000ull + (uint64_t)(ts.tv_nsec / 1000);
+    63		fp = fopen(a, "wb");
+    64		if (!fp)
+    65			return -1;
+    66		fwrite(MAGIC, 1, 4, fp);
+    67		wr64(fp, stamp);
+    68		ns = bag_n();
+    69		wr32(fp, ns);
+    70		for (i = 0; i < (int)ns; i++) {
+    71			const char *nm = bag_get((uint32_t)i);
+    72			uint16_t ln = (uint16_t)strlen(nm ? nm : "");
+    73			wr16(fp, ln);
+    74			fwrite(nm ? nm : "", 1, ln, fp);
+    75		}
+    76		wr32(fp, (uint32_t)walk_n());
+    77		for (i = 0; i < walk_n(); i++) {
+    78			struct samp *s = walk_at(i);
+    79			wr16(fp, (uint16_t)s->depth);
+    80			for (j = 0; j < s->depth; j++)
+    81				wr32(fp, op_bag(s->fr[j]));
+    82			wr32(fp, s->hits);
+    83		}
+    84		nlab = (uint32_t)walk_n();
+    85		wr32(fp, nlab);
+    86		for (i = 0; i < walk_n(); i++) {
+    87			struct samp *s = walk_at(i);
+    88			uint16_t ln = (uint16_t)strlen(s->lab);
+    89			wr16(fp, ln);
+    90			fwrite(s->lab, 1, ln, fp);
+    91		}
+    92		fclose(fp);
+    93		return 0;
+    94	}
+===== bag =====
+     1	#include "bag.h"
+     2	
+     3	#include <string.h>
+     4	
+     5	#define MAX_PLACE 256
+     6	
+     7	static char names[MAX_PLACE][80];
+     8	static uint32_t ids[MAX_PLACE];
+     9	static uint32_t ntab;
+    10	
+    11	void bag_reset(void)
+    12	{
+    13		ntab = 0;
+    14	}
+    15	
+    16	uint32_t op_bag(const char *a)
+    17	{
+    18		uint32_t i;
+    19	
+    20		if (!a)
+    21			a = "";
+    22		for (i = 0; i < ntab; i++) {
+    23			if (strcmp(names[i], a) == 0)
+    24				return ids[i];
+    25		}
+    26		if (ntab >= MAX_PLACE)
+    27			return 0;
+    28		strncpy(names[ntab], a, 79);
+    29		names[ntab][79] = 0;
+    30		ids[ntab] = ntab;
+    31		ntab++;
+    32		return ids[ntab - 1];
+    33	}
+    34	
+    35	void bag_freeze(void)
+    36	{
+    37	}
+    38	
+    39	const char *bag_get(uint32_t id)
+    40	{
+    41		uint32_t i;
+    42	
+    43		for (i = 0; i < ntab; i++) {
+    44			if (ids[i] == id)
+    45				return names[i];
+    46		}
+    47		return "";
+    48	}
+    49	
+    50	uint32_t bag_n(void)
+    51	{
+    52		return ntab;
+    53	}
+===== walk =====
+     1	#include "walk.h"
+     2	
+     3	#include <dirent.h>
+     4	#include <stdio.h>
+     5	#include <stdlib.h>
+     6	#include <string.h>
+     7	
+     8	#include "../flaxcli/serial.h"
+     9	
+    10	#define NB 16
+    11	
+    12	struct ent {
+    13		char path[512];
+    14		struct ent *next;
+    15	};
+    16	
+    17	static struct samp tab[MAX_CH];
+    18	static int ntab;
+    19	static struct ent *buck[NB];
+    20	
+    21	static unsigned hname(const char *s)
+    22	{
+    23		unsigned h = 2166136261u;
+    24	
+    25		while (*s)
+    26			h = (h ^ (unsigned char)*s++) * 16777619u;
+    27		return h % NB;
+    28	}
+    29	
+    30	static int parse_one(const char *path, struct samp *out)
+    31	{
+    32		FILE *fp;
+    33		char line[128];
+    34		int got_end = 0;
+    35	
+    36		memset(out, 0, sizeof(*out));
+    37		fp = fopen(path, "r");
+    38		if (!fp)
+    39			return -1;
+    40		while (fgets(line, sizeof(line), fp)) {
+    41			char *nl = strchr(line, '\n');
+    42			if (nl)
+    43				*nl = 0;
+    44			if (strncmp(line, "SEQ ", 4) == 0)
+    45				out->seq = (uint32_t)atoi(line + 4);
+    46			else if (strncmp(line, "HITS ", 5) == 0)
+    47				out->hits = (uint32_t)atoi(line + 5);
+    48			else if (strcmp(line, "END") == 0)
+    49				got_end = 1;
+    50			else if (line[0] && out->depth < MAX_FR) {
+    51				strncpy(out->fr[out->depth], line, MAX_LN - 1);
+    52				out->depth++;
+    53			}
+    54		}
+    55		fclose(fp);
+    56		(void)got_end;
+    57		return 0;
+    58	}
+    59	
+    60	int cfg_walk(const char *a)
+    61	{
+    62		DIR *d;
+    63		struct dirent *de;
+    64		int i;
+    65	
+    66		ntab = 0;
+    67		for (i = 0; i < NB; i++)
+    68			buck[i] = NULL;
+    69		(void)g_join;
+    70		d = opendir(a ? a : ".");
+    71		if (!d)
+    72			return -1;
+    73		while ((de = readdir(d)) != NULL) {
+    74			struct ent *e;
+    75			unsigned h;
+    76	
+    77			if (de->d_name[0] == '.')
+    78				continue;
+    79			if (!strstr(de->d_name, ".chk"))
+    80				continue;
+    81			h = hname(de->d_name);
+    82			e = calloc(1, sizeof(*e));
+    83			if (!e)
+    84				continue;
+    85			snprintf(e->path, sizeof(e->path), "%s/%s", a, de->d_name);
+    86			e->next = buck[h];
+    87			buck[h] = e;
+    88		}
+    89		closedir(d);
+    90		for (i = 0; i < NB; i++) {
+    91			struct ent *e = buck[i];
+    92			while (e) {
+    93				struct ent *n = e->next;
+    94				if (ntab < MAX_CH) {
+    95					if (parse_one(e->path, &tab[ntab]) == 0) {
+    96						const char *slash = strrchr(e->path, '/');
+    97						strncpy(tab[ntab].lab, slash ? slash + 1 : e->path, MAX_LN - 1);
+    98						ntab++;
+    99					}
+   100				}
+   101				free(e);
+   102				e = n;
+   103			}
+   104			buck[i] = NULL;
+   105		}
+   106		return 0;
+   107	}
+   108	
+   109	int walk_n(void)
+   110	{
+   111		return ntab;
+   112	}
+   113	
+   114	struct samp *walk_at(int i)
+   115	{
+   116		if (i < 0 || i >= ntab)
+   117			return NULL;
+   118		return &tab[i];
+   119	}
+[?2004hroot@bf56991e393b:/app# echo '===== show ====='; nl -ba /app/unreelkit/show.c; echo '===== cmp ====='; nl -ba /app/differbay/cmp.c; echo '===== hull ====='; nl -ba /app/flaxcli/hull.c
+[?2004l===== show =====
+     1	#include "show.h"
+     2	
+     3	#include <stdint.h>
+     4	#include <stdio.h>
+     5	#include <stdlib.h>
+     6	#include <string.h>
+     7	
+     8	static uint16_t rd16(FILE *fp)
+     9	{
+    10		unsigned char b[2];
+    11	
+    12		if (fread(b, 1, 2, fp) != 2)
+    13			return 0;
+    14		return (uint16_t)(b[0] | ((uint16_t)b[1] << 8));
+    15	}
+    16	
+    17	static uint32_t rd32(FILE *fp)
+    18	{
+    19		unsigned char b[4];
+    20	
+    21		if (fread(b, 1, 4, fp) != 4)
+    22			return 0;
+    23		return (uint32_t)b[0] | ((uint32_t)b[1] << 8) | ((uint32_t)b[2] << 16) |
+    24		       ((uint32_t)b[3] << 24);
+    25	}
+    26	
+    27	static uint64_t rd64(FILE *fp)
+    28	{
+    29		unsigned char b[8];
+    30		uint64_t v = 0;
+    31		int i;
+    32	
+    33		if (fread(b, 1, 8, fp) != 8)
+    34			return 0;
+    35		for (i = 0; i < 8; i++)
+    36			v |= (uint64_t)b[i] << (8 * i);
+    37		return v;
+    38	}
+    39	
+    40	int run_show(const char *a)
+    41	{
+    42		FILE *fp;
+    43		char mag[4];
+    44		uint32_t nstr, nsamp, i, j;
+    45		char **tab;
+    46	
+    47		fp = fopen(a, "rb");
+    48		if (!fp)
+    49			return 1;
+    50		if (fread(mag, 1, 4, fp) != 4) {
+    51			fclose(fp);
+    52			return 1;
+    53		}
+    54		(void)rd64(fp);
+    55		nstr = rd32(fp);
+    56		tab = calloc(nstr + 1, sizeof(char *));
+    57		for (i = 0; i < nstr; i++) {
+    58			uint16_t ln = rd16(fp);
+    59			tab[i] = calloc(ln + 1, 1);
+    60			if (ln)
+    61				fread(tab[i], 1, ln, fp);
+    62		}
+    63		nsamp = rd32(fp);
+    64		for (i = 0; i < nsamp; i++) {
+    65			uint16_t depth = rd16(fp);
+    66			for (j = 0; j < depth; j++) {
+    67				uint32_t id = rd32(fp);
+    68				if (j)
+    69					fputc('>', stdout);
+    70				if (id < nstr && tab[id])
+    71					fputs(tab[id], stdout);
+    72			}
+    73			printf(" COUNT %u\n", rd32(fp));
+    74		}
+    75		for (i = 0; i < nstr; i++)
+    76			free(tab[i]);
+    77		free(tab);
+    78		fclose(fp);
+    79		return 0;
+    80	}
+===== cmp =====
+     1	#include "cmp.h"
+     2	
+     3	#include <stdio.h>
+     4	#include <stdlib.h>
+     5	#include <string.h>
+     6	
+     7	int run_cmp(const char *a, const char *b, const char *outp)
+     8	{
+     9		FILE *fa, *fb, *fo;
+    10		unsigned char *x = NULL, *y = NULL;
+    11		long na, nb;
+    12		int same = 0;
+    13	
+    14		fa = fopen(a, "rb");
+    15		fb = fopen(b, "rb");
+    16		if (!fa || !fb) {
+    17			if (fa)
+    18				fclose(fa);
+    19			if (fb)
+    20				fclose(fb);
+    21			fo = fopen(outp, "w");
+    22			if (fo) {
+    23				fputs("noisy\n", fo);
+    24				fclose(fo);
+    25			}
+    26			return 1;
+    27		}
+    28		fseek(fa, 0, SEEK_END);
+    29		na = ftell(fa);
+    30		fseek(fa, 0, SEEK_SET);
+    31		fseek(fb, 0, SEEK_END);
+    32		nb = ftell(fb);
+    33		fseek(fb, 0, SEEK_SET);
+    34		if (na == nb && na >= 0) {
+    35			x = malloc((size_t)na);
+    36			y = malloc((size_t)nb);
+    37			if (x && y && fread(x, 1, (size_t)na, fa) == (size_t)na &&
+    38			    fread(y, 1, (size_t)nb, fb) == (size_t)nb)
+    39				same = memcmp(x, y, (size_t)na) == 0;
+    40		}
+    41		free(x);
+    42		free(y);
+    43		fclose(fa);
+    44		fclose(fb);
+    45		fo = fopen(outp, "w");
+    46		if (!fo)
+    47			return 1;
+    48		fputs(same ? "quiet\n" : "noisy\n", fo);
+    49		fclose(fo);
+    50		return same ? 0 : 1;
+    51	}
+===== hull =====
+     1	#include <stdio.h>
+     2	#include <stdlib.h>
+     3	#include <string.h>
+     4	#include <sys/stat.h>
+     5	#include <unistd.h>
+     6	
+     7	#include "serial.h"
+     8	#include "../cordspin/bag.h"
+     9	#include "../chunkvat/walk.h"
+    10	#include "../emitbay/pour.h"
+    11	#include "../differbay/cmp.h"
+    12	#include "../unreelkit/show.h"
+    13	
+    14	static void mark_ok(void)
+    15	{
+    16		FILE *fp;
+    17	
+    18		mkdir("/app/cordwell", 0755);
+    19		fp = fopen("/app/cordwell/spin.ok", "w");
+    20		if (fp) {
+    21			fputs("ok\n", fp);
+    22			fclose(fp);
+    23		}
+    24	}
+    25	
+    26	static void clear_ok(void)
+    27	{
+    28		unlink("/app/cordwell/spin.ok");
+    29	}
+    30	
+    31	int main(int argc, char **argv)
+    32	{
+    33		take_join(argc, argv);
+    34		if (argc < 2) {
+    35			fputs("usage\n", stderr);
+    36			return 2;
+    37		}
+    38		if (strcmp(argv[1], "spin") == 0) {
+    39			const char *dir;
+    40			const char *outp;
+    41	
+    42			if (argc < 4)
+    43				return 2;
+    44			dir = argv[2];
+    45			outp = argv[3];
+    46			mkdir("/app/cordwell", 0755);
+    47			clear_ok();
+    48			bag_reset();
+    49			if (cfg_walk(dir) != 0)
+    50				return 1;
+    51			if (n_pour(outp) != 0)
+    52				return 1;
+    53			mark_ok();
+    54			return 0;
+    55		}
+    56		if (strcmp(argv[1], "unreel") == 0) {
+    57			if (argc < 3)
+    58				return 2;
+    59			return run_show(argv[2]);
+    60		}
+    61		if (strcmp(argv[1], "differ") == 0) {
+    62			if (argc < 4)
+    63				return 2;
+    64			mkdir("/app/cordwell", 0755);
+    65			return run_cmp(argv[2], argv[3], "/app/cordwell/differ.txt");
+    66		}
+    67		return 2;
+    68	}
+[?2004hroot@bf56991e393b:/app# /app/bin/flaxcord spin /app/spoolbay/day /app/cordwell/a.pfl; sleep 1; /app/bin/flaxcord spin /app/spoolbay/day /app/cordwell/b.pfl; cmp -l /app/cordwell/a.pfl /app/cordwell/b.pfl | head; /app/bin/flaxcord unreel /app/cordwell/a.pfl; /app/bin/flaxcord spin /app/spoolbay/dusk /app/cordwell/c.pfl; /app/bin/flaxcord differ /app/cordwell/a.pfl /app/cordwell/c.pfl; cat /app/cordwell/differ.txt
+[?2004l  5 140 256
+  6  71 211
+  7 271 310
+mu.idle COUNT 2
+zeta.solo COUNT 3
+alpha.tick COUNT 4
+noisy
+[?2004hroot@bf56991e393b:/app# cat > /app/cordspin/bag.c <<'EOF'
+[?2004l[?2004h> #include "bag.h"
+[?2004l[?2004h> 
+[?2004l[?2004h> #include <stdlib.h>
+[?2004l[?2004h> #include <string.h>
+[?2004l[?2004h> 
+[?2004l[?2004h> #define MAX_PLACE 256
+[?2004l[?2004h> 
+[?2004l[?2004h> static char names[MAX_PLACE][80];
+[?2004l[?2004h> static uint32_t ids[MAX_PLACE];
+[?2004l[?2004h> static uint32_t ntab;
+[?2004l[?2004h> 
+[?2004l[?2004h> static int namecmp(const void *a, const void *b)
+[?2004l[?2004h> {
+[?2004l[?2004h>         return strcmp((const char *)a, (const char *)b);
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> void bag_reset(void)
+[?2004l[?2004h> {
+[?2004l[?2004h>         ntab = 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> uint32_t op_bag(const char *a)
+[?2004l[?2004h> {
+[?2004l[?2004h>         uint32_t i;
+[?2004l[?2004h> 
+[?2004l[?2004h>         if (!a)
+[?2004l[?2004h>                 a = "";
+[?2004l[?2004h>         for (i = 0; i < ntab; i++) {
+[?2004l[?2004h>                 if (strcmp(names[i], a) == 0)
+[?2004l[?2004h>                         return ids[i];
+[?2004l[?2004h>         }
+[?2004l[?2004h>         if (ntab >= MAX_PLACE)
+[?2004l[?2004h>                 return 0;
+[?2004l[?2004h>         strncpy(names[ntab], a, sizeof(names[ntab]) - 1);
+[?2004l[?2004h>         names[ntab][sizeof(names[ntab]) - 1] = 0;
+[?2004l[?2004h>         ids[ntab] = ntab;
+[?2004l[?2004h>         ntab++;
+[?2004l[?2004h>         return ids[ntab - 1];
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> void bag_freeze(void)
+[?2004l[?2004h> {
+[?2004l[?2004h>         uint32_t i;
+[?2004l[?2004h> 
+[?2004l[?2004h>         qsort(names, ntab, sizeof(names[0]), namecmp);
+[?2004l[?2004h>         for (i = 0; i < ntab; i++)
+[?2004l         return a->seq < b->seq ? -1[?2004h>                 ids[i] = i;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> const char *bag_get(uint32_t id)
+[?2004l{
+       [?2004h> {
+[?2004l[?2004h>         uint32_t i;
+[?2004l[?2004h> 
+[?2004l[?2004h>         for (i = 0; i < ntab; i++) {
+[?2004l[?2004h>                 if (ids[i] == id)
+[?2004l[?2004h>                         return names[i];
+[?2004l[?2004h>         }
+[?2004l[?2004h>         return "";
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> uint32_t bag_n(void)
+[?2004l[?2004h> {
+[?2004l[?2004h>         return ntab;
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@bf56991e393b:/app# cat > /app/chunkvat/walk.c <<'EOF'
+[?2004l[?2004h> #include "walk.h"
+[?2004l[?2004h> 
+[?2004l[?2004h> #include <dirent.h>
+[?2004l[?2004h> #include <errno.h>
+[?2004l[?2004h> #include <limits.h>
+[?2004l[?2004h> #include <stdio.h>
+[?2004l[?2004h> #include <stdlib.h>
+[?2004l[?2004h> #include <string.h>
+[?2004l[?2004h> 
+[?2004l[?2004h> #define KEY_CAP (MAX_FR * (MAX_LN + 1))
+[?2004l[?2004h> 
+[?2004l[?2004h> static struct samp tab[MAX_CH];
+[?2004l[?2004h> static int ntab;
+[?2004l[?2004h> 
+[?2004l[?2004h> static int number(const char *s, uint32_t *out)
+[?2004l[?2004h> {
+[?2004l[?2004h>         char *end;
+[?2004l[?2004h>         unsigned long v;
+[?2004l[?2004h> 
+[?2004l[?2004h>         if (!s || !*s || *s == '-' || *s == '+')
+[?2004l[?2004h>                 return -1;
+[?2004l[?2004h>         errno = 0;
+[?2004l[?2004h>         v = strtoul(s, &end, 10);
+[?2004l[?2004h>         if (errno || *end || v > UINT_MAX)
+[?2004l[?2004h>                 return -1;
+[?2004l[?2004h>         *out = (uint32_t)v;
+[?2004l[?2004h>         return 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> static int parse_one(const char *path, struct samp *out)
+[?2004l[?2004h> {
+[?2004l[?2004h>         FILE *fp;
+[?2004l[?2004h>         char line[128];
+[?2004l[?2004h>         int state = 0;
+[?2004l[?2004h>         int bad = 0;
+[?2004l[?2004h> 
+[?2004l[?2004h>         memset(out, 0, sizeof(*out));
+[?2004l[?2004h>         fp = fopen(path, "r");
+[?2004l[?2004h>         if (!fp)
+[?2004l[?2004h>                 return -1;
+[?2004l[?2004h>         while (fgets(line, sizeof(line), fp)) {
+[?2004l[?2004h>                 size_t n = strlen(line);
+[?2004l[?2004h>                 int had_nl = n && line[n - 1] == '\n';
+[?2004l[?2004h> 
+[?2004l[?2004h>                 if (had_nl)
+[?2004l[?2004h>                         line[--n] = 0;
+[?2004l[?2004h>                 else if (!feof(fp)) {
+[?2004l[?2004h>                         bad = 1;
+[?2004l[?2004h>                         break;
+[?2004l[?2004h>                 }
+[?2004l[?2004h>                 if (n && line[n - 1] == '\r')
+[?2004l[?2004h>                         line[--n] = 0;
+[?2004l[?2004h> 
+[?2004l[?2004h>                 if (state == 0) {
+[?2004l[?2004h>                         if (strncmp(line, "SEQ ", 4) || number(line + 4, &out->seq)) {
+[?2004l[?2004h>                                 bad = 1;
+[?2004l[?2004h>                                 break;
+[?2004l[?2004h>                         }
+[?2004l[?2004h>                         state = 1;
+[?2004l[?2004h>                 } else if (state == 1) {
+[?2004l[?2004h>                         if (!strncmp(line, "HITS ", 5)) {
+[?2004l[?2004h>                                 if (out->depth == 0 || number(line + 5, &out->hits)) {
+[?2004l[?2004h>                                         bad = 1;
+[?2004l[?2004h>                                         break;
+[?2004l[?2004h>                                 }
+[?2004l[?2004h>                                 state = 2;
+[?2004l[?2004h>                         } else {
+[?2004l[?2004h>                                 if (!line[0] || !strcmp(line, "END") ||
+[?2004l[?2004h>                                     !strncmp(line, "SEQ ", 4) || out->depth >= MAX_FR ||
+[?2004l[?2004h>                                     strlen(line) >= MAX_LN) {
+[?2004l[?2004h>                                         bad = 1;
+[?2004l[?2004h>                                         break;
+[?2004l[?2004h>                                 }
+[?2004l[?2004h>                                 strcpy(out->fr[out->depth++], line);
+[?2004l[?2004h>                         }
+[?2004l[?2004h>                 } else if (state == 2) {
+[?2004l[?2004h>                         if (strcmp(line, "END")) {
+[?2004l[?2004h>                                 bad = 1;
+[?2004l[?2004h>                                 break;
+[?2004l[?2004h>                         }
+[?2004l[?2004h>                         state = 3;
+[?2004l[?2004h>                 } else {
+[?2004l[?2004h>                         bad = 1;
+[?2004l[?2004h>                         break;
+[?2004l[?2004h>                 }
+[?2004l[?2004h>         }
+[?2004l[?2004h>         if (ferror(fp))
+[?2004l[?2004h>                 bad = 1;
+[?2004l[?2004h>         fclose(fp);
+[?2004l[?2004h>         if (bad || state != 3)
+[?2004l[?2004h>                 return -1;
+[?2004l[?2004h>         snprintf(out->lab, sizeof(out->lab), "SEQ %u", out->seq);
+[?2004l[?2004h>         return 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> static void joined(const struct samp *s, char *dst, size_t cap)
+[?2004l[?2004h> {
+[?2004l[?2004h>         int i;
+[?2004l[?2004h>         size_t used = 0;
+[?2004l[?2004h> 
+[?2004l[?2004h>         if (cap)
+[?2004l[?2004h>                 dst[0] = 0;
+[?2004l[?2004h>         for (i = 0; i < s->depth; i++) {
+[?2004l[?2004h>                 int n = snprintf(dst + used, cap - used, "%s%s", i ? ">" : "", s->fr[i]);
+[?2004l[?2004h>                 if (n < 0 || (size_t)n >= cap - used)
+[?2004l[?2004h>                         return;
+[?2004l[?2004h>                 used += (size_t)n;
+[?2004l[?2004h>         }
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> static int sampcmp(const void *va, const void *vb)
+[?2004l[?2004h> {
+[?2004l[?2004h>         const struct samp *a = va, *b = vb;
+[?2004l[?2004h>         char ka[KEY_CAP], kb[KEY_CAP];
+[?2004l[?2004h>         int c;
+[?2004l[?2004h> 
+[?2004l[?2004h>         joined(a, ka, sizeof(ka));
+[?2004l[?2004h>         joined(b, kb, sizeof(kb));
+[?2004l[?2004h>         c = strcmp(ka, kb);
+[?2004l[?2004h>         if (c)
+[?2004l[?2004h>                 return c;
+[?2004l[?2004h>         if (a->hits != b->hits)
+[?2004l[?2004h>                 return a->hits < b->hits ? -1 : 1;
+[?2004l[?2004h>         if (a->seq != b->seq)
+[?2004l[?2004h>                 return a->seq < b->seq ? -1 : 1;
+[?2004l[?2004h>         return 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> int cfg_walk(const char *a)
+[?2004l[?2004h> {
+[?2004l[?2004h>         DIR *d;
+[?2004l[?2004h>         struct dirent *de;
+[?2004l[?2004h>         int rc = 0;
+[?2004l[?2004h> 
+[?2004l[?2004h>         ntab = 0;
+[?2004l[?2004h>         d = opendir(a ? a : ".");
+[?2004l[?2004h>         if (!d)
+[?2004l[?2004h>                 return -1;
+[?2004l[?2004h>         while ((de = readdir(d)) != NULL) {
+[?2004l[?2004h>                 char path[512];
+[?2004l[?2004h>                 size_t n = strlen(de->d_name);
+[?2004l[?2004h> 
+[?2004l[?2004h>                 if (de->d_name[0] == '.' || n < 4 || strcmp(de->d_name + n - 4, ".chk"))
+[?2004l[?2004h>                         continue;
+[?2004l[?2004h>                 if (ntab >= MAX_CH) {
+[?2004l[?2004h>                         rc = -1;
+[?2004l[?2004h>                         break;
+[?2004l[?2004h>                 }
+[?2004l[?2004h>                 if (snprintf(path, sizeof(path), "%s/%s", a, de->d_name) >= (int)sizeof(path) ||
+[?2004l[?2004h>                     parse_one(path, &tab[ntab]) != 0) {
+[?2004l[?2004h>                         rc = -1;
+[?2004l[?2004h>                         break;
+[?2004l[?2004h>                 }
+[?2004l[?2004h>                 ntab++;
+[?2004l[?2004h>         }
+[?2004l[?2004h>         closedir(d);
+[?2004l[?2004h>         if (rc) {
+[?2004l[?2004h>                 ntab = 0;
+[?2004l[?2004h>                 return -1;
+[?2004l[?2004h>         }
+[?2004l[?2004h>         qsort(tab, (size_t)ntab, sizeof(tab[0]), sampcmp);
+[?2004l[?2004h>         return 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> int walk_n(void)
+[?2004l[?2004h> {
+[?2004l[?2004h>         return ntab;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> struct samp *walk_at(int i)
+[?2004l[?2004h> {
+[?2004l[?2004h>         if (i < 0 || i >= ntab)
+[?2004l[?2004h>                 return NULL;
+[?2004l[?2004h>         return &tab[i];
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@bf56991e393b:/app# python3 - <<'PY'
+[?2004l[?2004h> p='/app/emitbay/pour.c'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> s=s.replace('#include <time.h>\n', '')
+[?2004l[?2004h> s=s.replace('        struct timespec ts;\n', '')
+[?2004l[?2004h> s=s.replace('        clock_gettime(CLOCK_REALTIME, &ts);\n        stamp = (uint64_t)ts.tv_sec * 1000000ull + (uint64_t)(ts.tv_nsec / 1000);\n', '        stamp = 0; /* compact output describes content, not wall-clock time */\n')
+[?2004l[?2004h> s=s.replace('        fclose(fp);\n        return 0;\n', '        if (ferror(fp) || fclose(fp) != 0) {\n                remove(a);\n                return -1;\n        }\n        return 0;\n')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@bf56991e393b:/app# /app/hull.sh
+[?2004lmake: Entering directory '/app/flaxcli'
+gcc -O2 -Wall -I/app/flaxcli -I/app/cordspin -I/app/chunkvat -I/app/emitbay -I/app/differbay -I/app/unreelkit -c /app/cordspin/bag.c -o /app/cordspin/bag.o
+gcc -O2 -Wall -I/app/flaxcli -I/app/cordspin -I/app/chunkvat -I/app/emitbay -I/app/differbay -I/app/unreelkit -c /app/chunkvat/walk.c -o /app/chunkvat/walk.o
+gcc -O2 -Wall -I/app/flaxcli -I/app/cordspin -I/app/chunkvat -I/app/emitbay -I/app/differbay -I/app/unreelkit -c /app/emitbay/pour.c -o /app/emitbay/pour.o
+[01m[K/app/emitbay/pour.c:[m[K In function ‘[01m[Kn_pour[m[K’:
+[01m[K/app/emitbay/pour.c:44:25:[m[K [01;31m[Kerror: [m[Kstorage size of ‘[01m[Kts[m[K’ isn’t known
+   44 |         struct timespec [01;31m[Kts[m[K;
+      |                         [01;31m[K^~[m[K
+[01m[K/app/emitbay/pour.c:60:9:[m[K [01;35m[Kwarning: [m[Kimplicit declaration of function ‘[01m[Kclock_gettime[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wimplicit-function-declaration-Wimplicit-function-declaration]8;;[m[K]
+   60 |         [01;35m[Kclock_gettime[m[K(CLOCK_REALTIME, &ts);
+      |         [01;35m[K^~~~~~~~~~~~~[m[K
+[01m[K/app/emitbay/pour.c:60:23:[m[K [01;31m[Kerror: [m[K‘[01m[KCLOCK_REALTIME[m[K’ undeclared (first use in this function)
+   60 |         clock_gettime([01;31m[KCLOCK_REALTIME[m[K, &ts);
+      |                       [01;31m[K^~~~~~~~~~~~~~[m[K
+[01m[K/app/emitbay/pour.c:60:23:[m[K [01;36m[Knote: [m[Keach undeclared identifier is reported only once for each function it appears in
+[01m[K/app/emitbay/pour.c:44:25:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kts[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+   44 |         struct timespec [01;35m[Kts[m[K;
+      |                         [01;35m[K^~[m[K
+make: *** [hull.mk:35: /app/emitbay/pour.o] Error 1
+make: Leaving directory '/app/flaxcli'
+[?2004hroot@bf56991e393b:/app# set -e
+[?2004l[?2004hroot@bf56991e393b:/app# rm -f /app/cordwell/live.pfl /app/cordwell/live2.pfl /app/cordwell/alt.pfl
+[?2004l[?2004hroot@bf56991e393b:/app# /app/bin/flaxcord spin /app/spoolbay/day /app/cordwell/live.pfl
+[?2004l[?2004hroot@bf56991e393b:/app# /app/bin/flaxcord spin /app/spoolbay/day /app/cordwell/live2.pfl
+[?2004l[?2004hroot@bf56991e393b:/app# cmp /app/cordwell/live.pfl /app/cordwell/live2.pfl
+[?2004l/app/cordwell/live.pfl /app/cordwell/live2.pfl differ: char 5, line 1
+[0;32masciinema: recording finished[0m
+[0;32masciinema: asciicast saved to /logs/agent/recording.cast[0m
+[?2004hroot@bf56991e393b:/app# set -e
+[?2004l[?2004hroot@bf56991e393b:/app# rm -rf /tmp/badcap; mkdir /tmp/badcap
+[?2004l[?2004hroot@bf56991e393b:/app# printf 'SEQ 1\nfoo.bar\nHITS 9\n' > /tmp/badcap/bad.chk
+[?2004l[?2004hroot@bf56991e393b:/app# rm -f /app/cordwell/spin.ok /app/cordwell/bad.pfl
+[?2004l[?2004hroot@bf56991e393b:/app# if /app/bin/flaxcord spin /tmp/badcap /app/cordwell/bad.pfl; then echo 'ERROR: malformed capture succeeded'; exit 1; fi
+[?2004lERROR: malformed capture succeeded
+logout

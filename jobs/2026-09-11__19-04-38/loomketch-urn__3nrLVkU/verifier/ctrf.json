@@ -1,0 +1,164 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 12,
+            "passed": 0,
+            "failed": 12,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1789133687.6542828,
+            "stop": 1789133687.9854243
+        },
+        "tests": [
+            {
+                "name": "test_outputs.py::test_lk01_two_proc_bytes",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.019081270991591737,
+                "start": 1789133687.7259648,
+                "stop": 1789133687.7682028,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_lk01_two_proc_bytes():\n        \"\"\"Two separate bind processes write identical bound and desk bytes.\"\"\"\n        _restore()\n        r1 = _bind()\n        assert r1.returncode == 0\n        a = BOUND.read_bytes()\n        b = DESK.read_bytes()\n        r2 = _bind()\n        assert r2.returncode == 0\n>       assert BOUND.read_bytes() == a\nE       assert b'{\"findings\"...in_slot\"}]}\\n' == b'{\"findings\"...op_tick\"}]}\\n'\nE         \nE         At index 32 diff: b'h' != b'u'\nE         Use -v to get more diff\n\n/tests/test_outputs.py:77: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_lk02_dir_layout_twice",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.011249461989791598,
+                "start": 1789133687.7685394,
+                "stop": 1789133687.7889075,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_lk02_dir_layout_twice():\n        \"\"\"Relaying the same journals in a new directory layout keeps bytes.\"\"\"\n        _restore()\n        assert _bind().returncode == 0\n        first_b = BOUND.read_bytes()\n        first_d = DESK.read_bytes()\n        names = sorted(p.name for p in VAT.glob(\"*.asan\"))\n        blobs = {p.name: p.read_bytes() for p in VAT.glob(\"*.asan\")}\n        for p in VAT.glob(\"*.asan\"):\n            p.unlink()\n        for name in reversed(names):\n            (VAT / name).write_bytes(blobs[name])\n        assert _bind().returncode == 0\n>       assert BOUND.read_bytes() == first_b\nE       assert b'{\"findings\"...rep_buf\"}]}\\n' == b'{\"findings\"...op_tick\"}]}\\n'\nE         \nE         At index 32 diff: b'u' != b'h'\nE         Use -v to get more diff\n\n/tests/test_outputs.py:94: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_lk03_rename_worker_files",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.011453637991508003,
+                "start": 1789133687.7891953,
+                "stop": 1789133687.808084,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_lk03_rename_worker_files():\n        \"\"\"Renaming worker journals without changing texts keeps issue-to-body map.\"\"\"\n        _restore()\n        assert _bind().returncode == 0\n        before = {f[\"issue\"]: f[\"body\"] for f in _load()[\"findings\"]}\n        mapping = []\n        for i, p in enumerate(sorted(VAT.glob(\"*.asan\"))):\n            dest = VAT / f\"w_{i}.log\"\n            p.rename(dest)\n            mapping.append(dest)\n        assert _bind().returncode == 0\n        after = {f[\"issue\"]: f[\"body\"] for f in _load()[\"findings\"]}\n>       assert after == before\nE       AssertionError: assert {1: '__interc...| drain_slot'} == {1: '__interc...| drain_slot'}\nE         \nE         Omitting 1 identical items, use -vv to show\nE         Differing items:\nE         {1: '__interceptor_memcpy | fill_span | prep_buf'} != {1: '__interceptor_memcpy | widget_free | worker_main'}\nE         {2: '__interceptor_memcpy | pump_read | loop_tick'} != {2: '__interceptor_memcpy | fill_span | prep_buf'}\nE         {3: '__interceptor_memcpy | widget_free | worker_main'} != {3: '__interceptor_memcpy | pump_read | loop_tick'}\nE         Use -v to get more diff\n\n/tests/test_outputs.py:112: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_lk04_set_equals_corpus",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.010495184993487783,
+                "start": 1789133687.8084013,
+                "stop": 1789133687.8287444,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_lk04_set_equals_corpus():\n        \"\"\"Duplicate worker reports of one bug collapse to one finding body.\"\"\"\n        _restore()\n        assert _bind().returncode == 0\n        data = _load()\n        bodies = [f[\"body\"] for f in data[\"findings\"]]\n        assert len(bodies) == len(set(bodies))\n        joined = \" \".join(bodies)\n        assert \"widget_free\" in joined\n        assert \"__asan\" not in joined\n>       assert \"__interceptor\" not in joined\nE       AssertionError: assert '__interceptor' not in '__intercept... worker_main'\nE         \nE         '__interceptor' is contained here:\nE           __interceptor_memcpy | latch_tick | drain_slot __interceptor_memcpy | fill_span | prep_buf __interceptor_memcpy | pump_read | loop_tick __interceptor_memcpy | widget_free | worker_main\n\n/tests/test_outputs.py:126: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_lk05_row_keeps_same_text",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.007672446998185478,
+                "start": 1789133687.8297155,
+                "stop": 1789133687.846061,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_lk05_row_keeps_same_text():\n        \"\"\"Each desk issue cites the same body as the bound record.\"\"\"\n        _restore()\n        assert _bind().returncode == 0\n        data = _load()\n        by_issue = {int(f[\"issue\"]): f[\"body\"] for f in data[\"findings\"]}\n        for issue, _kind, body in _desk_rows():\n>           assert by_issue[int(issue)] == body\nE           AssertionError: assert '__intercepto... | drain_slot' == '__intercepto...an | prep_buf'\nE             \nE             - __interceptor_memcpy | fill_span | prep_buf\nE             + __interceptor_memcpy | latch_tick | drain_slot\n\n/tests/test_outputs.py:136: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_lk06_ids_from_one",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0068612689938163385,
+                "start": 1789133687.8468819,
+                "stop": 1789133687.8640432,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_lk06_ids_from_one():\n        \"\"\"Issue numbers start at 1 and cover each finding once.\"\"\"\n        _restore()\n        assert _bind().returncode == 0\n        issues = sorted(int(f[\"issue\"]) for f in _load()[\"findings\"])\n        assert issues[0] == 1\n        assert issues == list(range(1, len(issues) + 1))\n        ordered = [f[\"body\"] for f in sorted(_load()[\"findings\"], key=lambda x: int(x[\"issue\"]))]\n>       assert ordered == sorted(ordered)\nE       AssertionError: assert ['__intercept...n | prep_buf'] == ['__intercept... worker_main']\nE         \nE         At index 0 diff: '__interceptor_memcpy | latch_tick | drain_slot' != '__interceptor_memcpy | fill_span | prep_buf'\nE         Use -v to get more diff\n\n/tests/test_outputs.py:147: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_lk07_empty_exit",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0065005450014723465,
+                "start": 1789133687.8645356,
+                "stop": 1789133687.879569,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_lk07_empty_exit():\n        \"\"\"Empty journal makes bind exit non-zero and omits GUARD.\"\"\"\n        _restore()\n        empty = VAT / \"empty.asan\"\n        empty.write_text(\"\")\n        if GUARD.exists():\n            GUARD.unlink()\n        r = _bind()\n        empty.unlink()\n>       assert r.returncode != 0\nE       AssertionError: assert 0 != 0\nE        +  where 0 = CompletedProcess(args=['/app/bin/loomketch', 'bind'], returncode=0, stdout='', stderr='').returncode\n\n/tests/test_outputs.py:159: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_lk08_trunc_exit",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0069381379944388755,
+                "start": 1789133687.8804524,
+                "stop": 1789133687.8983827,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_lk08_trunc_exit():\n        \"\"\"Truncated journal without frames exits non-zero and omits GUARD.\"\"\"\n        _restore()\n        trunc = VAT / \"trunc.asan\"\n        trunc.write_text(\"==9==ERROR: AddressSanitizer: heap-use-after-free on address 0x1\\n\")\n        if GUARD.exists():\n            GUARD.unlink()\n        r = _bind()\n        trunc.unlink()\n>       assert r.returncode != 0\nE       AssertionError: assert 0 != 0\nE        +  where 0 = CompletedProcess(args=['/app/bin/loomketch', 'bind'], returncode=0, stdout='', stderr='').returncode\n\n/tests/test_outputs.py:172: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_lk09_outside_refused",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.006552093997015618,
+                "start": 1789133687.8989384,
+                "stop": 1789133687.9183853,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_lk09_outside_refused():\n        \"\"\"A root outside /app/vatlogs fails and does not write GUARD.\"\"\"\n        _restore()\n        other = Path(\"/tmp/loom_out\")\n        if other.exists():\n            shutil.rmtree(other)\n        other.mkdir()\n        sample = next(VAT.glob(\"*.asan\"))\n        shutil.copy(sample, other / \"x.asan\")\n        if GUARD.exists():\n            GUARD.unlink()\n        r = _bind(str(other))\n        shutil.rmtree(other)\n>       assert r.returncode != 0\nE       AssertionError: assert 0 != 0\nE        +  where 0 = CompletedProcess(args=['/app/bin/loomketch', 'bind', '/tmp/loom_out'], returncode=0, stdout='', stderr='').returncode\n\n/tests/test_outputs.py:189: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_lk10_marker_text",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.007388105004793033,
+                "start": 1789133687.9188159,
+                "stop": 1789133687.9383082,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_lk10_marker_text():\n        \"\"\"Successful bind writes GUARD containing ok.\"\"\"\n        _restore()\n        if GUARD.exists():\n            GUARD.unlink()\n        assert _bind().returncode == 0\n        assert GUARD.read_text() == \"ok\"\n        rows = _desk_rows()\n        data = _load()\n        assert len(rows) == len(data[\"findings\"])\n        by_issue = {int(f[\"issue\"]): f[\"body\"] for f in data[\"findings\"]}\n        for issue, _kind, body in rows:\n>           assert by_issue[int(issue)] == body\nE           AssertionError: assert '__intercepto... | drain_slot' == '__intercepto...an | prep_buf'\nE             \nE             - __interceptor_memcpy | fill_span | prep_buf\nE             + __interceptor_memcpy | latch_tick | drain_slot\n\n/tests/test_outputs.py:205: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_lk12_unseen_corpus",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.006681142011075281,
+                "start": 1789133687.9385731,
+                "stop": 1789133687.9578798,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_lk12_unseen_corpus():\n        \"\"\"Held-out journals with new hex still collapse by clipped frames.\"\"\"\n        _restore()\n        held = VAT / \"held_z.asan\"\n        held.write_text(\n            \"==77==ERROR: AddressSanitizer: heap-use-after-free on address 0xfeed\\n\"\n            \"    #0 0x1111 in __asan::ReportGenericError asan.cpp:1\\n\"\n            \"    #1 0x2222 in __interceptor_free interceptors.cpp:8\\n\"\n            \"    #2 0x3333 in widget_free src/widget_free.c:9\\n\"\n            \"    #3 0x4444 in worker_main src/worker_main.c:40\\n\"\n        )\n        r = _bind()\n        held.unlink()\n        assert r.returncode == 0\n        bodies = _bodies(_load())\n        assert any(\"widget_free\" in b and \"worker_main\" in b for b in bodies)\n        # still one uaf body, not a second copy keyed by hex\n        uaf = [b for b in bodies if \"widget_free\" in b]\n>       assert len(uaf) == 1\nE       AssertionError: assert 2 == 1\nE        +  where 2 = len(['__interceptor_free | widget_free | worker_main', '__interceptor_memcpy | widget_free | worker_main'])\n\n/tests/test_outputs.py:226: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_lk13_zz_corrupt_then_run",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.014520153003104497,
+                "start": 1789133687.958243,
+                "stop": 1789133687.985111,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_lk13_zz_corrupt_then_run():\n        \"\"\"Corrupting outputs then rerunning bind regenerates matching desk rows.\"\"\"\n        _restore()\n        assert _bind().returncode == 0\n        BOUND.write_text('{\"findings\":[]}')\n        DESK.write_text(\"issue\\tkind\\tbody\\n\")\n        GUARD.write_text(\"no\")\n        r = _bind()\n        assert r.returncode == 0\n        assert \"__ROWS__\" not in BOUND.read_text()\n        data = _load()\n        assert data[\"findings\"]\n        by_issue = {int(f[\"issue\"]): f[\"body\"] for f in data[\"findings\"]}\n        for issue, _kind, body in _desk_rows():\n>           assert by_issue[int(issue)] == body\nE           AssertionError: assert '__intercepto...d | loop_tick' == '__intercepto...an | prep_buf'\nE             \nE             - __interceptor_memcpy | fill_span | prep_buf\nE             + __interceptor_memcpy | pump_read | loop_tick\n\n/tests/test_outputs.py:243: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            }
+        ]
+    }
+}

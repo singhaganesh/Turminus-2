@@ -1,0 +1,294 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 19 items
+
+../tests/test_outputs.py FFFFFFFFFFFFFFFFFFF                             [100%]
+
+=================================== FAILURES ===================================
+_____________________ test_premap01_symmap_covers_runtime ______________________
+
+    def test_premap01_symmap_covers_runtime():
+        """Symmap must list every exported bench function plus core runtime entry symbols."""
+        sym_names, _, _, _ = _parse_symmap()
+        required = {"ring_dispatch", "legacy_worker", "main", "_start"}
+>       assert required <= sym_names
+E       AssertionError: assert {'_start', 'l...ing_dispatch'} <= {'legacy_work...untime_entry'}
+E         
+E         Extra items in the left set:
+E         '_start'
+
+/tests/test_outputs.py:125: AssertionError
+_______________________ test_premap02_symmap_mode_linked _______________________
+
+    def test_premap02_symmap_mode_linked():
+        """Symmap mode line must be linked, not an object-merge map."""
+        _, _, _, meta = _parse_symmap()
+        mode = meta.get("mode")
+>       assert mode == "linked"
+E       AssertionError: assert 'objects' == 'linked'
+E         
+E         - linked
+E         + objects
+
+/tests/test_outputs.py:133: AssertionError
+________________________ test_premap03_buildid_present _________________________
+
+    def test_premap03_buildid_present():
+        """Symmap buildid must be present and not the object-merge placeholder."""
+        _, _, _, meta = _parse_symmap()
+        bid = meta.get("buildid")
+        assert isinstance(bid, str)
+>       assert bid not in {"", "object-merge", "unknown"}
+E       AssertionError: assert 'object-merge' not in {'', 'object-merge', 'unknown'}
+
+/tests/test_outputs.py:141: AssertionError
+____________________ test_premap04_buildid_matches_readelf _____________________
+
+    def test_premap04_buildid_matches_readelf():
+        """Symmap buildid must match the linked runtime ELF build id."""
+        _, _, _, meta = _parse_symmap()
+>       assert meta.get("buildid") == _live_readelf_build_id()
+E       AssertionError: assert 'object-merge' == 'dc075623bb91...dd55022d05b55'
+E         
+E         - dc075623bb91aa46174cc9e524fdd55022d05b55
+E         + object-merge
+
+/tests/test_outputs.py:148: AssertionError
+____________________ test_premap05_bench_ring_dispatch_name ____________________
+
+    def test_premap05_bench_ring_dispatch_name():
+        """First bench sample PC must resolve to ring_dispatch by name."""
+        profile = json.loads(PROFILE.read_text())
+        ring_pc = _sym_start("ring_dispatch") + 8
+        match = [s for s in profile["frames"] if int(s["pc"], 16) == ring_pc]
+>       assert match and match[0]["symbol"] == "ring_dispatch"
+E       assert ([])
+
+/tests/test_outputs.py:156: AssertionError
+____________________ test_premap06_bench_legacy_worker_name ____________________
+
+    def test_premap06_bench_legacy_worker_name():
+        """Second bench sample PC must resolve to legacy_worker by name."""
+        profile = json.loads(PROFILE.read_text())
+        legacy_pc = _sym_start("legacy_worker") + 4
+        match = [s for s in profile["frames"] if int(s["pc"], 16) == legacy_pc]
+>       assert match and match[0]["symbol"] == "legacy_worker"
+E       assert ([])
+
+/tests/test_outputs.py:164: AssertionError
+______________________ test_premap07_held_out_ring_render ______________________
+
+    def test_premap07_held_out_ring_render():
+        """Held-out render on linked ring_dispatch PC must resolve to ring_dispatch."""
+        ring_pc = _anchor_symbol("ring_dispatch") + 4
+        prof = _render(f"pc 0x{ring_pc:x}\n")
+>       assert prof["frames"][0]["symbol"] == "ring_dispatch"
+E       AssertionError: assert 'main' == 'ring_dispatch'
+E         
+E         - ring_dispatch
+E         + main
+
+/tests/test_outputs.py:171: AssertionError
+__________________ test_premap08_held_out_offset_not_neighbor __________________
+
+    def test_premap08_held_out_offset_not_neighbor():
+        """Held-out ring_dispatch sample offset must match linked runtime layout."""
+        ring_start = _anchor_symbol("ring_dispatch")
+        ring_pc = ring_start + 4
+        prof = _render(f"pc 0x{ring_pc:x}\n")
+>       assert prof["frames"][0]["symbol"] == "ring_dispatch"
+E       AssertionError: assert 'main' == 'ring_dispatch'
+E         
+E         - ring_dispatch
+E         + main
+
+/tests/test_outputs.py:180: AssertionError
+__________________ test_premap09_profile_json_shape_and_names __________________
+
+    def test_premap09_profile_json_shape_and_names():
+        """profile.json must expose frames with correct ring_dispatch and legacy_worker names."""
+        profile = json.loads(PROFILE.read_text())
+        assert isinstance(profile["frames"], list)
+        ring_pc = _sym_start("ring_dispatch") + 8
+        legacy_pc = _sym_start("legacy_worker") + 4
+        by_pc = {int(s["pc"], 16): s for s in profile["frames"]}
+>       assert by_pc[ring_pc]["symbol"] == "ring_dispatch"
+               ^^^^^^^^^^^^^^
+E       KeyError: 5640
+
+/tests/test_outputs.py:191: KeyError
+__________________ test_premap10_ring_dispatch_linked_address __________________
+
+    def test_premap10_ring_dispatch_linked_address():
+        """Symmap ring_dispatch entry must use the linked runtime address."""
+        linked = _sym_start("ring_dispatch")
+>       assert linked == _anchor_symbol("ring_dispatch")
+E       AssertionError: assert 5632 == 4198752
+E        +  where 4198752 = _anchor_symbol('ring_dispatch')
+
+/tests/test_outputs.py:202: AssertionError
+____________________ test_premap11_bench_samples_file_used _____________________
+
+    def test_premap11_bench_samples_file_used():
+        """profile.json must include every bench.samples PC line with matching symbols."""
+        pcs = []
+        for line in BENCH.read_text().splitlines():
+            if line.startswith("pc "):
+                pcs.append(int(line.split()[1], 16))
+        profile = json.loads(PROFILE.read_text())
+        got = {int(s["pc"], 16): s["symbol"] for s in profile["frames"]}
+        assert set(pcs) <= set(got)
+        for pc in pcs:
+            sym = got[pc]
+>           assert sym in {"ring_dispatch", "legacy_worker"}
+E           AssertionError: assert 'main' in {'legacy_worker', 'ring_dispatch'}
+
+/tests/test_outputs.py:216: AssertionError
+_________________ test_premap12_pcfold_rejects_tampered_symmap _________________
+
+    def test_premap12_pcfold_rejects_tampered_symmap():
+        """Agent pcfold check must reject a symmap whose buildid drifts from runtime."""
+        live_bid = _live_readelf_build_id()
+        drifted = (live_bid[:-1] + ("0" if live_bid[-1] != "0" else "1"))
+        tampered_lines = []
+        for line in SYMAP.read_text().splitlines():
+            if line.startswith("buildid "):
+                tampered_lines.append(f"buildid {drifted}")
+            else:
+                tampered_lines.append(line)
+        with tempfile.NamedTemporaryFile("w", suffix=".symmap", delete=False) as tmp:
+            tmp.write("\n".join(tampered_lines) + "\n")
+            bad_path = tmp.name
+        proc = subprocess.run(
+            [str(AGENT_PCFOLD), "check", str(RUNTIME), bad_path],
+            check=False,
+        )
+        Path(bad_path).unlink(missing_ok=True)
+>       assert proc.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/pcfold', 'check', '/app/symmill/fold/runtime', '/tmp/tmpowp_bkv6.symmap'], returncode=0).returncode
+
+/tests/test_outputs.py:240: AssertionError
+___________________ test_premap13_pcfold_check_on_disk_pair ____________________
+
+    def test_premap13_pcfold_check_on_disk_pair():
+        """On-disk runtime.symmap must pass agent pcfold check against runtime."""
+        _, _, _, meta = _parse_symmap()
+>       assert meta.get("mode") == "linked"
+E       AssertionError: assert 'objects' == 'linked'
+E         
+E         - linked
+E         + objects
+
+/tests/test_outputs.py:246: AssertionError
+________________________ test_premap14_symmap_min_rows _________________________
+
+    def test_premap14_symmap_min_rows():
+        """Symmap must contain at least eight sym rows per contract."""
+        sym_names, _, _, _ = _parse_symmap()
+>       assert len(sym_names) >= 8
+E       AssertionError: assert 4 >= 8
+E        +  where 4 = len({'legacy_worker', 'main', 'ring_dispatch', 'runtime_entry'})
+
+/tests/test_outputs.py:257: AssertionError
+_______________ test_premap15_no_object_index_placeholder_sizes ________________
+
+    def test_premap15_no_object_index_placeholder_sizes():
+        """Linked symmap must not keep object-index 0x40 placeholder spans."""
+        _, _, span_by_name, _ = _parse_symmap()
+        sizes = list(span_by_name.values())
+        assert sizes
+        varied_spans = {size for size in sizes if size != 0x40}
+>       assert varied_spans
+E       assert set()
+
+/tests/test_outputs.py:266: AssertionError
+_________________ test_premap16_symmap_sizes_match_runtime_nm __________________
+
+    def test_premap16_symmap_sizes_match_runtime_nm():
+        """Sym row spans must match nm-derived sizes on the linked runtime ELF."""
+        _, _, span_by_name, _ = _parse_symmap()
+        expected = _nm_symbol_sizes()
+        for name, span in span_by_name.items():
+            assert name in expected
+>           assert span == expected[name]
+E           assert 64 == 16
+
+/tests/test_outputs.py:275: AssertionError
+___________________ test_premap18_emitmap_rejects_object_map ___________________
+
+    def test_premap18_emitmap_rejects_object_map():
+        """emitmap must fail when the on-disk symmap is not a linked identity map."""
+        original = SYMAP.read_text()
+        profile_original = PROFILE.read_text()
+        object_map = (
+            "PCFOLD1\n"
+            "mode objects\n"
+            "buildid object-merge\n"
+            "sym ring_dispatch 0x1000 0x40\n"
+            "sym legacy_worker 0x1040 0x40\n"
+        )
+        SYMAP.write_text(object_map)
+        proc = subprocess.run(
+            ["make", "-C", "/app/symmill", "emitmap"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        SYMAP.write_text(original)
+        PROFILE.write_text(profile_original)
+>       assert proc.returncode != 0
+E       assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['make', '-C', '/app/symmill', 'emitmap'], returncode=0, stdout="make: Entering directory '/app/...nchframes/bench.samples fold/runtime.symmap -o fold/profile.json\nmake: Leaving directory '/app/symmill'\n", stderr='').returncode
+
+/tests/test_outputs.py:298: AssertionError
+______________________ test_premap19_symmap_index_origin _______________________
+
+    def test_premap19_symmap_index_origin():
+        """Symmap must carry pcfold linked-index provenance, not a hand-built map."""
+        lines = SYMAP.read_text().splitlines()
+>       assert "origin pcfold-index-linked" in lines
+E       AssertionError: assert 'origin pcfold-index-linked' in ['PCFOLD1', 'mode objects', 'buildid object-merge', 'sym main 0x1000 0x40', 'sym runtime_entry 0x1040 0x40', 'sym legacy_worker 0x1400 0x40', ...]
+
+/tests/test_outputs.py:304: AssertionError
+__________________ test_premap21_pipeline_restores_linked_map __________________
+
+    def test_premap21_pipeline_restores_linked_map():
+        """Deleting fold artifacts and rerunning emitmap must restore a linked map."""
+        SYMAP.unlink(missing_ok=True)
+        PROFILE.unlink(missing_ok=True)
+        proc = subprocess.run(
+            ["make", "-C", "/app/symmill", "emitmap"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        assert proc.returncode == 0
+        lines = SYMAP.read_text().splitlines()
+>       assert "origin pcfold-index-linked" in lines
+E       AssertionError: assert 'origin pcfold-index-linked' in ['PCFOLD1', 'mode objects', 'buildid object-merge', 'sym main 0x1000 0x40', 'sym runtime_entry 0x1040 0x40', 'sym legacy_worker 0x1400 0x40', ...]
+
+/tests/test_outputs.py:319: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_premap01_symmap_covers_runtime - Assert...
+FAILED ../tests/test_outputs.py::test_premap02_symmap_mode_linked - Assertion...
+FAILED ../tests/test_outputs.py::test_premap03_buildid_present - AssertionErr...
+FAILED ../tests/test_outputs.py::test_premap04_buildid_matches_readelf - Asse...
+FAILED ../tests/test_outputs.py::test_premap05_bench_ring_dispatch_name - ass...
+FAILED ../tests/test_outputs.py::test_premap06_bench_legacy_worker_name - ass...
+FAILED ../tests/test_outputs.py::test_premap07_held_out_ring_render - Asserti...
+FAILED ../tests/test_outputs.py::test_premap08_held_out_offset_not_neighbor
+FAILED ../tests/test_outputs.py::test_premap09_profile_json_shape_and_names
+FAILED ../tests/test_outputs.py::test_premap10_ring_dispatch_linked_address
+FAILED ../tests/test_outputs.py::test_premap11_bench_samples_file_used - Asse...
+FAILED ../tests/test_outputs.py::test_premap12_pcfold_rejects_tampered_symmap
+FAILED ../tests/test_outputs.py::test_premap13_pcfold_check_on_disk_pair - As...
+FAILED ../tests/test_outputs.py::test_premap14_symmap_min_rows - AssertionErr...
+FAILED ../tests/test_outputs.py::test_premap15_no_object_index_placeholder_sizes
+FAILED ../tests/test_outputs.py::test_premap16_symmap_sizes_match_runtime_nm
+FAILED ../tests/test_outputs.py::test_premap18_emitmap_rejects_object_map - a...
+FAILED ../tests/test_outputs.py::test_premap19_symmap_index_origin - Assertio...
+FAILED ../tests/test_outputs.py::test_premap21_pipeline_restores_linked_map
+============================== 19 failed in 0.75s ==============================

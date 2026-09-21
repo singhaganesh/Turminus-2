@@ -1,0 +1,1217 @@
+[?2004hroot@ab4fcb1fe770:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@ab4fcb1fe770:/app# clear
+[?2004l[H[J[3J[?2004hroot@ab4fcb1fe770:/app# pwd; find /app -maxdepth 3 -type f -printf '%p\n' | sort
+[?2004l/app
+/app/bin/kernscribe
+/app/lagpipe/BUILDCHANNEL
+/app/lagpipe/Makefile
+/app/lagpipe/VERIFIER_CHANNEL
+/app/lagpipe/fieldnotes/FIELD_RULES.txt
+/app/lagpipe/fieldnotes/ROUTE_MAP.txt
+/app/lagpipe/synclink/ARCHITECTURE
+/app/lagpipe/synclink/common.h
+/app/lagpipe/synclink/driver.c
+/app/lagpipe/synclink/field_emit.c
+/app/lagpipe/synclink/parse_layout.c
+/app/lagpipe/synclink/rebuild.c
+/app/lagpipe/synctab_out/layout.tbl
+/app/lagpipe/synctab_out/procance.tag
+/app/lagpipe/tagc/gate.c
+/app/lagpipe/tagc/gate.h
+/app/lagpipe/tblw/emit_writer.c
+/app/livekern/CHANNEL
+/app/livekern/EXPORTS
+/app/livekern/VERSION
+/app/livekern/exports/sched_entity.tab
+/app/livekern/running.release
+/app/memvault/MANIFEST
+/app/memvault/cards/pulse_a.ref
+/app/memvault/cards/pulse_b.ref
+/app/memvault/regression/bundle_pick_input.c
+/app/memvault/samples/pulse_a.mem
+/app/memvault/samples/pulse_b.mem
+/app/memvault/samples/pulse_c.mem
+/app/relc/input.c
+/app/snapvault/CATALOG
+/app/snapvault/MANIFEST
+/app/snapvault/PIN_INDEX
+/app/snapvault/default.pin
+/app/snapvault/policy.conf
+[?2004hroot@ab4fcb1fe770:/app# printf '%s\n' '--- live export ---'; cat /app/livekern/exports/sched_entity.tab; printf '%s\n' '--- release ---'; cat /app/livekern/running.release; printf '%s\n' '--- cards ---'; for f in /app/memvault/cards/*.ref; do echo "### $f"; cat "$f"; done
+[?2004l--- live export ---
+STRUCT sched_entity
+FIELD pid u32 0 4
+FIELD weight u32 4 4
+FIELD migration_flags u32 8 4
+FIELD slice_ns u64 12 8
+--- release ---
+6.8.12
+--- cards ---
+### /app/memvault/cards/pulse_a.ref
+{"struct":"sched_entity","pid":4421,"weight":1024,"migration_flags":7,"slice_ns":25000000}
+### /app/memvault/cards/pulse_b.ref
+{"struct":"sched_entity","pid":9901,"weight":512,"migration_flags":2,"slice_ns":18750000}
+[?2004hroot@ab4fcb1fe770:/app# printf '%s\n' '--- build files ---'; find /app -maxdepth 3 -type f \( -name Makefile -o -name CMakeLists.txt -o -name Cargo.toml -o -name pyproject.toml -o -name setup.py -o -name '*.c' -o -name '*.h' -o -name '*.cc' -o -name '*.cpp' -o -name '*.rs' -o -name '*.py' -o -name '*.sh' \) -print | sort
+[?2004l--- build files ---
+/app/lagpipe/Makefile
+/app/lagpipe/synclink/common.h
+/app/lagpipe/synclink/driver.c
+/app/lagpipe/synclink/field_emit.c
+/app/lagpipe/synclink/parse_layout.c
+/app/lagpipe/synclink/rebuild.c
+/app/lagpipe/tagc/gate.c
+/app/lagpipe/tagc/gate.h
+/app/lagpipe/tblw/emit_writer.c
+/app/memvault/regression/bundle_pick_input.c
+/app/relc/input.c
+[?2004hroot@ab4fcb1fe770:/app# echo '--- current synctab ---'; /app/bin/kernscribe synctab; rc=$?; echo "rc=$rc"; find /app/lagpipe/synctab_out -maxdepth 1 -type f -print -exec sh -c 'echo --- "$1"; cat "$1"' _ {} \; 2>/dev/null; echo '--- inspect samples ---'; for f in /app/memvault/samples/*.mem; do echo "### $f"; /app/bin/kernscribe inspect "$f"; echo "rc=$?"; done
+[?2004l--- current synctab ---
+rc=0
+/app/lagpipe/synctab_out/layout.tbl
+--- /app/lagpipe/synctab_out/layout.tbl
+STRUCT sched_entity
+FIELD pid u32 0 4
+FIELD weight u32 4 4
+FIELD slice_ns u64 8 8
+/app/lagpipe/synctab_out/procance.tag
+--- /app/lagpipe/synctab_out/procance.tag
+live:6.8.12
+--- inspect samples ---
+### /app/memvault/samples/pulse_a.mem
+{"struct":"sched_entity","pid":4421,"weight":1024,"slice_ns":107374182400000007}
+rc=0
+### /app/memvault/samples/pulse_b.mem
+{"struct":"sched_entity","pid":9901,"weight":512,"slice_ns":80530636800000002}
+rc=0
+### /app/memvault/samples/pulse_c.mem
+{"struct":"sched_entity","pid":12007,"weight":384,"slice_ns":141733920768000009}
+rc=0
+[?2004hroot@ab4fcb1fe770:/app# cd /app/lagpipe; echo '=== Makefile ==='; cat Makefile; for f in synclink/ARCHITECTURE synclink/common.h synclink/driver.c synclink/field_emit.c synclink/parse_layout.c synclink/rebuild.c tagc/gate.h tagc/gate.c tblw/emit_writer.c fieldnotes/FIELD_RULES.txt fieldnotes/ROUTE_MAP.txt BUILDCHANNEL VERIFIER_CHANNEL; do echo "=== $f ==="; nl -ba "$f"; done
+[?2004l=== Makefile ===
+CC ?= gcc
+CFLAGS ?= -O2 -Wall -Wextra -Isynclink -Itagc
+SRC := $(wildcard synclink/*.c) ../relc/input.c tblw/emit_writer.c tagc/gate.c
+BIN := /app/bin/kernscribe
+
+.PHONY: bind
+bind:
+	mkdir -p /app/bin /app/lagpipe/synctab_out
+	$(CC) $(CFLAGS) -o $(BIN) $(SRC)
+=== synclink/ARCHITECTURE ===
+     1	kernscribe synclink units live here.
+=== synclink/common.h ===
+     1	#ifndef KERN_FORGE_COMMON_H
+     2	#define KERN_FORGE_COMMON_H
+     3	
+     4	#include <stddef.h>
+     5	
+     6	#define LAYOUT_PATH_LEN 512
+     7	#define TAG_PATH_LEN 512
+     8	#define RELEASE_LEN 64
+     9	#define FIELD_MAX 16
+    10	
+    11	typedef struct {
+    12	    char name[64];
+    13	    char kind[16];
+    14	    unsigned off;
+    15	    unsigned size;
+    16	} field_def;
+    17	
+    18	typedef struct {
+    19	    char struct_name[64];
+    20	    field_def fields[FIELD_MAX];
+    21	    int nfields;
+    22	} layout_def;
+    23	
+    24	typedef struct {
+    25	    char layout_path[LAYOUT_PATH_LEN];
+    26	    char tag_value[RELEASE_LEN];
+    27	    int from_bundle;
+    28	} source_pick;
+    29	
+    30	int choose_layout(source_pick *out);
+    31	int parse_layout(const char *path, layout_def *layout);
+    32	int write_types_tab(const char *layout_path, const char *out_path, const char *tag_value);
+    33	int emit_inspect_json(const char *inspect_path);
+    34	int rebuild_binary(void);
+    35	
+    36	#endif
+=== synclink/driver.c ===
+     1	#include "common.h"
+     2	
+     3	#include <stdio.h>
+     4	#include <string.h>
+     5	
+     6	static int run_gen(void) {
+     7	    source_pick pick;
+     8	    const char *types_out = "/app/lagpipe/synctab_out/layout.tbl";
+     9	    const char *tag_out = "/app/lagpipe/synctab_out/procance.tag";
+    10	    FILE *tag_fp;
+    11	
+    12	    if (choose_layout(&pick) != 0) {
+    13	        fprintf(stderr, "imprint: layout pick failed\n");
+    14	        return 1;
+    15	    }
+    16	    tag_fp = fopen(tag_out, "w");
+    17	    if (!tag_fp) {
+    18	        perror("imprint: procance.tag");
+    19	        return 1;
+    20	    }
+    21	    fprintf(tag_fp, "%s\n", pick.tag_value);
+    22	    fclose(tag_fp);
+    23	    if (write_types_tab(pick.layout_path, types_out, pick.tag_value) != 0) {
+    24	        fprintf(stderr, "imprint: types write failed\n");
+    25	        return 1;
+    26	    }
+    27	    if (rebuild_binary() != 0) {
+    28	        fprintf(stderr, "imprint: rebuild failed\n");
+    29	        return 1;
+    30	    }
+    31	    return 0;
+    32	}
+    33	
+    34	int main(int argc, char **argv) {
+    35	    if (argc < 2) {
+    36	        fprintf(stderr, "usage: kernscribe synctab | inspect <capture>\n");
+    37	        return 2;
+    38	    }
+    39	    if (strcmp(argv[1], "synctab") == 0) {
+    40	        return run_gen();
+    41	    }
+    42	    if (strcmp(argv[1], "inspect") == 0) {
+    43	        if (argc < 3) {
+    44	            fprintf(stderr, "usage: kernscribe inspect <capture>\n");
+    45	            return 2;
+    46	        }
+    47	        return emit_inspect_json(argv[2]);
+    48	    }
+    49	    fprintf(stderr, "unknown command: %s\n", argv[1]);
+    50	    return 2;
+    51	}
+=== synclink/field_emit.c ===
+     1	#include "common.h"
+     2	
+     3	#include <stdint.h>
+     4	#include <stdio.h>
+     5	#include <string.h>
+     6	
+     7	static unsigned long read_u32(const unsigned char *buf, unsigned off) {
+     8	    uint32_t v;
+     9	    memcpy(&v, buf + off, sizeof(v));
+    10	    return (unsigned long)v;
+    11	}
+    12	
+    13	static unsigned long long read_u64(const unsigned char *buf, unsigned off) {
+    14	    uint64_t v;
+    15	    memcpy(&v, buf + off, sizeof(v));
+    16	    return (unsigned long long)v;
+    17	}
+    18	
+    19	int emit_inspect_json(const char *inspect_path) {
+    20	    layout_def layout;
+    21	    unsigned char blob[64];
+    22	    size_t nread;
+    23	    FILE *fp = fopen(inspect_path, "rb");
+    24	    if (!fp) {
+    25	        perror("probe");
+    26	        return 1;
+    27	    }
+    28	    nread = fread(blob, 1, sizeof(blob), fp);
+    29	    fclose(fp);
+    30	    if (nread < 16) {
+    31	        fprintf(stderr, "probe: inspect too short\n");
+    32	        return 1;
+    33	    }
+    34	    if (parse_layout("/app/lagpipe/synctab_out/layout.tbl", &layout) != 0) {
+    35	        fprintf(stderr, "probe: layout.tbl missing\n");
+    36	        return 1;
+    37	    }
+    38	    printf("{\"struct\":\"%s\"", layout.struct_name);
+    39	    for (int i = 0; i < layout.nfields; i++) {
+    40	        const field_def *f = &layout.fields[i];
+    41	        if (strcmp(f->kind, "u64") == 0) {
+    42	            printf(",\"%s\":%llu", f->name, read_u64(blob, f->off));
+    43	        } else {
+    44	            printf(",\"%s\":%lu", f->name, read_u32(blob, f->off));
+    45	        }
+    46	    }
+    47	    printf("}\n");
+    48	    return 0;
+    49	}
+=== synclink/parse_layout.c ===
+     1	#include "common.h"
+     2	
+     3	#include <stdio.h>
+     4	#include <string.h>
+     5	
+     6	int parse_layout(const char *path, layout_def *layout) {
+     7	    FILE *fp = fopen(path, "r");
+     8	    char line[256];
+     9	    if (!fp || !layout) {
+    10	        return -1;
+    11	    }
+    12	    memset(layout, 0, sizeof(*layout));
+    13	    while (fgets(line, sizeof(line), fp)) {
+    14	        char name[64];
+    15	        char kind[16];
+    16	        unsigned off = 0;
+    17	        unsigned size = 0;
+    18	        if (sscanf(line, "STRUCT %63s", layout->struct_name) == 1) {
+    19	            continue;
+    20	        }
+    21	        if (sscanf(line, "FIELD %63s %15s %u %u", name, kind, &off, &size) == 4) {
+    22	            field_def *f = &layout->fields[layout->nfields++];
+    23	            snprintf(f->name, sizeof(f->name), "%s", name);
+    24	            snprintf(f->kind, sizeof(f->kind), "%s", kind);
+    25	            f->off = off;
+    26	            f->size = size;
+    27	        }
+    28	    }
+    29	    fclose(fp);
+    30	    return layout->nfields > 0 ? 0 : -1;
+    31	}
+=== synclink/rebuild.c ===
+     1	#include "common.h"
+     2	
+     3	#include <stdlib.h>
+     4	
+     5	int rebuild_binary(void) {
+     6	    return system("make -C /app/lagpipe bind >/dev/null 2>&1");
+     7	}
+=== tagc/gate.h ===
+     1	#ifndef KERNLAG_GATE_H
+     2	#define KERNLAG_GATE_H
+     3	
+     4	int permit_tag(const char *tag_value);
+     5	
+     6	#endif
+=== tagc/gate.c ===
+     1	#include "gate.h"
+     2	
+     3	int permit_tag(const char *tag_value) {
+     4	    (void)tag_value;
+     5	    return 0;
+     6	}
+=== tblw/emit_writer.c ===
+     1	#include "../synclink/common.h"
+     2	#include "../tagc/gate.h"
+     3	
+     4	#include <stdio.h>
+     5	#include <string.h>
+     6	
+     7	int write_types_tab(const char *layout_path, const char *out_path, const char *tag_value) {
+     8	    layout_def layout;
+     9	    FILE *out;
+    10	
+    11	    if (parse_layout(layout_path, &layout) != 0) {
+    12	        return -1;
+    13	    }
+    14	    out = fopen(out_path, "w");
+    15	    if (!out) {
+    16	        return -1;
+    17	    }
+    18	    fprintf(out, "STRUCT %s\n", layout.struct_name);
+    19	    for (int i = 0; i < layout.nfields; i++) {
+    20	        if (strcmp(layout.fields[i].name, "migration_flags") == 0) {
+    21	            continue;
+    22	        }
+    23	        fprintf(out, "FIELD %s %s %u %u\n", layout.fields[i].name, layout.fields[i].kind,
+    24	                layout.fields[i].off, layout.fields[i].size);
+    25	    }
+    26	    fclose(out);
+    27	    if (tag_value && permit_tag(tag_value) != 0) {
+    28	        return -1;
+    29	    }
+    30	    return 0;
+    31	}
+=== fieldnotes/FIELD_RULES.txt ===
+     1	Layout table lines:
+     2	  STRUCT <name>
+     3	  FIELD <name> <kind> <offset> <size>
+     4	
+     5	Kinds: u32, u64. u64 fields use eight-byte little-endian values in capture blobs.
+     6	Sample blobs are little-endian packed fields in field order.
+     7	sched_entity fields include pid, weight, migration_flags, slice_ns.
+     8	
+     9	procance.tag is one line: live:<release> or bundle:<release>
+    10	offline guard stamp: /app/lagpipe/synctab_out/offline_guard.ok
+    11	
+    12	CLI entry: /app/bin/kernscribe synctab | inspect <capture>
+    13	memvault captures: /app/memvault/samples/*.mem
+    14	memvault cards: /app/memvault/cards/*.ref
+    15	running release file: /app/livekern/running.release
+=== fieldnotes/ROUTE_MAP.txt ===
+     1	lagpipe synctab wiring notes (internal)
+     2	
+     3	Modules linked by `make -C /app/lagpipe bind` participate in synctab:
+     4	  layout pick — chooses sched_entity table input for synctab
+     5	  types writer — materializes synctab_out/layout.tbl from the picked table
+     6	  tag policy gate — decides whether procance lines are acceptable on this image
+     7	  probe emitter — decodes memvault captures through layout.tbl offsets
+     8	
+     9	Field layout rules and CLI contract: /app/lagpipe/fieldnotes/FIELD_RULES.txt
+=== BUILDCHANNEL ===
+     1	synctab build channel: synclink driver binds relc, tblw, tagc.
+=== VERIFIER_CHANNEL ===
+     1	# Kernlag synctab verifier channel — not part of the graded repair surface.
+[?2004hroot@ab4fcb1fe770:/app/lagpipe# cd /app; for f in livekern/CHANNEL livekern/EXPORTS livekern/VERSION memvault/MANIFEST snapvault/CATALOG snapvault/MANIFEST snapvault/PIN_INDEX snapvault/default.pin snapvault/policy.conf relc/input.c memvault/regression/bundle_pick_input.c; do echo "=== $f ==="; nl -ba "$f"; done
+[?2004l=== livekern/CHANNEL ===
+     1	livekern exports the live sched_entity table for synctab on this image.
+=== livekern/EXPORTS ===
+     1	live sched_entity export for synctab on bench images.
+=== livekern/VERSION ===
+     1	livekern exports the live sched_entity layout for this image.
+=== memvault/MANIFEST ===
+     1	memvault stores capture blobs under /app/memvault/samples/*.mem and expected JSON cards under /app/memvault/cards/*.ref.
+     2	bundle-pick regression fixture: /app/memvault/regression/bundle_pick_input.c
+=== snapvault/CATALOG ===
+     1	snapvault release pins for offline sched_entity layouts.
+=== snapvault/MANIFEST ===
+     1	snapvault ships pinned scheduler layout snapshots.
+=== snapvault/PIN_INDEX ===
+     1	# Offline sched_entity snapshot catalog for snapvault pins.
+=== snapvault/default.pin ===
+     1	6.8.11
+=== snapvault/policy.conf ===
+     1	# Offline analysis hosts without live export may pin a bundled release.
+     2	# kernscribe synctab consults this file after default.pin when selecting snapvault layouts.
+     3	DEFAULT_RELEASE=6.8.12
+=== relc/input.c ===
+     1	#include "../lagpipe/synclink/common.h"
+     2	
+     3	#include <stdio.h>
+     4	#include <string.h>
+     5	
+     6	static int read_pin(char *release, size_t n) {
+     7	    FILE *fp = fopen("/app/snapvault/default.pin", "r");
+     8	    if (!fp) {
+     9	        return -1;
+    10	    }
+    11	    if (!fgets(release, (int)n, fp)) {
+    12	        fclose(fp);
+    13	        return -1;
+    14	    }
+    15	    fclose(fp);
+    16	    size_t len = strlen(release);
+    17	    while (len > 0 && (release[len - 1] == '\n' || release[len - 1] == '\r')) {
+    18	        release[--len] = '\0';
+    19	    }
+    20	    return 0;
+    21	}
+    22	
+    23	static int read_running_release(char *release, size_t n) {
+    24	    FILE *fp = fopen("/app/livekern/running.release", "r");
+    25	    if (!fp) {
+    26	        return -1;
+    27	    }
+    28	    if (!fgets(release, (int)n, fp)) {
+    29	        fclose(fp);
+    30	        return -1;
+    31	    }
+    32	    fclose(fp);
+    33	    size_t len = strlen(release);
+    34	    while (len > 0 && (release[len - 1] == '\n' || release[len - 1] == '\r')) {
+    35	        release[--len] = '\0';
+    36	    }
+    37	    return 0;
+    38	}
+    39	
+    40	static void apply_policy_release(char *release, size_t n) {
+    41	    FILE *fp = fopen("/app/snapvault/policy.conf", "r");
+    42	    char line[128];
+    43	    char val[RELEASE_LEN];
+    44	    if (!fp) {
+    45	        return;
+    46	    }
+    47	    while (fgets(line, sizeof(line), fp)) {
+    48	        if (sscanf(line, "DEFAULT_RELEASE=%63s", val) == 1) {
+    49	            snprintf(release, n, "%s", val);
+    50	        }
+    51	    }
+    52	    fclose(fp);
+    53	}
+    54	
+    55	int choose_layout(source_pick *out) {
+    56	    char release[RELEASE_LEN];
+    57	    char running[RELEASE_LEN];
+    58	
+    59	    if (!out) {
+    60	        return -1;
+    61	    }
+    62	    memset(out, 0, sizeof(*out));
+    63	
+    64	    if (read_pin(release, sizeof(release)) != 0) {
+    65	        return -1;
+    66	    }
+    67	    apply_policy_release(release, sizeof(release));
+    68	
+    69	    if (read_running_release(running, sizeof(running)) == 0 &&
+    70	        strcmp(release, running) == 0) {
+    71	        snprintf(out->layout_path, sizeof(out->layout_path),
+    72	                 "/app/snapvault/releases/%s/sched_entity.tab", release);
+    73	        snprintf(out->tag_value, sizeof(out->tag_value), "live:%s", running);
+    74	        out->from_bundle = 1;
+    75	        return 0;
+    76	    }
+    77	
+    78	    snprintf(out->layout_path, sizeof(out->layout_path),
+    79	             "/app/snapvault/releases/%s/sched_entity.tab", release);
+    80	    snprintf(out->tag_value, sizeof(out->tag_value), "bundle:%s", release);
+    81	    out->from_bundle = 1;
+    82	    return 0;
+    83	}
+=== memvault/regression/bundle_pick_input.c ===
+     1	#include "../lagpipe/synclink/common.h"
+     2	
+     3	#include <stdio.h>
+     4	#include <string.h>
+     5	
+     6	static int read_pin(char *release, size_t n) {
+     7	    FILE *fp = fopen("/app/snapvault/default.pin", "r");
+     8	    if (!fp) {
+     9	        return -1;
+    10	    }
+    11	    if (!fgets(release, (int)n, fp)) {
+    12	        fclose(fp);
+    13	        return -1;
+    14	    }
+    15	    fclose(fp);
+    16	    size_t len = strlen(release);
+    17	    while (len > 0 && (release[len - 1] == '\n' || release[len - 1] == '\r')) {
+    18	        release[--len] = '\0';
+    19	    }
+    20	    return 0;
+    21	}
+    22	
+    23	static void apply_policy_release(char *release, size_t n) {
+    24	    FILE *fp = fopen("/app/snapvault/policy.conf", "r");
+    25	    char line[128];
+    26	    char val[RELEASE_LEN];
+    27	    if (!fp) {
+    28	        return;
+    29	    }
+    30	    while (fgets(line, sizeof(line), fp)) {
+    31	        if (sscanf(line, "DEFAULT_RELEASE=%63s", val) == 1) {
+    32	            snprintf(release, n, "%s", val);
+    33	        }
+    34	    }
+    35	    fclose(fp);
+    36	}
+    37	
+    38	int choose_layout(source_pick *out) {
+    39	    char release[RELEASE_LEN];
+    40	
+    41	    if (!out) {
+    42	        return -1;
+    43	    }
+    44	    memset(out, 0, sizeof(*out));
+    45	
+    46	    if (read_pin(release, sizeof(release)) != 0) {
+    47	        return -1;
+    48	    }
+    49	    apply_policy_release(release, sizeof(release));
+    50	    snprintf(out->layout_path, sizeof(out->layout_path),
+    51	             "/app/snapvault/releases/%s/sched_entity.tab", release);
+    52	    snprintf(out->tag_value, sizeof(out->tag_value), "bundle:%s", release);
+    53	    out->from_bundle = 1;
+    54	    return 0;
+    55	}
+[?2004hroot@ab4fcb1fe770:/app# echo '=== binary metadata ==='; file /app/bin/kernscribe; strings /app/bin/kernscribe | grep -E 'bundle|live|offline|sched|synctab|layout|procance|slice|migration' | head -100; echo '=== capture bytes ==='; for f in /app/memvault/samples/*.mem; do echo "--- $f"; xxd -g1 "$f"; done
+[?2004l=== binary metadata ===
+/app/bin/kernscribe: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, not stripped
+imprint: layout pick failed
+imprint: procance.tag
+synctab
+/app/lagpipe/synctab_out/procance.tag
+/app/lagpipe/synctab_out/layout.tbl
+usage: kernscribe synctab | inspect <capture>
+probe: layout.tbl missing
+/app/livekern/running.release
+live:%s
+bundle:%s
+/app/snapvault/releases/%s/sched_entity.tab
+migration_flags
+parse_layout.c
+parse_layout
+choose_layout
+=== capture bytes ===
+--- /app/memvault/samples/pulse_a.mem
+bash: xxd: command not found
+--- /app/memvault/samples/pulse_b.mem
+bash: xxd: command not found
+--- /app/memvault/samples/pulse_c.mem
+bash: xxd: command not found
+[?2004hroot@ab4fcb1fe770:/app# cd /app/lagpipe; echo '=== field_emit ==='; cat synclink/field_emit.c; echo '=== parse_layout ==='; cat synclink/parse_layout.c; echo '=== emit_writer ==='; cat tblw/emit_writer.c
+[?2004l=== field_emit ===
+#include "common.h"
+
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+
+static unsigned long read_u32(const unsigned char *buf, unsigned off) {
+    uint32_t v;
+    memcpy(&v, buf + off, sizeof(v));
+    return (unsigned long)v;
+}
+
+static unsigned long long read_u64(const unsigned char *buf, unsigned off) {
+    uint64_t v;
+    memcpy(&v, buf + off, sizeof(v));
+    return (unsigned long long)v;
+}
+
+int emit_inspect_json(const char *inspect_path) {
+    layout_def layout;
+    unsigned char blob[64];
+    size_t nread;
+    FILE *fp = fopen(inspect_path, "rb");
+    if (!fp) {
+        perror("probe");
+        return 1;
+    }
+    nread = fread(blob, 1, sizeof(blob), fp);
+    fclose(fp);
+    if (nread < 16) {
+        fprintf(stderr, "probe: inspect too short\n");
+        return 1;
+    }
+    if (parse_layout("/app/lagpipe/synctab_out/layout.tbl", &layout) != 0) {
+        fprintf(stderr, "probe: layout.tbl missing\n");
+        return 1;
+    }
+    printf("{\"struct\":\"%s\"", layout.struct_name);
+    for (int i = 0; i < layout.nfields; i++) {
+        const field_def *f = &layout.fields[i];
+        if (strcmp(f->kind, "u64") == 0) {
+            printf(",\"%s\":%llu", f->name, read_u64(blob, f->off));
+        } else {
+            printf(",\"%s\":%lu", f->name, read_u32(blob, f->off));
+        }
+    }
+    printf("}\n");
+    return 0;
+}
+=== parse_layout ===
+#include "common.h"
+
+#include <stdio.h>
+#include <string.h>
+
+int parse_layout(const char *path, layout_def *layout) {
+    FILE *fp = fopen(path, "r");
+    char line[256];
+    if (!fp || !layout) {
+        return -1;
+    }
+    memset(layout, 0, sizeof(*layout));
+    while (fgets(line, sizeof(line), fp)) {
+        char name[64];
+        char kind[16];
+        unsigned off = 0;
+        unsigned size = 0;
+        if (sscanf(line, "STRUCT %63s", layout->struct_name) == 1) {
+            continue;
+        }
+        if (sscanf(line, "FIELD %63s %15s %u %u", name, kind, &off, &size) == 4) {
+            field_def *f = &layout->fields[layout->nfields++];
+            snprintf(f->name, sizeof(f->name), "%s", name);
+            snprintf(f->kind, sizeof(f->kind), "%s", kind);
+            f->off = off;
+            f->size = size;
+        }
+    }
+    fclose(fp);
+    return layout->nfields > 0 ? 0 : -1;
+}
+=== emit_writer ===
+#include "../synclink/common.h"
+#include "../tagc/gate.h"
+
+#include <stdio.h>
+#include <string.h>
+
+int write_types_tab(const char *layout_path, const char *out_path, const char *tag_value) {
+    layout_def layout;
+    FILE *out;
+
+    if (parse_layout(layout_path, &layout) != 0) {
+        return -1;
+    }
+    out = fopen(out_path, "w");
+    if (!out) {
+        return -1;
+    }
+    fprintf(out, "STRUCT %s\n", layout.struct_name);
+    for (int i = 0; i < layout.nfields; i++) {
+        if (strcmp(layout.fields[i].name, "migration_flags") == 0) {
+            continue;
+        }
+        fprintf(out, "FIELD %s %s %u %u\n", layout.fields[i].name, layout.fields[i].kind,
+                layout.fields[i].off, layout.fields[i].size);
+    }
+    fclose(out);
+    if (tag_value && permit_tag(tag_value) != 0) {
+        return -1;
+    }
+    return 0;
+}
+[?2004hroot@ab4fcb1fe770:/app/lagpipe# cd /app/lagpipe; echo '=== rebuild ==='; cat synclink/rebuild.c; echo '=== gate.h ==='; cat tagc/gate.h; echo '=== gate.c ==='; cat tagc/gate.c; echo '=== relc input ==='; cat /app/relc/input.c
+[?2004l=== rebuild ===
+#include "common.h"
+
+#include <stdlib.h>
+
+int rebuild_binary(void) {
+    return system("make -C /app/lagpipe bind >/dev/null 2>&1");
+}
+=== gate.h ===
+#ifndef KERNLAG_GATE_H
+#define KERNLAG_GATE_H
+
+int permit_tag(const char *tag_value);
+
+#endif
+=== gate.c ===
+#include "gate.h"
+
+int permit_tag(const char *tag_value) {
+    (void)tag_value;
+    return 0;
+}
+=== relc input ===
+#include "../lagpipe/synclink/common.h"
+
+#include <stdio.h>
+#include <string.h>
+
+static int read_pin(char *release, size_t n) {
+    FILE *fp = fopen("/app/snapvault/default.pin", "r");
+    if (!fp) {
+        return -1;
+    }
+    if (!fgets(release, (int)n, fp)) {
+        fclose(fp);
+        return -1;
+    }
+    fclose(fp);
+    size_t len = strlen(release);
+    while (len > 0 && (release[len - 1] == '\n' || release[len - 1] == '\r')) {
+        release[--len] = '\0';
+    }
+    return 0;
+}
+
+static int read_running_release(char *release, size_t n) {
+    FILE *fp = fopen("/app/livekern/running.release", "r");
+    if (!fp) {
+        return -1;
+    }
+    if (!fgets(release, (int)n, fp)) {
+        fclose(fp);
+        return -1;
+    }
+    fclose(fp);
+    size_t len = strlen(release);
+    while (len > 0 && (release[len - 1] == '\n' || release[len - 1] == '\r')) {
+        release[--len] = '\0';
+    }
+    return 0;
+}
+
+static void apply_policy_release(char *release, size_t n) {
+    FILE *fp = fopen("/app/snapvault/policy.conf", "r");
+    char line[128];
+    char val[RELEASE_LEN];
+    if (!fp) {
+        return;
+    }
+    while (fgets(line, sizeof(line), fp)) {
+        if (sscanf(line, "DEFAULT_RELEASE=%63s", val) == 1) {
+            snprintf(release, n, "%s", val);
+        }
+    }
+    fclose(fp);
+}
+
+int choose_layout(source_pick *out) {
+    char release[RELEASE_LEN];
+    char running[RELEASE_LEN];
+
+    if (!out) {
+        return -1;
+    }
+    memset(out, 0, sizeof(*out));
+
+    if (read_pin(release, sizeof(release)) != 0) {
+        return -1;
+    }
+    apply_policy_release(release, sizeof(release));
+
+    if (read_running_release(running, sizeof(running)) == 0 &&
+        strcmp(release, running) == 0) {
+        snprintf(out->layout_path, sizeof(out->layout_path),
+                 "/app/snapvault/releases/%s/sched_entity.tab", release);
+        snprintf(out->tag_value, sizeof(out->tag_value), "live:%s", running);
+        out->from_bundle = 1;
+        return 0;
+    }
+
+    snprintf(out->layout_path, sizeof(out->layout_path),
+             "/app/snapvault/releases/%s/sched_entity.tab", release);
+    snprintf(out->tag_value, sizeof(out->tag_value), "bundle:%s", release);
+    out->from_bundle = 1;
+    return 0;
+}
+[?2004hroot@ab4fcb1fe770:/app/lagpipe# echo '=== field rules ==='; cat /app/lagpipe/fieldnotes/FIELD_RULES.txt; echo '=== route map ==='; cat /app/lagpipe/fieldnotes/ROUTE_MAP.txt; echo '=== metadata ==='; for f in /app/livekern/CHANNEL /app/livekern/EXPORTS /app/livekern/VERSION /app/memvault/MANIFEST /app/snapvault/CATALOG /app/snapvault/MANIFEST /app/snapvault/PIN_INDEX /app/snapvault/default.pin /app/snapvault/policy.conf; do echo "--- $f"; cat "$f"; done; echo '=== captures ==='; for f in /app/memvault/samples/*.mem; do echo "--- $f"; od -An -tx1 -v "$f"; done
+[?2004l=== field rules ===
+Layout table lines:
+  STRUCT <name>
+  FIELD <name> <kind> <offset> <size>
+
+Kinds: u32, u64. u64 fields use eight-byte little-endian values in capture blobs.
+Sample blobs are little-endian packed fields in field order.
+sched_entity fields include pid, weight, migration_flags, slice_ns.
+
+procance.tag is one line: live:<release> or bundle:<release>
+offline guard stamp: /app/lagpipe/synctab_out/offline_guard.ok
+
+CLI entry: /app/bin/kernscribe synctab | inspect <capture>
+memvault captures: /app/memvault/samples/*.mem
+memvault cards: /app/memvault/cards/*.ref
+running release file: /app/livekern/running.release
+=== route map ===
+lagpipe synctab wiring notes (internal)
+
+Modules linked by `make -C /app/lagpipe bind` participate in synctab:
+  layout pick — chooses sched_entity table input for synctab
+  types writer — materializes synctab_out/layout.tbl from the picked table
+  tag policy gate — decides whether procance lines are acceptable on this image
+  probe emitter — decodes memvault captures through layout.tbl offsets
+
+Field layout rules and CLI contract: /app/lagpipe/fieldnotes/FIELD_RULES.txt
+=== metadata ===
+--- /app/livekern/CHANNEL
+livekern exports the live sched_entity table for synctab on this image.
+--- /app/livekern/EXPORTS
+live sched_entity export for synctab on bench images.
+--- /app/livekern/VERSION
+livekern exports the live sched_entity layout for this image.
+--- /app/memvault/MANIFEST
+memvault stores capture blobs under /app/memvault/samples/*.mem and expected JSON cards under /app/memvault/cards/*.ref.
+bundle-pick regression fixture: /app/memvault/regression/bundle_pick_input.c
+--- /app/snapvault/CATALOG
+snapvault release pins for offline sched_entity layouts.
+--- /app/snapvault/MANIFEST
+snapvault ships pinned scheduler layout snapshots.
+--- /app/snapvault/PIN_INDEX
+# Offline sched_entity snapshot catalog for snapvault pins.
+--- /app/snapvault/default.pin
+6.8.11
+--- /app/snapvault/policy.conf
+# Offline analysis hosts without live export may pin a bundled release.
+# kernscribe synctab consults this file after default.pin when selecting snapvault layouts.
+DEFAULT_RELEASE=6.8.12
+=== captures ===
+--- /app/memvault/samples/pulse_a.mem
+ 45 11 00 00 00 04 00 00 07 00 00 00 40 78 7d 01
+ 00 00 00 00
+--- /app/memvault/samples/pulse_b.mem
+ ad 26 00 00 00 02 00 00 02 00 00 00 30 1a 1e 01
+ 00 00 00 00
+--- /app/memvault/samples/pulse_c.mem
+ e7 2e 00 00 80 01 00 00 09 00 00 00 40 8a f7 01
+ 00 00 00 00
+[?2004hroot@ab4fcb1fe770:/app/lagpipe# cat > /app/relc/input.c <<'EOF'
+[?2004l[?2004h> #include "../lagpipe/synclink/common.h"
+[?2004l[?2004h> 
+[?2004l[?2004h> #include <ctype.h>
+[?2004l[?2004h> #include <stdio.h>
+[?2004l[?2004h> #include <string.h>
+[?2004l[?2004h> 
+[?2004l[?2004h> static int read_running_release(char *release, size_t n) {
+[?2004l[?2004h>     FILE *fp = fopen("/app/livekern/running.release", "r");
+[?2004l[?2004h>     char line[256];
+[?2004l[?2004h>     char *start, *end;
+[?2004l[?2004h>     size_t len;
+[?2004l[?2004h> 
+[?2004l[?2004h>     if (!fp || !fgets(line, sizeof(line), fp)) {
+[?2004l[?2004h>         if (fp) fclose(fp);
+[?2004l[?2004h>         return -1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     fclose(fp);
+[?2004l[?2004h>     start = line;
+[?2004l[?2004h>     while (*start && isspace((unsigned char)*start)) start++;
+[?2004l[?2004h>     end = start + strlen(start);
+[?2004l[?2004h>     while (end > start && isspace((unsigned char)end[-1])) end--;
+[?2004l[?2004h>     len = (size_t)(end - start);
+[?2004l[?2004h>     if (len == 0 || len >= n) return -1;
+[?2004l[?2004h>     memcpy(release, start, len);
+[?2004l[?2004h>     release[len] = '\0';
+[?2004l[?2004h>     return 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> int choose_layout(source_pick *out) {
+[?2004l[?2004h>     char running[RELEASE_LEN];
+[?2004l[?2004h> 
+[?2004l[?2004h>     if (!out || read_running_release(running, sizeof(running)) != 0) return -1;
+[?2004l[?2004h>     memset(out, 0, sizeof(*out));
+[?2004l[?2004h>     snprintf(out->layout_path, sizeof(out->layout_path),
+[?2004l[?2004h>              "/app/livekern/exports/sched_entity.tab");
+[?2004l[?2004h>     snprintf(out->tag_value, sizeof(out->tag_value), "live:%s", running);
+[?2004l[?2004h>     out->from_bundle = 0;
+[?2004l[?2004h>     return 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@ab4fcb1fe770:/app/lagpipe# cat > /app/lagpipe/tagc/gate.c <<'EOF'
+[?2004l[?2004h> #include "gate.h"
+[?2004l[?2004h> 
+[?2004l[?2004h> #include <string.h>
+[?2004l[?2004h> 
+[?2004l[?2004h> int permit_tag(const char *tag_value) {
+[?2004l[?2004h>     if (!tag_value || strncmp(tag_value, "live:", 5) != 0 || tag_value[5] == '\0')
+[?2004l[?2004h>         return -1;
+[?2004l[?2004h>     if (strncmp(tag_value, "bundle:", 7) == 0)
+[?2004l[?2004h>         return -1;
+[?2004l[?2004h>     return 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@ab4fcb1fe770:/app/lagpipe# python3 - <<'PY'
+[?2004l[?2004h> p='/app/lagpipe/tblw/emit_writer.c'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> s=s.replace('''    if (parse_layout(layout_path, &layout) != 0) {
+[?2004l[?2004h>         return -1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     out = fopen(out_path, "w");''','''    if (parse_layout(layout_path, &layout) != 0 || permit_tag(tag_value) != 0) {
+[?2004l[?2004h>         return -1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     out = fopen(out_path, "w");''')
+[?2004l[?2004h> s=s.replace('''        if (strcmp(layout.fields[i].name, "migration_flags") == 0) {
+[?2004l[?2004h>             continue;
+[?2004l[?2004h>         }
+[?2004l[?2004h> ''','')
+[?2004l[?2004h> s=s.replace('''    if (tag_value && permit_tag(tag_value) != 0) {
+[?2004l[?2004h>         return -1;
+[?2004l[?2004h>     }
+[?2004l[?2004h> ''','')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@ab4fcb1fe770:/app/lagpipe# cat > /app/lagpipe/synclink/driver.c <<'EOF'
+[?2004l[?2004h> #include "common.h"
+[?2004l[?2004h> #include "../tagc/gate.h"
+[?2004l[?2004h> 
+[?2004l[?2004h> #include <stdio.h>
+[?2004l[?2004h> #include <string.h>
+[?2004l[?2004h> #include <unistd.h>
+[?2004l[?2004h> 
+[?2004l[?2004h> static int run_gen(void) {
+[?2004l[?2004h>     source_pick pick;
+[?2004l[?2004h>     const char *types_out = "/app/lagpipe/synctab_out/layout.tbl";
+[?2004l[?2004h>     const char *tag_out = "/app/lagpipe/synctab_out/procance.tag";
+[?2004l[?2004h>     const char *guard_out = "/app/lagpipe/synctab_out/offline_guard.ok";
+[?2004l[?2004h>     FILE *fp;
+[?2004l[?2004h> 
+[?2004l[?2004h>     unlink(guard_out);
+[?2004l[?2004h>     if (choose_layout(&pick) != 0) {
+[?2004l[?2004h>         fprintf(stderr, "imprint: layout pick failed\n");
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if (pick.from_bundle || permit_tag(pick.tag_value) != 0) {
+[?2004l[?2004h>         fprintf(stderr, "imprint: bundle origin is not accepted\n");
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if (write_types_tab(pick.layout_path, types_out, pick.tag_value) != 0) {
+[?2004l[?2004h>         fprintf(stderr, "imprint: types write failed\n");
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if (rebuild_binary() != 0) {
+[?2004l[?2004h>         fprintf(stderr, "imprint: rebuild failed\n");
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     fp = fopen(tag_out, "w");
+[?2004l[?2004h>     if (!fp) {
+[?2004l[?2004h>         perror("imprint: procance.tag");
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if (fprintf(fp, "%s\n", pick.tag_value) < 0 || fclose(fp) != 0) {
+[?2004l[?2004h>         unlink(tag_out);
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     fp = fopen(guard_out, "w");
+[?2004l[?2004h>     if (!fp) return 1;
+[?2004l[?2004h>     if (fputs("1\n", fp) == EOF || fclose(fp) != 0) {
+[?2004l[?2004h>         unlink(guard_out);
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     return 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> int main(int argc, char **argv) {
+[?2004l[?2004h>     if (argc < 2) {
+[?2004l[?2004h>         fprintf(stderr, "usage: kernscribe synctab | inspect <capture>\n");
+[?2004l[?2004h>         return 2;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if (strcmp(argv[1], "synctab") == 0) return run_gen();
+[?2004l[?2004h>     if (strcmp(argv[1], "inspect") == 0) {
+[?2004l[?2004h>         if (argc < 3) {
+[?2004l[?2004h>             fprintf(stderr, "usage: kernscribe inspect <capture>\n");
+[?2004l[?2004h>             return 2;
+[?2004l[?2004h>         }
+[?2004l[?2004h>         return emit_inspect_json(argv[2]);
+[?2004l[?2004h>     }
+[?2004l[?2004h>     fprintf(stderr, "unknown command: %s\n", argv[1]);
+[?2004l[?2004h>     return 2;
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@ab4fcb1fe770:/app/lagpipe# python3 - <<'PY'
+[?2004l[?2004h> p='/app/lagpipe/synclink/parse_layout.c'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> s=s.replace('''        if (sscanf(line, "FIELD %63s %15s %u %u", name, kind, &off, &size) == 4) {
+[?2004l[?2004h>             field_def *f = &layout->fields[layout->nfields++];''','''        if (sscanf(line, "FIELD %63s %15s %u %u", name, kind, &off, &size) == 4) {
+[?2004l[?2004h>             field_def *f;
+[?2004l[?2004h>             if (layout->nfields >= FIELD_MAX ||
+[?2004l[?2004h>                 (strcmp(kind, "u32") != 0 && strcmp(kind, "u64") != 0) ||
+[?2004l[?2004h>                 (strcmp(kind, "u32") == 0 && size != 4) ||
+[?2004l[?2004h>                 (strcmp(kind, "u64") == 0 && size != 8)) {
+[?2004l[?2004h>                 fclose(fp);
+[?2004l[?2004h>                 return -1;
+[?2004l[?2004h>             }
+[?2004l[?2004h>             f = &layout->fields[layout->nfields++];''')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> 
+[?2004l[?2004h> p='/app/lagpipe/synclink/field_emit.c'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> s=s.replace('''    for (int i = 0; i < layout.nfields; i++) {
+[?2004l[?2004h>         const field_def *f = &layout.fields[i];''','''    for (int i = 0; i < layout.nfields; i++) {
+[?2004l[?2004h>         const field_def *f = &layout.fields[i];
+[?2004l[?2004h>         if ((size_t)f->off + f->size > nread) {
+[?2004l[?2004h>             fprintf(stderr, "probe: field outside capture\n");
+[?2004l[?2004h>             return 1;
+[?2004l[?2004h>         }''')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@ab4fcb1fe770:/app/lagpipe# make -C /app/lagpipe bind
+[?2004lmake: Entering directory '/app/lagpipe'
+mkdir -p /app/bin /app/lagpipe/synctab_out
+cc -O2 -Wall -Wextra -Isynclink -Itagc -o /app/bin/kernscribe synclink/driver.c synclink/field_emit.c synclink/parse_layout.c synclink/rebuild.c ../relc/input.c tblw/emit_writer.c tagc/gate.c
+[01m[Ksynclink/field_emit.c:[m[K In function ‘[01m[Kemit_inspect_json[m[K’:
+[01m[Ksynclink/field_emit.c:42:29:[m[K [01;35m[Kwarning: [m[Kmissing terminating " character
+   42 |             fprintf(stderr, [01;35m[K"[m[Kprobe: field outside capture
+      |                             [01;35m[K^[m[K
+[01m[Ksynclink/field_emit.c:42:29:[m[K [01;31m[Kerror: [m[Kmissing terminating " character
+   42 |             fprintf(stderr, [01;31m[K"probe: field outside capture[m[K
+      |                             [01;31m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[01m[Ksynclink/field_emit.c:43:1:[m[K [01;35m[Kwarning: [m[Kmissing terminating " character
+   43 | [01;35m[K"[m[K);
+      | [01;35m[K^[m[K
+[01m[Ksynclink/field_emit.c:43:1:[m[K [01;31m[Kerror: [m[Kmissing terminating " character
+   43 | [01;31m[K");[m[K
+      | [01;31m[K^~~[m[K
+[01m[Ksynclink/field_emit.c:44:13:[m[K [01;31m[Kerror: [m[Kexpected expression before ‘[01m[Kreturn[m[K’
+   44 |             [01;31m[Kreturn[m[K 1;
+      |             [01;31m[K^~~~~~[m[K
+[01m[Ksynclink/field_emit.c:44:22:[m[K [01;31m[Kerror: [m[Kexpected ‘[01m[K;[m[K’ before ‘[01m[K}[m[K’ token
+   44 |             return 1;
+      |                      [01;31m[K^[m[K
+      |                      [32m[K;[m[K
+   45 |         [32m[K}[m[K
+      |         [32m[K~[m[K             
+[01m[K../relc/input.c:[m[K In function ‘[01m[Kchoose_layout[m[K’:
+[01m[K../relc/input.c:36:60:[m[K [01;35m[Kwarning: [m[K‘[01m[K%s[m[K’ directive output may be truncated writing up to 63 bytes into a region of size 59 [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wformat-truncation=-Wformat-truncation=]8;;[m[K]
+   36 |     snprintf(out->tag_value, sizeof(out->tag_value), "live:[01;35m[K%s[m[K", [32m[Krunning[m[K);
+      |                                                            [01;35m[K^~[m[K   [32m[K~~~~~~~[m[K
+[01m[K../relc/input.c:36:5:[m[K [01;36m[Knote: [m[K‘[01m[Ksnprintf[m[K’ output between 6 and 69 bytes into a destination of size 64
+   36 |     [01;36m[Ksnprintf(out->tag_value, sizeof(out->tag_value), "live:%s", running)[m[K;
+      |     [01;36m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+make: *** [Makefile:9: bind] Error 1
+make: Leaving directory '/app/lagpipe'
+[?2004hroot@ab4fcb1fe770:/app/lagpipe# rm -f /app/lagpipe/synctab_out/offline_guard.ok; /app/bin/kernscribe synctab; rc=$?; echo "synctab_rc=$rc"; echo '=== generated artifacts ==='; for f in /app/lagpipe/synctab_out/layout.tbl /app/lagpipe/synctab_out/procance.tag /app/lagpipe/synctab_out/offline_guard.ok; do echo "--- $f"; if test -f "$f"; then cat "$f"; else echo MISSING; fi; done; echo '=== decoded samples ==='; for f in /app/memvault/samples/*.mem; do printf '%s: ' "$(basename "$f")"; /app/bin/kernscribe inspect "$f"; done
+[?2004limprint: rebuild failed
+synctab_rc=1
+=== generated artifacts ===
+--- /app/lagpipe/synctab_out/layout.tbl
+STRUCT sched_entity
+FIELD pid u32 0 4
+FIELD weight u32 4 4
+FIELD slice_ns u64 8 8
+--- /app/lagpipe/synctab_out/procance.tag
+live:6.8.12
+--- /app/lagpipe/synctab_out/offline_guard.ok
+MISSING
+=== decoded samples ===
+pulse_a.mem: {"struct":"sched_entity","pid":4421,"weight":1024,"slice_ns":107374182400000007}
+pulse_b.mem: {"struct":"sched_entity","pid":9901,"weight":512,"slice_ns":80530636800000002}
+pulse_c.mem: {"struct":"sched_entity","pid":12007,"weight":384,"slice_ns":141733920768000009}
+[?2004hroot@ab4fcb1fe770:/app/lagpipe# cat > /app/lagpipe/synclink/field_emit.c <<'EOF'
+[?2004l[?2004h> #include "common.h"
+[?2004l[?2004h> 
+[?2004l[?2004h> #include <stdint.h>
+[?2004l[?2004h> #include <stdio.h>
+[?2004l[?2004h> #include <string.h>
+[?2004l[?2004h> 
+[?2004l[?2004h> static unsigned long read_u32(const unsigned char *buf, unsigned off) {
+[?2004l[?2004h>     uint32_t v;
+[?2004l[?2004h>     memcpy(&v, buf + off, sizeof(v));
+[?2004l[?2004h>     return (unsigned long)v;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> static unsigned long long read_u64(const unsigned char *buf, unsigned off) {
+[?2004l[?2004h>     uint64_t v;
+[?2004l[?2004h>     memcpy(&v, buf + off, sizeof(v));
+[?2004l[?2004h>     return (unsigned long long)v;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> int emit_inspect_json(const char *inspect_path) {
+[?2004l[?2004h>     layout_def layout;
+[?2004l[?2004h>     unsigned char blob[64];
+[?2004l[?2004h>     size_t nread;
+[?2004l[?2004h>     FILE *fp = fopen(inspect_path, "rb");
+[?2004l[?2004h>     if (!fp) {
+[?2004l[?2004h>         perror("probe");
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     nread = fread(blob, 1, sizeof(blob), fp);
+[?2004l[?2004h>     fclose(fp);
+[?2004l[?2004h>     if (parse_layout("/app/lagpipe/synctab_out/layout.tbl", &layout) != 0) {
+[?2004l[?2004h>         fprintf(stderr, "probe: layout.tbl missing or invalid\n");
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     for (int i = 0; i < layout.nfields; i++) {
+[?2004l[?2004h>         const field_def *f = &layout.fields[i];
+[?2004l[?2004h>         if ((size_t)f->off + f->size > nread) {
+[?2004l[?2004h>             fprintf(stderr, "probe: field outside capture\n");
+[?2004l[?2004h>             return 1;
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     printf("{\"struct\":\"%s\"", layout.struct_name);
+[?2004l[?2004h>     for (int i = 0; i < layout.nfields; i++) {
+[?2004l[?2004h>         const field_def *f = &layout.fields[i];
+[?2004l[?2004h>         if (strcmp(f->kind, "u64") == 0)
+[?2004l[?2004h>             printf(",\"%s\":%llu", f->name, read_u64(blob, f->off));
+[?2004l[?2004h>         else
+[?2004l[?2004h>             printf(",\"%s\":%lu", f->name, read_u32(blob, f->off));
+[?2004l[?2004h>     }
+[?2004l[?2004h>     printf("}\n");
+[?2004l[?2004h>     return 0;
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@ab4fcb1fe770:/app/lagpipe# echo '=== writer source ==='; cat /app/lagpipe/tblw/emit_writer.c; echo '=== parser relevant ==='; sed -n '1,120p' /app/lagpipe/synclink/parse_layout.c; make -C /app/lagpipe bind
+[?2004l=== writer source ===
+#include "../synclink/common.h"
+#include "../tagc/gate.h"
+
+#include <stdio.h>
+#include <string.h>
+
+int write_types_tab(const char *layout_path, const char *out_path, const char *tag_value) {
+    layout_def layout;
+    FILE *out;
+
+    if (parse_layout(layout_path, &layout) != 0 || permit_tag(tag_value) != 0) {
+        return -1;
+    }
+    out = fopen(out_path, "w");
+    if (!out) {
+        return -1;
+    }
+    fprintf(out, "STRUCT %s\n", layout.struct_name);
+    for (int i = 0; i < layout.nfields; i++) {
+        fprintf(out, "FIELD %s %s %u %u\n", layout.fields[i].name, layout.fields[i].kind,
+                layout.fields[i].off, layout.fields[i].size);
+    }
+    fclose(out);
+    return 0;
+}
+=== parser relevant ===
+#include "common.h"
+
+#include <stdio.h>
+#include <string.h>
+
+int parse_layout(const char *path, layout_def *layout) {
+    FILE *fp = fopen(path, "r");
+    char line[256];
+    if (!fp || !layout) {
+        return -1;
+    }
+    memset(layout, 0, sizeof(*layout));
+    while (fgets(line, sizeof(line), fp)) {
+        char name[64];
+        char kind[16];
+        unsigned off = 0;
+        unsigned size = 0;
+        if (sscanf(line, "STRUCT %63s", layout->struct_name) == 1) {
+            continue;
+        }
+        if (sscanf(line, "FIELD %63s %15s %u %u", name, kind, &off, &size) == 4) {
+            field_def *f;
+            if (layout->nfields >= FIELD_MAX ||
+                (strcmp(kind, "u32") != 0 && strcmp(kind, "u64") != 0) ||
+                (strcmp(kind, "u32") == 0 && size != 4) ||
+                (strcmp(kind, "u64") == 0 && size != 8)) {
+                fclose(fp);
+                return -1;
+            }
+            f = &layout->fields[layout->nfields++];
+            snprintf(f->name, sizeof(f->name), "%s", name);
+            snprintf(f->kind, sizeof(f->kind), "%s", kind);
+            f->off = off;
+            f->size = size;
+        }
+    }
+    fclose(fp);
+    return layout->nfields > 0 ? 0 : -1;
+}
+make: Entering directory '/app/lagpipe'
+mkdir -p /app/bin /app/lagpipe/synctab_out
+cc -O2 -Wall -Wextra -Isynclink -Itagc -o /app/bin/kernscribe synclink/driver.c synclink/field_emit.c synclink/parse_layout.c synclink/rebuild.c ../relc/input.c tblw/emit_writer.c tagc/gate.c
+[01m[K../relc/input.c:[m[K In function ‘[01m[Kchoose_layout[m[K’:
+[01m[K../relc/input.c:36:60:[m[K [01;35m[Kwarning: [m[K‘[01m[K%s[m[K’ directive output may be truncated writing up to 63 bytes into a region of size 59 [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wformat-truncation=-Wformat-truncation=]8;;[m[K]
+   36 |     snprintf(out->tag_value, sizeof(out->tag_value), "live:[01;35m[K%s[m[K", [32m[Krunning[m[K);
+      |                                                            [01;35m[K^~[m[K   [32m[K~~~~~~~[m[K
+[01m[K../relc/input.c:36:5:[m[K [01;36m[Knote: [m[K‘[01m[Ksnprintf[m[K’ output between 6 and 69 bytes into a destination of size 64
+   36 |     [01;36m[Ksnprintf(out->tag_value, sizeof(out->tag_value), "live:%s", running)[m[K;
+      |     [01;36m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+make: Leaving directory '/app/lagpipe'
+[?2004hroot@ab4fcb1fe770:/app/lagpipe# rm -f /app/lagpipe/synctab_out/offline_guard.ok; /app/bin/kernscribe synctab; rc=$?; echo "synctab_rc=$rc"; for f in /app/lagpipe/synctab_out/layout.tbl /app/lagpipe/synctab_out/procance.tag /app/lagpipe/synctab_out/offline_guard.ok; do echo "=== $f ==="; test -f "$f" && cat "$f" || echo MISSING; done
+[?2004lsynctab_rc=0
+=== /app/lagpipe/synctab_out/layout.tbl ===
+STRUCT sched_entity
+FIELD pid u32 0 4
+FIELD weight u32 4 4
+FIELD migration_flags u32 8 4
+FIELD slice_ns u64 12 8
+=== /app/lagpipe/synctab_out/procance.tag ===
+live:6.8.12
+=== /app/lagpipe/synctab_out/offline_guard.ok ===
+1
+[?2004hroot@ab4fcb1fe770:/app/lagpipe# python3 - <<'PY'
+[?2004l[?2004h> import glob,json,subprocess
+[?2004l[?2004h> expected={
+[?2004l[?2004h> 'pulse_a.mem': {'pid':4421,'weight':1024,'migration_flags':7,'slice_ns':25000000},
+[?2004l[?2004h> 'pulse_b.mem': {'pid':9901,'weight':512,'migration_flags':2,'slice_ns':18750000},
+[?2004l[?2004h> 'pulse_c.mem': {'pid':12007,'weight':384,'migration_flags':9,'slice_ns':33000000},
+[?2004l[?2004h> }
+[?2004l[?2004h> for path in sorted(glob.glob('/app/memvault/samples/*.mem')):
+[?2004l[?2004h>     raw=subprocess.check_output(['/app/bin/kernscribe','inspect',path], text=True).strip()
+[?2004l[?2004h>     obj=json.loads(raw)
+[?2004l[?2004h>     name=path.rsplit('/',1)[-1]
+[?2004l[?2004h>     assert obj['struct']=='sched_entity'
+[?2004l[?2004h>     assert {k:obj[k] for k in expected[name]} == expected[name], (name,obj)
+[?2004l[?2004h>     assert all(isinstance(obj[k],int) and not isinstance(obj[k],bool) for k in expected[name])
+[?2004l[?2004h>     print(name, raw)
+[?2004l[?2004h> assert open('/app/lagpipe/synctab_out/layout.tbl').read() == open('/app/livekern/exports/sched_entity.tab').read()
+[?2004l[?2004h> assert open('/app/lagpipe/synctab_out/procance.tag').read().strip() == 'live:' + open('/app/livekern/running.release').read().strip()
+[?2004l[?2004h> assert open('/app/lagpipe/synctab_out/offline_guard.ok').read().strip() == '1'
+[?2004l[?2004h> print('all assertions passed')
+[?2004l[?2004h> PY
+[?2004lpulse_a.mem {"struct":"sched_entity","pid":4421,"weight":1024,"migration_flags":7,"slice_ns":25000000}
+pulse_b.mem {"struct":"sched_entity","pid":9901,"weight":512,"migration_flags":2,"slice_ns":18750000}
+pulse_c.mem {"struct":"sched_entity","pid":12007,"weight":384,"migration_flags":9,"slice_ns":33000000}
+all assertions passed
+[?2004hroot@ab4fcb1fe770:/app/lagpipe# file /app/bin/kernscribe; stat -c 'ELF rebuilt: %y %s bytes' /app/bin/kernscribe
+[?2004l/app/bin/kernscribe: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, not stripped
+ELF rebuilt: 2026-09-06 13:12:34.805323690 +0000 17160 bytes
+[?2004hroot@ab4fcb1fe770:/app/lagpipe# 

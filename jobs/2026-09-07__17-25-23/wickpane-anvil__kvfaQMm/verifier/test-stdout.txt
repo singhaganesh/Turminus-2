@@ -1,0 +1,176 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 13 items
+
+../tests/test_outputs.py FFFFFFF..FF.F                                   [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_wp00_magic_head _____________________________
+
+    def test_wp00_magic_head():
+        """Compiled mill is ELF and n7 pane matches grammar after bin."""
+        blob = Path(BIN).read_bytes()
+        assert blob[:4] == b"\x7fELF"
+        rc = _bin()
+        assert rc == 0
+        data = _load(BINS)
+        expect = _pane(LIVE / "n7.stk")
+>       assert data["n7"] == expect
+E       AssertionError: assert 'libwidget.so...clock_gettime' == 'libwidget.so...bc.so.6!abort'
+E         
+E         - libwidget.so!draw_box|libc.so.6!abort
+E         + libwidget.so+0x4400!draw_box|libwidget.so+0x4418!draw_box_fill|libc.so.6+0x80!abort|[vdso]+0x20!clock_gettime
+
+/tests/test_outputs.py:74: AssertionError
+_____________________________ test_wp01_pair_same ______________________________
+
+    def test_wp01_pair_same():
+        """n7 and s7 share one pane."""
+        rc = _bin()
+        assert rc == 0
+        data = _load(BINS)
+>       assert data["n7"] == data["s7"]
+E       AssertionError: assert 'libwidget.so...clock_gettime' == 'libwidget.so....6+0x80!abort'
+E         
+E         - libwidget.so+0x9aa0!draw_box|libc.so.6+0x80!abort
+E         + libwidget.so+0x4400!draw_box|libwidget.so+0x4418!draw_box_fill|libc.so.6+0x80!abort|[vdso]+0x20!clock_gettime
+
+/tests/test_outputs.py:82: AssertionError
+_____________________________ test_wp02_ledger_obj _____________________________
+
+    def test_wp02_ledger_obj():
+        """etch.json panes match grammar for every crumbay take."""
+        data = _load(ETCH)
+        for path in sorted(CRUMB.glob("*.stk")):
+>           assert data[path.stem] == _pane(path)
+E           AssertionError: assert 'libwidget.so...clock_gettime' == 'libwidget.so...bc.so.6!abort'
+E             
+E             - libwidget.so!draw_box|libc.so.6!abort
+E             + libwidget.so+0x4400!draw_box|libwidget.so+0x4418!draw_box_fill|libc.so.6+0x80!abort|[vdso]+0x20!clock_gettime
+
+/tests/test_outputs.py:91: AssertionError
+_____________________________ test_wp03_filed_obj ______________________________
+
+    def test_wp03_filed_obj():
+        """bins.json panes match grammar for every live take."""
+        rc = _bin()
+        assert rc == 0
+        data = _load(BINS)
+        for path in sorted(LIVE.glob("*.stk")):
+>           assert data[path.stem] == _pane(path)
+E           AssertionError: assert 'libwidget.so...clock_gettime' == 'libwidget.so...bc.so.6!abort'
+E             
+E             - libwidget.so!draw_box|libc.so.6!abort
+E             + libwidget.so+0x4400!draw_box|libwidget.so+0x4418!draw_box_fill|libc.so.6+0x80!abort|[vdso]+0x20!clock_gettime
+
+/tests/test_outputs.py:100: AssertionError
+_____________________________ test_wp04_plus_gone ______________________________
+
+    def test_wp04_plus_gone():
+        """Filed panes contain no plus tails."""
+        rc = _bin()
+        assert rc == 0
+        data = _load(BINS)
+        for val in data.values():
+>           assert "+" not in val
+E           AssertionError: assert '+' not in 'libwidget.s...lock_gettime'
+E             
+E             '+' is contained here:
+E               libwidget.so+0x4400!draw_box|libwidget.so+0x4418!draw_box_fill|libc.so.6+0x80!abort|[vdso]+0x20!clock_gettime
+E             ?             +
+
+/tests/test_outputs.py:109: AssertionError
+_____________________________ test_wp05_inner_gone _____________________________
+
+    def test_wp05_inner_gone():
+        """n7 pane matches grammar after fold rules."""
+        rc = _bin()
+        assert rc == 0
+        data = _load(BINS)
+>       assert data["n7"] == _pane(LIVE / "n7.stk")
+E       AssertionError: assert 'libwidget.so...clock_gettime' == 'libwidget.so...bc.so.6!abort'
+E         
+E         - libwidget.so!draw_box|libc.so.6!abort
+E         + libwidget.so+0x4400!draw_box|libwidget.so+0x4418!draw_box_fill|libc.so.6+0x80!abort|[vdso]+0x20!clock_gettime
+
+/tests/test_outputs.py:118: AssertionError
+_____________________________ test_wp06_clock_gone _____________________________
+
+    def test_wp06_clock_gone():
+        """q9 pane matches grammar after omit rules."""
+        rc = _bin()
+        assert rc == 0
+        data = _load(BINS)
+>       assert data["q9"] == _pane(LIVE / "q9.stk")
+E       AssertionError: assert 'libnet.so+0x...vsyscall_page' == 'libnet.so!recv_one'
+E         
+E         - libnet.so!recv_one
+E         + libnet.so+0x50!recv_one|[vsyscall]+0x8!vsyscall_page
+
+/tests/test_outputs.py:126: AssertionError
+_____________________________ test_wp09_extra_copy _____________________________
+
+    def test_wp09_extra_copy():
+        """Held-out take files to the same pane as n7."""
+        dest = LIVE / "h8.stk"
+        shutil.copy(HOLD, dest)
+        try:
+            rc = _bin()
+            assert rc == 0
+            data = _load(BINS)
+>           assert data[HOLD.stem] == _pane(HOLD)
+E           AssertionError: assert 'libwidget.so....6+0x80!abort' == 'libwidget.so...bc.so.6!abort'
+E             
+E             - libwidget.so!draw_box|libc.so.6!abort
+E             + libwidget.so+0x1110!draw_box|libwidget.so+0x1128!draw_box_fill|libc.so.6+0x80!abort
+
+/tests/test_outputs.py:163: AssertionError
+______________________________ test_wp10_solo_key ______________________________
+
+    def test_wp10_solo_key():
+        """p3 pane is the solo grammar string."""
+        rc = _bin()
+        assert rc == 0
+        data = _load(BINS)
+>       assert data["p3"] == _pane(LIVE / "p3.stk")
+E       AssertionError: assert 'libsolo.so+0x100!run_main' == 'libsolo.so!run_main'
+E         
+E         - libsolo.so!run_main
+E         + libsolo.so+0x100!run_main
+E         ?           ++++++
+
+/tests/test_outputs.py:175: AssertionError
+____________________________ test_wp_zz_ledger_redo ____________________________
+
+    def test_wp_zz_ledger_redo():
+        """Corrupt etch.json then etch restores grammar panes."""
+        ETCH.write_text("{}\n")
+        rc = _etch()
+        assert rc == 0
+        data = _load(ETCH)
+        for path in sorted(CRUMB.glob("*.stk")):
+>           assert data[path.stem] == _pane(path)
+E           AssertionError: assert 'libwidget.so...clock_gettime' == 'libwidget.so...bc.so.6!abort'
+E             
+E             - libwidget.so!draw_box|libc.so.6!abort
+E             + libwidget.so+0x4400!draw_box|libwidget.so+0x4418!draw_box_fill|libc.so.6+0x80!abort|[vdso]+0x20!clock_gettime
+
+/tests/test_outputs.py:195: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_wp07_fault_keep
+PASSED ../tests/test_outputs.py::test_wp08_obj_shape
+PASSED ../tests/test_outputs.py::test_wp11_twice_same
+FAILED ../tests/test_outputs.py::test_wp00_magic_head - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_wp01_pair_same - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_wp02_ledger_obj - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_wp03_filed_obj - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_wp04_plus_gone - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_wp05_inner_gone - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_wp06_clock_gone - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_wp09_extra_copy - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_wp10_solo_key - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_wp_zz_ledger_redo - AssertionError: ass...
+========================= 10 failed, 3 passed in 0.23s =========================

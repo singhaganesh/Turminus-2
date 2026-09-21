@@ -1,0 +1,186 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py FFFFFFFFFFFF                                    [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_ds01_token_form _____________________________
+
+    def test_ds01_token_form():
+        """Dirty mapped file is a live token and desk bytes still differ from newest seal."""
+        rc = kindle()
+        assert rc.returncode == 0
+        token = live_of(TAX)
+        rows = load_pick()["rows"]
+        paths = [r["path"] for r in rows]
+>       assert token in paths
+E       AssertionError: assert 'live:lib/tax.rb' in []
+
+/tests/test_outputs.py:83: AssertionError
+___________________________ test_ds02_overlay_listed ___________________________
+
+    def test_ds02_overlay_listed():
+        """Held-out desk edit on fee.rb is selected after one kindle pass."""
+        orig = FEE.read_bytes()
+        try:
+            FEE.write_bytes(orig + b"\n# hold\n")
+            rc = kindle()
+            assert rc.returncode == 0
+            paths = [r["path"] for r in load_pick()["rows"]]
+>           assert live_of(FEE) in paths
+E           AssertionError: assert 'live:lib/fee.rb' in []
+E            +  where 'live:lib/fee.rb' = live_of(PosixPath('/app/livefold/lib/fee.rb'))
+
+/tests/test_outputs.py:96: AssertionError
+__________________________ test_ds03_sieve_has_token ___________________________
+
+    def test_ds03_sieve_has_token():
+        """sieve.bin carries the same live tax token as pick.json."""
+        recs = parse_sieve(SIEVE.read_bytes())
+        paths = [r["path"] for r in recs]
+>       assert live_of(TAX) in paths
+E       AssertionError: assert 'live:lib/tax.rb' in []
+E        +  where 'live:lib/tax.rb' = live_of(PosixPath('/app/livefold/lib/tax.rb'))
+
+/tests/test_outputs.py:107: AssertionError
+___________________________ test_ds04_no_pair_token ____________________________
+
+    def test_ds04_no_pair_token():
+        """Ledger paths use live tokens, not a consecutive-snapshot prefix."""
+        rows = load_pick()["rows"]
+>       assert rows
+E       assert []
+
+/tests/test_outputs.py:113: AssertionError
+______________________________ test_ds05_full_rel ______________________________
+
+    def test_ds05_full_rel():
+        """Tax row carries every ASSAY from the matching relative path card."""
+        token = live_of(TAX)
+>       row = next(r for r in load_pick()["rows"] if r["path"] == token)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       StopIteration
+
+/tests/test_outputs.py:125: StopIteration
+___________________________ test_ds06_alias_holdout ____________________________
+
+    def test_ds06_alias_holdout():
+        """A colliding short name on doc/fee.rb must not steal fee assays."""
+        orig = DOC_FEE.read_bytes()
+        fee_names = sheet_map()[rel_of(FEE)]
+        try:
+            DOC_FEE.write_bytes(orig + b"\n# alias\n")
+            rc = kindle()
+            assert rc.returncode == 0
+            data = load_pick()
+            paths = [r["path"] for r in data["rows"]]
+>           assert live_of(TAX) in paths
+E           AssertionError: assert 'live:lib/tax.rb' in []
+E            +  where 'live:lib/tax.rb' = live_of(PosixPath('/app/livefold/lib/tax.rb'))
+
+/tests/test_outputs.py:139: AssertionError
+____________________________ test_ds07_sorted_names ____________________________
+
+    def test_ds07_sorted_names():
+        """Assay names on the tax row are sorted."""
+        token = live_of(TAX)
+>       row = next(r for r in load_pick()["rows"] if r["path"] == token)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       StopIteration
+
+/tests/test_outputs.py:153: StopIteration
+_____________________________ test_ds08_json_shape _____________________________
+
+    def test_ds08_json_shape():
+        """pick.json uses rows/path/assays keys with string lists."""
+        data = load_pick()
+        assert isinstance(data["rows"], list)
+        token = live_of(TAX)
+>       row = next(r for r in data["rows"] if r["path"] == token)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       StopIteration
+
+/tests/test_outputs.py:163: StopIteration
+____________________________ test_ds09_empty_dirty _____________________________
+
+    def test_ds09_empty_dirty():
+        """Mapped dirt with cards removed yields empty rows and a non-zero kindle status."""
+        stash = Path("/app/inkvat/mapstash")
+        if stash.exists():
+            shutil.rmtree(stash)
+        shutil.copytree(MAPS, stash)
+        try:
+            for p in MAPS.glob("*.map"):
+                p.unlink()
+            rc = kindle()
+>           assert rc.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/peatwick', 'kindle'], returncode=0, stdout=b'', stderr=b'').returncode
+
+/tests/test_outputs.py:179: AssertionError
+___________________________ test_ds10_unmapped_exit ____________________________
+
+    def test_ds10_unmapped_exit():
+        """Unmapped dirty bytes with a matching newest snapshot on mapped files exit non-zero."""
+        tax_orig = TAX.read_bytes()
+        sealed = (newest_seal() / rel_of(TAX)).read_bytes()
+        notes = DESK / "notes.md"
+        notes_orig = notes.read_bytes()
+        try:
+            TAX.write_bytes(sealed)
+            notes.write_bytes(notes_orig + b"\nextra\n")
+            rc = kindle()
+>           assert rc.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/peatwick', 'kindle'], returncode=0, stdout=b'', stderr=b'').returncode
+
+/tests/test_outputs.py:197: AssertionError
+_____________________________ test_ds11_zz_corrupt _____________________________
+
+    def test_ds11_zz_corrupt():
+        """Corrupt sieve.bin then kindle restores the live tax record."""
+        token = live_of(TAX)
+        SIEVE.write_bytes(b"\x00\x01Z")
+        rc = kindle()
+        assert rc.returncode == 0
+        recs = parse_sieve(SIEVE.read_bytes())
+>       assert any(r["path"] == token for r in recs)
+E       assert False
+E        +  where False = any(<generator object test_ds11_zz_corrupt.<locals>.<genexpr> at 0x716a55710930>)
+
+/tests/test_outputs.py:212: AssertionError
+_____________________________ test_ds12_once_pass ______________________________
+
+    def test_ds12_once_pass():
+        """Knitted CLI shape plus one kindle pass refreshes pick.json for the dirty tax path."""
+        body = Path(CLI).read_text()
+        assert body.splitlines()[0] == "#!/bin/bash"
+        assert "PEATWICK_KNIT_MARK" in body
+        assert "ruby /app/bin/peatwick.d/gaitmod/run_loom.rb" in body
+        assert "ruby /app/bin/peatwick.d/joincue/run_hitch.rb" in body
+        assert "ruby /app/bin/peatwick.d/stillbay/run_vale.rb" in body
+        rc = kindle()
+        assert rc.returncode == 0
+        paths = [r["path"] for r in load_pick()["rows"]]
+>       assert live_of(TAX) in paths
+E       AssertionError: assert 'live:lib/tax.rb' in []
+E        +  where 'live:lib/tax.rb' = live_of(PosixPath('/app/livefold/lib/tax.rb'))
+
+/tests/test_outputs.py:226: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_ds01_token_form - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_ds02_overlay_listed - AssertionError: a...
+FAILED ../tests/test_outputs.py::test_ds03_sieve_has_token - AssertionError: ...
+FAILED ../tests/test_outputs.py::test_ds04_no_pair_token - assert []
+FAILED ../tests/test_outputs.py::test_ds05_full_rel - StopIteration
+FAILED ../tests/test_outputs.py::test_ds06_alias_holdout - AssertionError: as...
+FAILED ../tests/test_outputs.py::test_ds07_sorted_names - StopIteration
+FAILED ../tests/test_outputs.py::test_ds08_json_shape - StopIteration
+FAILED ../tests/test_outputs.py::test_ds09_empty_dirty - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_ds10_unmapped_exit - AssertionError: as...
+FAILED ../tests/test_outputs.py::test_ds11_zz_corrupt - assert False
+FAILED ../tests/test_outputs.py::test_ds12_once_pass - AssertionError: assert...
+============================== 12 failed in 3.85s ==============================

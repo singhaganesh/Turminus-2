@@ -1,0 +1,220 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py FFFFFFFFFFFF                                    [100%]
+
+=================================== FAILURES ===================================
+________________________________ test_fxv01_hdr ________________________________
+
+    def test_fxv01_hdr():
+        """Linked mill is ELF and two process spins of day are byte-identical."""
+        blob = BIN.read_bytes()
+        assert blob[:4] == b"\x7fELF"
+        p1 = WELL / "t1.pfl"
+        p2 = WELL / "t2.pfl"
+        a = _spin(DAY, p1)
+        b = _spin(DAY, p2)
+        assert a.returncode == 0
+        assert b.returncode == 0
+>       assert p1.read_bytes() == p2.read_bytes()
+E       AssertionError: assert b'FLX14\xa0>\...x06\x00k2.chk' == b'FLX1f\xa8>\...x06\x00k2.chk'
+E         
+E         At index 4 diff: b'4' != b'f'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:65: AssertionError
+_______________________________ test_fxv02_twin ________________________________
+
+    def test_fxv02_twin():
+        """Second pair of process spins still matches on day."""
+        p1 = WELL / "u1.pfl"
+        p2 = WELL / "u2.pfl"
+        assert _spin(DAY, p1).returncode == 0
+        assert _spin(DAY, p2).returncode == 0
+>       assert p1.read_bytes() == p2.read_bytes()
+E       assert b'FLX1\x15\x1...x06\x00k2.chk' == b'FLX1r"?\xef...x06\x00k2.chk'
+E         
+E         At index 4 diff: b'\x15' != b'r'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:74: AssertionError
+_______________________________ test_fxv03_pair ________________________________
+
+    def test_fxv03_pair():
+        """Day and dusk compact files compare hush."""
+        assert _spin(DAY, LIVE).returncode == 0
+        assert _spin(DUSK, ALT).returncode == 0
+        text = _differ(LIVE, ALT)
+>       assert "quiet" in DIFF.read_text()
+E       AssertionError: assert 'quiet' in 'noisy\n'
+E        +  where 'noisy\n' = read_text()
+E        +    where read_text = PosixPath('/app/cordwell/differ.txt').read_text
+
+/tests/test_outputs.py:83: AssertionError
+________________________________ test_fxv04_ord ________________________________
+
+    def test_fxv04_ord():
+        """unreel lines are ordered by joined path."""
+        assert _spin(DAY, LIVE).returncode == 0
+        lines = [ln for ln in _unreel(LIVE).splitlines() if ln.strip()]
+        keys = [ln.split(" COUNT ")[0] for ln in lines]
+>       assert keys == sorted(keys)
+E       AssertionError: assert ['mu.idle', '... 'alpha.tick'] == ['alpha.tick'..., 'zeta.solo']
+E         
+E         At index 0 diff: 'mu.idle' != 'alpha.tick'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:92: AssertionError
+_______________________________ test_fxv05_hold ________________________________
+
+    def test_fxv05_hold():
+        """Swapped SEQ holdout pair is hush."""
+        ha = WELL / "ha"
+        hb = WELL / "hb"
+        shutil.rmtree(ha, ignore_errors=True)
+        shutil.rmtree(hb, ignore_errors=True)
+        _write_chk(ha, "a0.chk", 1, ["rho.nock"], 1)
+        _write_chk(ha, "a1.chk", 2, ["alpha.tick"], 3)
+        _write_chk(hb, "b0.chk", 1, ["alpha.tick"], 3)
+        _write_chk(hb, "b1.chk", 2, ["rho.nock"], 1)
+        oa = WELL / "ha.pfl"
+        ob = WELL / "hb.pfl"
+        assert _spin(ha, oa).returncode == 0
+        assert _spin(hb, ob).returncode == 0
+>       assert _differ(oa, ob).strip() == "quiet"
+E       AssertionError: assert 'noisy' == 'quiet'
+E         
+E         - quiet
+E         + noisy
+
+/tests/test_outputs.py:112: AssertionError
+_______________________________ test_fxv06_tail ________________________________
+
+    def test_fxv06_tail():
+        """Missing END makes spin exit non-zero."""
+        bad = WELL / "bad"
+        shutil.rmtree(bad, ignore_errors=True)
+        _write_chk(bad, "z.chk", 1, ["omega.x"], 1, end=False)
+        r = _spin(bad, WELL / "bad.pfl")
+>       assert r.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/flaxcord', 'spin', '/app/cordwell/bad', '/app/cordwell/bad.pfl'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:121: AssertionError
+_______________________________ test_fxv07_seal ________________________________
+
+    def test_fxv07_seal():
+        """Missing END does not write spin.ok."""
+        if OK.exists():
+            OK.unlink()
+        bad = WELL / "bad2"
+        shutil.rmtree(bad, ignore_errors=True)
+        _write_chk(bad, "z.chk", 1, ["omega.x"], 1, end=False)
+        _spin(bad, WELL / "bad2.pfl")
+>       assert not OK.exists()
+E       AssertionError: assert not True
+E        +  where True = exists()
+E        +    where exists = PosixPath('/app/cordwell/spin.ok').exists
+
+/tests/test_outputs.py:132: AssertionError
+_______________________________ test_fxv08_mint ________________________________
+
+    def test_fxv08_mint():
+        """Corrupt live compact is restored by one spin of day."""
+        WELL.mkdir(parents=True, exist_ok=True)
+        LIVE.write_bytes(b"XXXX")
+        r = _spin(DAY, LIVE)
+        assert r.returncode == 0
+        assert LIVE.read_bytes()[:4] == b"FLX1"
+        p2 = WELL / "mint2.pfl"
+        assert _spin(DAY, p2).returncode == 0
+>       assert LIVE.read_bytes() == p2.read_bytes()
+E       AssertionError: assert b'FLX1-_@\xef...x06\x00k2.chk' == b'FLX1Bd@\xef...x06\x00k2.chk'
+E         
+E         At index 4 diff: b'-' != b'B'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:144: AssertionError
+_______________________________ test_fxv09_hits ________________________________
+
+    def test_fxv09_hits():
+        """Second holdout permutation is hush."""
+        ha = WELL / "hc"
+        hb = WELL / "hd"
+        shutil.rmtree(ha, ignore_errors=True)
+        shutil.rmtree(hb, ignore_errors=True)
+        _write_chk(ha, "c0.chk", 1, ["gamma.q"], 5)
+        _write_chk(ha, "c1.chk", 2, ["beta.z"], 1)
+        _write_chk(hb, "d0.chk", 1, ["beta.z"], 1)
+        _write_chk(hb, "d1.chk", 2, ["gamma.q"], 5)
+        oa = WELL / "hc.pfl"
+        ob = WELL / "hd.pfl"
+        assert _spin(ha, oa).returncode == 0
+        assert _spin(hb, ob).returncode == 0
+>       assert _differ(oa, ob).strip() == "quiet"
+E       AssertionError: assert 'noisy' == 'quiet'
+E         
+E         - quiet
+E         + noisy
+
+/tests/test_outputs.py:164: AssertionError
+_______________________________ test_fxv10_child _______________________________
+
+    def test_fxv10_child():
+        """One spin child of dusk hush-compares with a spin of day."""
+        assert _spin(DUSK, ALT).returncode == 0
+        assert _spin(DAY, LIVE).returncode == 0
+>       assert "quiet" in DIFF.read_text()
+E       AssertionError: assert 'quiet' in 'noisy\n'
+E        +  where 'noisy\n' = read_text()
+E        +    where read_text = PosixPath('/app/cordwell/differ.txt').read_text
+
+/tests/test_outputs.py:171: AssertionError
+_______________________________ test_fxv11_hush ________________________________
+
+    def test_fxv11_hush():
+        """Two process day spins make differ write quiet."""
+        x = WELL / "x.pfl"
+        y = WELL / "y.pfl"
+        assert _spin(DAY, x).returncode == 0
+        assert _spin(DAY, y).returncode == 0
+        text = _differ(x, y)
+>       assert text.strip() == "quiet"
+E       AssertionError: assert 'noisy' == 'quiet'
+E         
+E         - quiet
+E         + noisy
+
+/tests/test_outputs.py:181: AssertionError
+_______________________________ test_fxv12_peer ________________________________
+
+    def test_fxv12_peer():
+        """unreel of day and dusk share joined paths and totals."""
+        assert _spin(DAY, LIVE).returncode == 0
+        assert _spin(DUSK, ALT).returncode == 0
+        a = [ln for ln in _unreel(LIVE).splitlines() if ln.strip()]
+        b = [ln for ln in _unreel(ALT).splitlines() if ln.strip()]
+>       assert a == b
+E       AssertionError: assert ['mu.idle COU...tick COUNT 4'] == ['alpha.tick ...idle COUNT 2']
+E         
+E         At index 0 diff: 'mu.idle COUNT 2' != 'alpha.tick COUNT 4'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:190: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_fxv01_hdr - AssertionError: assert b'FL...
+FAILED ../tests/test_outputs.py::test_fxv02_twin - assert b'FLX1\x15\x1...x06...
+FAILED ../tests/test_outputs.py::test_fxv03_pair - AssertionError: assert 'qu...
+FAILED ../tests/test_outputs.py::test_fxv04_ord - AssertionError: assert ['mu...
+FAILED ../tests/test_outputs.py::test_fxv05_hold - AssertionError: assert 'no...
+FAILED ../tests/test_outputs.py::test_fxv06_tail - AssertionError: assert 0 != 0
+FAILED ../tests/test_outputs.py::test_fxv07_seal - AssertionError: assert not...
+FAILED ../tests/test_outputs.py::test_fxv08_mint - AssertionError: assert b'F...
+FAILED ../tests/test_outputs.py::test_fxv09_hits - AssertionError: assert 'no...
+FAILED ../tests/test_outputs.py::test_fxv10_child - AssertionError: assert 'q...
+FAILED ../tests/test_outputs.py::test_fxv11_hush - AssertionError: assert 'no...
+FAILED ../tests/test_outputs.py::test_fxv12_peer - AssertionError: assert ['m...
+============================== 12 failed in 0.28s ==============================

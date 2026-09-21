@@ -1,0 +1,111 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py F.F.FFF.F...                                    [100%]
+
+=================================== FAILURES ===================================
+____________________________ test_aq01_magic_stock _____________________________
+
+    def test_aq01_magic_stock():
+        """Linked mill is ELF and shift dump prints source rows after splice."""
+        blob = BIN.read_bytes()
+        assert blob[:4] == b"\x7fELF"
+        rc = _splice(CORE, RUNA)
+        assert rc.returncode == 0
+        text = _bt(RUNA)
+>       assert "src/mod.c:10" in text
+E       AssertionError: assert 'src/mod.c:10' in 'foo at 0x00001000\nbar at 0x00001010\nbaz at 0x00002000 src/z.c:3\n'
+
+/tests/test_outputs.py:50: AssertionError
+______________________________ test_aq03_row_host ______________________________
+
+    def test_aq03_row_host():
+        """aabbccdd object names the well that supplied its line table."""
+        assert _splice(CORE, RUNA).returncode == 0
+        rows = {r["build_id"]: r["host"] for r in _prov(RUNA)["objects"]}
+>       assert rows["aabbccdd"] == "midquay"
+E       AssertionError: assert 'deepwell' == 'midquay'
+E         
+E         - midquay
+E         + deepwell
+
+/tests/test_outputs.py:69: AssertionError
+______________________________ test_aq05_ok_flag _______________________________
+
+    def test_aq05_ok_flag():
+        """A clean splice writes ok.mark after a line-bearing backtrace."""
+        assert _splice(CORE, RUNA).returncode == 0
+        assert (RUNA / "ok.mark").read_text() == "ok\n"
+>       assert "src/mod.c:10" in _bt(RUNA)
+E       AssertionError: assert 'src/mod.c:10' in 'foo at 0x00001000\nbar at 0x00001010\nbaz at 0x00002000 src/z.c:3\n'
+E        +  where 'foo at 0x00001000\nbar at 0x00001010\nbaz at 0x00002000 src/z.c:3\n' = _bt(PosixPath('/app/outkeg/runA'))
+
+/tests/test_outputs.py:85: AssertionError
+_____________________________ test_aq09_key_shape ______________________________
+
+    def test_aq09_key_shape():
+        """Provenance objects use build_id and host keys with the used wells."""
+        assert _splice(CORE, RUNA).returncode == 0
+        objs = _prov(RUNA)["objects"]
+        assert objs
+        rows = {r["build_id"]: r["host"] for r in objs}
+        for row in objs:
+            assert set(row.keys()) == {"build_id", "host"}
+            assert row["build_id"]
+            assert row["host"]
+>       assert rows["aabbccdd"] == "midquay"
+E       AssertionError: assert 'deepwell' == 'midquay'
+E         
+E         - midquay
+E         + deepwell
+
+/tests/test_outputs.py:98: AssertionError
+_____________________________ test_aq11_name_shape _____________________________
+
+    def test_aq11_name_shape():
+        """Frames use NAME at 0xADDR form, with source suffix when present."""
+        assert _splice(CORE, RUNA).returncode == 0
+        lines = _bt(RUNA).splitlines()
+        assert lines
+        assert lines[0].startswith("foo at 0x")
+>       assert "src/mod.c:10" in lines[0]
+E       AssertionError: assert 'src/mod.c:10' in 'foo at 0x00001000'
+
+/tests/test_outputs.py:108: AssertionError
+___________________________ test_aq07_corrupt_again ____________________________
+
+    def test_aq07_corrupt_again():
+        """Corrupt outkeg files then one splice restores them."""
+        assert _splice(CORE, RUNA).returncode == 0
+        (RUNA / "backtrace.txt").write_text("junk\n")
+        (RUNA / "provenance.json").write_text("{}\n")
+        rc = subprocess.run(
+            ["/app/bin/ashquay", "splice", "/app/dumpit/shift.core", "/app/outkeg/runA"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert rc.returncode == 0
+>       assert "src/mod.c:10" in _bt(RUNA)
+E       AssertionError: assert 'src/mod.c:10' in 'foo at 0x00001000\nbar at 0x00001010\nbaz at 0x00002000 src/z.c:3\n'
+E        +  where 'foo at 0x00001000\nbar at 0x00001010\nbaz at 0x00002000 src/z.c:3\n' = _bt(PosixPath('/app/outkeg/runA'))
+
+/tests/test_outputs.py:136: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_aq02_twin_trees
+PASSED ../tests/test_outputs.py::test_aq04_void_exit
+PASSED ../tests/test_outputs.py::test_aq06_held_row
+PASSED ../tests/test_outputs.py::test_aq08_second_id
+PASSED ../tests/test_outputs.py::test_aq10_void_nomark
+PASSED ../tests/test_outputs.py::test_aq12_one_proc
+FAILED ../tests/test_outputs.py::test_aq01_magic_stock - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_aq03_row_host - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_aq05_ok_flag - AssertionError: assert '...
+FAILED ../tests/test_outputs.py::test_aq09_key_shape - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_aq11_name_shape - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_aq07_corrupt_again - AssertionError: as...
+========================= 6 failed, 6 passed in 0.27s ==========================

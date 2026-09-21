@@ -1,0 +1,32 @@
+make: Entering directory '/app/pcfold'
+mkdir -p /app/bin
+cc -O2 -Wall -Wextra -Iinclude -o /app/bin/pcfold src/main.c src/index.c src/parity.c src/render.c src/elfutil.c
+src/index.c: In function 'collect_object_symbols':
+src/index.c:74:9: warning: 'strncpy' output may be truncated copying 127 bytes from a string of length 127 [-Wstringop-truncation]
+   74 |         strncpy((*acc)[*acc_count].name, name, sizeof((*acc)[*acc_count].name) - 1);
+      |         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In function 'resolve_pc',
+    inlined from 'sf_render' at src/render.c:104:13:
+src/render.c:71:5: warning: 'strncpy' output may be truncated copying 127 bytes from a string of length 127 [-Wstringop-truncation]
+   71 |     strncpy(sym_out, best->name, 127);
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+src/elfutil.c:8:12: warning: 'hex_nibble' defined but not used [-Wunused-function]
+    8 | static int hex_nibble(char c)
+      |            ^~~~~~~~~~
+src/elfutil.c: In function 'sf_collect_elf_symbols':
+src/elfutil.c:85:9: warning: 'strncpy' output may be truncated copying 127 bytes from a string of length 127 [-Wstringop-truncation]
+   85 |         strncpy(buf[count].name, name, sizeof(buf[count].name) - 1);
+      |         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+make: Leaving directory '/app/pcfold'
+make: Entering directory '/app/symmill'
+rm -f src/core.o src/worker.o src/dispatch_ring.o fold/runtime fold/runtime.symmap fold/profile.json
+make: Leaving directory '/app/symmill'
+make: Entering directory '/app/symmill'
+cc -O2 -Wall -Wextra -fPIC -c -o src/core.o src/core.c
+cc -O2 -Wall -Wextra -fPIC -c -o src/worker.o src/worker.c
+cc -O2 -Wall -Wextra -fPIC -c -o src/dispatch_ring.o src/dispatch_ring.c
+cc -Wl,--build-id -o fold/runtime src/core.o src/worker.o src/dispatch_ring.o
+/app/bin/pcfold index --linked fold/runtime -o fold/runtime.symmap
+/app/bin/pcfold render /app/benchframes/bench.samples fold/runtime.symmap -o fold/profile.json
+/app/bin/pcfold check fold/runtime fold/runtime.symmap
+make: Leaving directory '/app/symmill'

@@ -1,0 +1,102 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py .FF....F.FF.                                    [100%]
+
+=================================== FAILURES ===================================
+_______________________________ test_bb_id_mark ________________________________
+
+    def test_bb_id_mark():
+        """After pour, steep sets covers to that urn identifier."""
+        assert subprocess.run(["/app/bin/oakurn", "pour", "/app/caskbay/core.urn"], capture_output=True, text=True).returncode == 0
+        assert subprocess.run(["/app/bin/oakurn", "steep"], capture_output=True, text=True).returncode == 0
+        data = _load()
+        assert "covers" in PANE.read_text()
+>       assert data["covers"] == "core"
+E       AssertionError: assert 'quiet' == 'core'
+E         
+E         - core
+E         + quiet
+
+/tests/test_outputs.py:57: AssertionError
+_______________________________ test_cc_held_row _______________________________
+
+    def test_cc_held_row():
+        """A grade-time urn identifier lands in covers after one steep."""
+        extra = URN / "z9.urn"
+        extra.write_text("URN1\nid z9\nday 1999-01-01\nn 5\n")
+        assert subprocess.run(["/app/bin/oakurn", "pour", "/app/caskbay/z9.urn"], capture_output=True, text=True).returncode == 0
+        assert subprocess.run(["/app/bin/oakurn", "steep"], capture_output=True, text=True).returncode == 0
+>       assert _load()["covers"] == "z9"
+E       AssertionError: assert 'quiet' == 'z9'
+E         
+E         - z9
+E         + quiet
+
+/tests/test_outputs.py:66: AssertionError
+______________________________ test_hh_busy_still ______________________________
+
+    def test_hh_busy_still():
+        """Steep still folds while snapvat busy.latch is present."""
+        Path("/app/snapvat/busy.latch").write_text("1\n")
+        assert subprocess.run(["/app/bin/oakurn", "pour", "/app/caskbay/core.urn"], capture_output=True, text=True).returncode == 0
+        r = subprocess.run(["/app/bin/oakurn", "steep"], capture_output=True, text=True)
+        assert r.returncode == 0
+        assert Path("/app/inkpit/emit.inc").exists()
+>       assert (LIVE / "core.urn").is_file()
+E       AssertionError: assert False
+E        +  where False = is_file()
+E        +    where is_file = (PosixPath('/app/snapvat/live') / 'core.urn').is_file
+
+/tests/test_outputs.py:114: AssertionError
+______________________________ test_jj_panel_read ______________________________
+
+    def test_jj_panel_read():
+        """board prints the regenerated object including covers."""
+        assert subprocess.run(["/app/bin/oakurn", "pour", "/app/caskbay/core.urn"], capture_output=True, text=True).returncode == 0
+        assert subprocess.run(["/app/bin/oakurn", "steep"], capture_output=True, text=True).returncode == 0
+        r = subprocess.run(["/app/bin/oakurn", "board"], capture_output=True, text=True)
+        assert r.returncode == 0
+        data = json.loads(r.stdout)
+>       assert data["covers"] == "core"
+E       AssertionError: assert 'quiet' == 'core'
+E         
+E         - core
+E         + quiet
+
+/tests/test_outputs.py:132: AssertionError
+______________________________ test_kk_extra_row _______________________________
+
+    def test_kk_extra_row():
+        """Held-out urn day total appears after pour and steep."""
+        extra = URN / "z9.urn"
+        extra.write_text("URN1\nid z9\nday 1999-01-01\nn 5\n")
+        assert subprocess.run(["/app/bin/oakurn", "pour", "/app/caskbay/z9.urn"], capture_output=True, text=True).returncode == 0
+        assert subprocess.run(["/app/bin/oakurn", "steep"], capture_output=True, text=True).returncode == 0
+        days = _load()["days"]
+        assert days.get("1999-01-01") == 5
+>       assert _load()["covers"] == "z9"
+E       AssertionError: assert 'quiet' == 'z9'
+E         
+E         - z9
+E         + quiet
+
+/tests/test_outputs.py:143: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_aa_magic_stock
+PASSED ../tests/test_outputs.py::test_dd_idle_nonzero
+PASSED ../tests/test_outputs.py::test_ee_corrupt_regen
+PASSED ../tests/test_outputs.py::test_ff_clock_key
+PASSED ../tests/test_outputs.py::test_gg_twin_key
+PASSED ../tests/test_outputs.py::test_ii_one_proc
+PASSED ../tests/test_outputs.py::test_ll_key_order
+FAILED ../tests/test_outputs.py::test_bb_id_mark - AssertionError: assert 'qu...
+FAILED ../tests/test_outputs.py::test_cc_held_row - AssertionError: assert 'q...
+FAILED ../tests/test_outputs.py::test_hh_busy_still - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_jj_panel_read - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_kk_extra_row - AssertionError: assert '...
+========================= 5 failed, 7 passed in 0.22s ==========================

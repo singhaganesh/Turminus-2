@@ -1,0 +1,858 @@
+[?2004hroot@3a8d57c62d1b:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@3a8d57c62d1b:/app# clear
+[?2004l[H[J[3J[?2004hroot@3a8d57c62d1b:/app# cat /app/baydocs/BAY_NOTES.txt && printf '\n--- files ---\n' && find /app -maxdepth 3 -type f -printf '%p\n' | sort && printf '\n--- kilncli ---\n' && file /app/bin/kilncli && printf '\n--- migrations ---\n' && find /app/inkstack/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort && printf '\n--- vats ---\n' && for f in /app/vats/*.vat; do echo "### $f"; cat "$f"; done
+[?2004lKiln CLI lives at /app/bin/kilncli.
+
+Subcommands:
+  impress PATH  apply every *.sql under /app/inkstack/migrations/ onto PATH
+  spill         fill /app/vats/worker.vat for assay
+  assay         read /app/vats/worker.vat, print schema_version, write /app/vats/assay.ok on success
+
+The Makefile at /app/Makefile ships /app/bin/kilncli from the kilncli module.
+
+Sources that implement those subcommands:
+  /app/hopsrc/imprint
+  /app/claybin
+  /app/scorepit
+
+Ledger intent: /app/inkstack/intent.toml
+Workspace vat path used by local experiments: /app/hearth/focus.txt
+
+--- files ---
+/app/Makefile
+/app/baydocs/BAY_NOTES.txt
+/app/baydocs/OPS.txt
+/app/bin/kilncli
+/app/claybin/borrow.go
+/app/claybin/emit.go
+/app/go.mod
+/app/hearth/focus.txt
+/app/hopsrc/imprint/imprint.go
+/app/hopsrc/vat/store.go
+/app/inkstack/intent.toml
+/app/inkstack/migrations/0003_base.sql
+/app/inkstack/migrations/0004_attempt_slot.sql
+/app/kilncli/cmd_assay.go
+/app/kilncli/cmd_impress.go
+/app/kilncli/cmd_spill.go
+/app/kilncli/main.go
+/app/scorepit/score.go
+/app/scorepit/shim.go
+/app/vats/bench.vat
+/app/vats/mold.vat
+/app/vats/plaster.vat
+/app/vats/worker.vat
+
+--- kilncli ---
+bash: file: command not found
+[?2004hroot@3a8d57c62d1b:/app# printf '%s\n' '--- Makefile/go.mod ---'; cat Makefile go.mod; printf '%s\n' '--- Go sources ---'; for f in hopsrc/imprint/*.go hopsrc/vat/*.go claybin/*.go scorepit/*.go kilncli/*.go; do echo "### $f"; sed -n '1,240p' "$f"; done; printf '%s\n' '--- config/sql ---'; cat inkstack/intent.toml hearth/focus.txt; for f in inkstack/migrations/*.sql; do echo "### $f"; cat "$f"; done; printf '%s\n' '--- vats ---'; for f in vats/*.vat; do echo "### $f"; cat "$f"; done
+[?2004l--- Makefile/go.mod ---
+.PHONY: ship
+
+ship:
+	mkdir -p /app/bin
+	/usr/local/go/bin/go build -o /app/bin/kilncli ./kilncli
+module kilnbench
+
+go 1.24
+--- Go sources ---
+### hopsrc/imprint/imprint.go
+package imprint
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+
+	"kilnbench/hopsrc/vat"
+)
+
+const migDir = "/app/inkstack/migrations"
+
+func Imprint(vatPath string) error {
+	focus, err := os.ReadFile("/app/hearth/focus.txt")
+	if err == nil {
+		vatPath = strings.TrimSpace(string(focus))
+	}
+	return applyAll(vatPath)
+}
+
+func applyAll(vatPath string) error {
+	matches, err := listSQL(migDir)
+	if err != nil {
+		return err
+	}
+	st, err := vat.Parse(vatPath)
+	if err != nil {
+		st = &vat.Store{Table: "tries", Cols: []string{}, Rows: nil}
+	}
+	for _, m := range matches {
+		stem := vat.Stem(m)
+		if st.HasApplied(stem) {
+			continue
+		}
+		body, err := os.ReadFile(m)
+		if err != nil {
+			return err
+		}
+		if err := runSQL(st, string(body)); err != nil {
+			return fmt.Errorf("%s: %w", stem, err)
+		}
+		st.Applied = append(st.Applied, stem)
+	}
+	return st.Write(vatPath)
+}
+
+func listSQL(dir string) ([]string, error) {
+	matches, err := filepath.Glob(filepath.Join(dir, "*.sql"))
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(matches)
+	return matches, nil
+}
+
+func runSQL(st *vat.Store, body string) error {
+	for _, raw := range strings.Split(body, ";") {
+		line := strings.Join(strings.Fields(raw), " ")
+		if line == "" {
+			continue
+		}
+		u := strings.ToUpper(line)
+		switch {
+		case strings.HasPrefix(u, "CREATE TABLE"):
+			rest := strings.TrimSpace(line[len("CREATE TABLE"):])
+			name, cols, ok := parseCreate(rest)
+			if !ok {
+				return fmt.Errorf("create parse")
+			}
+			st.Table = name
+			st.Cols = cols
+			if len(st.Rows) == 0 {
+				row := make([]string, len(cols))
+				for i := range row {
+					if cols[i] == "id" {
+						row[i] = "1"
+					} else if cols[i] == "label" {
+						row[i] = "boot"
+					} else {
+						row[i] = "0"
+					}
+				}
+				st.Rows = [][]string{row}
+			}
+		case strings.Contains(u, "ADD COLUMN"):
+			idx := strings.Index(u, "ADD COLUMN")
+			col := strings.Fields(line[idx+len("ADD COLUMN"):])
+			if len(col) == 0 {
+				return fmt.Errorf("add column")
+			}
+			st.AddCol(col[0])
+		}
+	}
+	return nil
+}
+
+func parseCreate(rest string) (string, []string, bool) {
+	i := strings.Index(rest, "(")
+	j := strings.Index(rest, ")")
+	if i < 0 || j < 0 || j <= i {
+		return "", nil, false
+	}
+	name := strings.TrimSpace(rest[:i])
+	inner := rest[i+1 : j]
+	parts := strings.Split(inner, ",")
+	cols := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		cols = append(cols, p)
+	}
+	return name, cols, name != "" && len(cols) > 0
+}
+### hopsrc/vat/store.go
+package vat
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+)
+
+const magic = "KILNVAT 1"
+
+type Store struct {
+	Applied []string
+	Table   string
+	Cols    []string
+	Rows    [][]string
+}
+
+func Parse(path string) (*Store, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	s := &Store{}
+	sc := bufio.NewScanner(f)
+	if !sc.Scan() {
+		return nil, fmt.Errorf("empty vat")
+	}
+	if strings.TrimSpace(sc.Text()) != magic {
+		return nil, fmt.Errorf("bad magic")
+	}
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(line, "applied:"):
+			s.Applied = append(s.Applied, strings.TrimPrefix(line, "applied:"))
+		case strings.HasPrefix(line, "table:"):
+			s.Table = strings.TrimPrefix(line, "table:")
+		case strings.HasPrefix(line, "cols:"):
+			s.Cols = strings.Split(strings.TrimPrefix(line, "cols:"), ",")
+		case strings.HasPrefix(line, "row:"):
+			s.Rows = append(s.Rows, strings.Split(strings.TrimPrefix(line, "row:"), ","))
+		}
+	}
+	return s, sc.Err()
+}
+
+func (s *Store) Write(path string) error {
+	var b strings.Builder
+	b.WriteString(magic)
+	b.WriteByte('\n')
+	for _, a := range s.Applied {
+		b.WriteString("applied:")
+		b.WriteString(a)
+		b.WriteByte('\n')
+	}
+	b.WriteString("table:")
+	b.WriteString(s.Table)
+	b.WriteByte('\n')
+	b.WriteString("cols:")
+	b.WriteString(strings.Join(s.Cols, ","))
+	b.WriteByte('\n')
+	for _, r := range s.Rows {
+		b.WriteString("row:")
+		b.WriteString(strings.Join(r, ","))
+		b.WriteByte('\n')
+	}
+	return os.WriteFile(path, []byte(b.String()), 0644)
+}
+
+func (s *Store) LastApplied() string {
+	if len(s.Applied) == 0 {
+		return ""
+	}
+	return s.Applied[len(s.Applied)-1]
+}
+
+func (s *Store) HasApplied(stem string) bool {
+	for _, a := range s.Applied {
+		if a == stem {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Store) HasCol(name string) bool {
+	for _, c := range s.Cols {
+		if c == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Store) AddCol(name string) {
+	if s.HasCol(name) {
+		return
+	}
+	s.Cols = append(s.Cols, name)
+	for i := range s.Rows {
+		s.Rows[i] = append(s.Rows[i], "0")
+	}
+}
+
+func LedgerHead(migDir string) (string, error) {
+	matches, err := filepath.Glob(filepath.Join(migDir, "*.sql"))
+	if err != nil {
+		return "", err
+	}
+	if len(matches) == 0 {
+		return "", fmt.Errorf("no sql")
+	}
+	sort.Strings(matches)
+	base := filepath.Base(matches[len(matches)-1])
+	return strings.TrimSuffix(base, ".sql"), nil
+}
+
+func Stem(path string) string {
+	base := filepath.Base(path)
+	return strings.TrimSuffix(base, ".sql")
+}
+
+func CopyFile(src, dst string) error {
+	b, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(dst, b, 0644)
+}
+### claybin/borrow.go
+package claybin
+
+import "kilnbench/hopsrc/vat"
+
+func BorrowBench() error {
+	return vat.CopyFile("/app/vats/bench.vat", "/app/vats/worker.vat")
+}
+### claybin/emit.go
+package claybin
+
+import "kilnbench/hopsrc/vat"
+
+const src = "/app/vats/mold.vat"
+const dst = "/app/vats/worker.vat"
+
+func EmitWorker() error {
+	return vat.CopyFile(src, dst)
+}
+### scorepit/score.go
+package scorepit
+
+import (
+	"fmt"
+	"os"
+
+	"kilnbench/hopsrc/vat"
+)
+
+const worker = "/app/vats/worker.vat"
+const okPath = "/app/vats/assay.ok"
+
+func ScoreWorker() int {
+	st, err := vat.Parse(worker)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	fmt.Printf("schema_version=%s\n", st.LastApplied())
+	if !st.HasCol("attempt_slot") {
+		fmt.Fprintln(os.Stderr, "unknown-column: attempt_slot")
+		return 1
+	}
+	_ = os.WriteFile(okPath, []byte("ok\n"), 0644)
+	return 0
+}
+### scorepit/shim.go
+package scorepit
+
+import "kilnbench/hopsrc/vat"
+
+func PadSlot(path string) error {
+	st, err := vat.Parse(path)
+	if err != nil {
+		return err
+	}
+	st.AddCol("attempt_slot")
+	return st.Write(path)
+}
+### kilncli/cmd_assay.go
+package main
+
+import "kilnbench/scorepit"
+
+func cmdAssay() int {
+	return scorepit.ScoreWorker()
+}
+### kilncli/cmd_impress.go
+package main
+
+import (
+	"fmt"
+	"os"
+
+	"kilnbench/hopsrc/imprint"
+)
+
+func cmdImpress(args []string) int {
+	path := ""
+	if len(args) > 0 {
+		path = args[0]
+	}
+	if err := imprint.Imprint(path); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	return 0
+}
+### kilncli/cmd_spill.go
+package main
+
+import (
+	"fmt"
+	"os"
+
+	"kilnbench/claybin"
+)
+
+func cmdSpill() int {
+	if err := claybin.EmitWorker(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	return 0
+}
+### kilncli/main.go
+package main
+
+import (
+	"fmt"
+	"os"
+)
+
+func main() {
+	if len(os.Args) < 2 {
+		fmt.Fprintln(os.Stderr, "usage: kilncli impress|spill|assay")
+		os.Exit(2)
+	}
+	var code int
+	switch os.Args[1] {
+	case "impress":
+		code = cmdImpress(os.Args[2:])
+	case "spill":
+		code = cmdSpill()
+	case "assay":
+		code = cmdAssay()
+	default:
+		fmt.Fprintln(os.Stderr, "usage: kilncli impress|spill|assay")
+		code = 2
+	}
+	os.Exit(code)
+}
+--- config/sql ---
+[tries]
+columns = ["id", "label", "attempt_slot"]
+/app/vats/bench.vat
+### inkstack/migrations/0003_base.sql
+CREATE TABLE tries (id, label);
+### inkstack/migrations/0004_attempt_slot.sql
+ALTER TABLE tries ADD COLUMN attempt_slot;
+--- vats ---
+### vats/bench.vat
+KILNVAT 1
+applied:0003_base
+applied:0004_attempt_slot
+table:tries
+cols:id,label,attempt_slot
+row:1,boot,0
+### vats/mold.vat
+KILNVAT 1
+applied:0003_base
+table:tries
+cols:id,label
+row:1,boot
+### vats/plaster.vat
+KILNVAT 1
+applied:0003_base
+table:tries
+cols:id,label
+row:1,boot
+### vats/worker.vat
+KILNVAT 1
+applied:0003_base
+table:tries
+cols:id,label
+row:1,boot
+[?2004hroot@3a8d57c62d1b:/app# rm -f vats/assay.ok; echo '--- assay ---'; bin/kilncli assay; echo "assay_rc=$?"; ls -l vats/assay.ok 2>/dev/null || true; echo '--- spill ---'; bin/kilncli spill; echo "spill_rc=$?"; ls -l vats/assay.ok 2>/dev/null || true; echo '--- resulting worker ---'; cat vats/worker.vat
+[?2004l--- assay ---
+schema_version=0003_base
+unknown-column: attempt_slot
+assay_rc=1
+--- spill ---
+spill_rc=0
+--- resulting worker ---
+KILNVAT 1
+applied:0003_base
+table:tries
+cols:id,label
+row:1,boot
+[?2004hroot@3a8d57c62d1b:/app# cat /app/hopsrc/vat/store.go
+[?2004lpackage vat
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+)
+
+const magic = "KILNVAT 1"
+
+type Store struct {
+	Applied []string
+	Table   string
+	Cols    []string
+	Rows    [][]string
+}
+
+func Parse(path string) (*Store, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	s := &Store{}
+	sc := bufio.NewScanner(f)
+	if !sc.Scan() {
+		return nil, fmt.Errorf("empty vat")
+	}
+	if strings.TrimSpace(sc.Text()) != magic {
+		return nil, fmt.Errorf("bad magic")
+	}
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(line, "applied:"):
+			s.Applied = append(s.Applied, strings.TrimPrefix(line, "applied:"))
+		case strings.HasPrefix(line, "table:"):
+			s.Table = strings.TrimPrefix(line, "table:")
+		case strings.HasPrefix(line, "cols:"):
+			s.Cols = strings.Split(strings.TrimPrefix(line, "cols:"), ",")
+		case strings.HasPrefix(line, "row:"):
+			s.Rows = append(s.Rows, strings.Split(strings.TrimPrefix(line, "row:"), ","))
+		}
+	}
+	return s, sc.Err()
+}
+
+func (s *Store) Write(path string) error {
+	var b strings.Builder
+	b.WriteString(magic)
+	b.WriteByte('\n')
+	for _, a := range s.Applied {
+		b.WriteString("applied:")
+		b.WriteString(a)
+		b.WriteByte('\n')
+	}
+	b.WriteString("table:")
+	b.WriteString(s.Table)
+	b.WriteByte('\n')
+	b.WriteString("cols:")
+	b.WriteString(strings.Join(s.Cols, ","))
+	b.WriteByte('\n')
+	for _, r := range s.Rows {
+		b.WriteString("row:")
+		b.WriteString(strings.Join(r, ","))
+		b.WriteByte('\n')
+	}
+	return os.WriteFile(path, []byte(b.String()), 0644)
+}
+
+func (s *Store) LastApplied() string {
+	if len(s.Applied) == 0 {
+		return ""
+	}
+	return s.Applied[len(s.Applied)-1]
+}
+
+func (s *Store) HasApplied(stem string) bool {
+	for _, a := range s.Applied {
+		if a == stem {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Store) HasCol(name string) bool {
+	for _, c := range s.Cols {
+		if c == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Store) AddCol(name string) {
+	if s.HasCol(name) {
+		return
+	}
+	s.Cols = append(s.Cols, name)
+	for i := range s.Rows {
+		s.Rows[i] = append(s.Rows[i], "0")
+	}
+}
+
+func LedgerHead(migDir string) (string, error) {
+	matches, err := filepath.Glob(filepath.Join(migDir, "*.sql"))
+	if err != nil {
+		return "", err
+	}
+	if len(matches) == 0 {
+		return "", fmt.Errorf("no sql")
+	}
+	sort.Strings(matches)
+	base := filepath.Base(matches[len(matches)-1])
+	return strings.TrimSuffix(base, ".sql"), nil
+}
+
+func Stem(path string) string {
+	base := filepath.Base(path)
+	return strings.TrimSuffix(base, ".sql")
+}
+
+func CopyFile(src, dst string) error {
+	b, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(dst, b, 0644)
+}
+[?2004hroot@3a8d57c62d1b:/app# cat /app/baydocs/OPS.txt
+[?2004lNightly assay scores a spilled worker vat. The hearth focus file names a
+workspace vat operators use for local impress trials. Assay prints
+schema_version from the worker vat. Compat helpers under scorepit exist for
+lab pads when a column is missing on a scratch vat. assay.ok is false when
+the worker applied stem lags the ledger head.
+
+[?2004hroot@3a8d57c62d1b:/app# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p = Path('/app/hopsrc/imprint/imprint.go')
+[?2004l[?2004h> s = p.read_text()
+[?2004l[?2004h> s = s.replace('''func Imprint(vatPath string) error {
+[?2004l[?2004h> \tfocus, err := os.ReadFile("/app/hearth/focus.txt")
+[?2004l[?2004h> \tif err == nil {
+[?2004l[?2004h> \t\tvatPath = strings.TrimSpace(string(focus))
+[?2004l[?2004h> \t}
+[?2004l[?2004h> \treturn applyAll(vatPath)
+[?2004l[?2004h> }''', '''func Imprint(vatPath string) error {
+[?2004l[?2004h> \t// An explicit command-line path is authoritative.  The hearth focus is
+[?2004l[?2004h> \t// only the default used by local experiments.
+[?2004l[?2004h> \tif strings.TrimSpace(vatPath) == "" {
+[?2004l[?2004h> \t\tfocus, err := os.ReadFile("/app/hearth/focus.txt")
+[?2004l[?2004h> \t\tif err != nil {
+[?2004l[?2004h> \t\t\treturn err
+[?2004l[?2004h> \t\t}
+[?2004l[?2004h> \t\tvatPath = strings.TrimSpace(string(focus))
+[?2004l[?2004h> \t}
+[?2004l[?2004h> \tif vatPath == "" {
+[?2004l[?2004h> \t\treturn fmt.Errorf("empty vat path")
+[?2004l[?2004h> \t}
+[?2004l[?2004h> \treturn applyAll(vatPath)
+[?2004l[?2004h> }''')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@3a8d57c62d1b:/app# cat > /app/claybin/emit.go <<'EOF'
+[?2004l[?2004h> package claybin
+[?2004l[?2004h> 
+[?2004l[?2004h> import (
+[?2004l[?2004h> "fmt"
+[?2004l[?2004h> "os"
+[?2004l[?2004h> 
+[?2004l[?2004h> "kilnbench/hopsrc/vat"
+[?2004l[?2004h> )
+[?2004l[?2004h> 
+[?2004l[?2004h> const (
+[?2004l[?2004h> src       = "/app/vats/plaster.vat"
+[?2004l[?2004h> dst       = "/app/vats/worker.vat"
+[?2004l[?2004h> okPath    = "/app/vats/assay.ok"
+[?2004l[?2004h> migration = "/app/inkstack/migrations"
+[?2004l[?2004h> )
+[?2004l[?2004h> 
+[?2004l[?2004h> // EmitWorker spills only a fully impressed plaster.  In particular, merely
+[?2004l[?2004h> // having the expected columns is insufficient: its ledger stem must equal the
+[?2004l[?2004h> // current migration head so adding a migration cannot silently create a stale
+[?2004l[?2004h> // worker.
+[?2004l[?2004h> func EmitWorker() error {
+[?2004l[?2004h> _ = os.Remove(okPath)
+[?2004l[?2004h> 
+[?2004l[?2004h> st, err := vat.Parse(src)
+[?2004l[?2004h> if err != nil {
+[?2004l[?2004h> 
+Makefile  baydocs/  bin/      claybin/  go.mod    hearth/   hopsrc/   inkstack/ kilncli/  scorepit/ vats/     
+> return err
+[?2004l[?2004h> }
+[?2004l[?2004h> head, err := vat.LedgerHead(migration)
+[?2004l[?2004h> if err != nil {
+[?2004l[?2004h> 
+Makefile  baydocs/  bin/      claybin/  go.mod    hearth/   hopsrc/   inkstack/ kilncli/  scorepit/ vats/     
+> return err
+[?2004l[?2004h> }
+[?2004l[?2004h> if st.LastApplied() != head {
+[?2004l[?2004h> 
+Makefile  baydocs/  bin/      claybin/  go.mod    hearth/   hopsrc/   inkstack/ kilncli/  scorepit/ vats/     
+> return fmt.Errorf("source schema_version=%s; ledger head=%s", st.LastApplied(), head)
+[?2004l[?2004h> }
+[?2004l[?2004h> return vat.CopyFile(src, dst)
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@3a8d57c62d1b:/app# cat > /app/scorepit/score.go <<'EOF'
+[?2004l[?2004h> package scorepit
+[?2004l[?2004h> 
+[?2004l[?2004h> import (
+[?2004l[?2004h> "fmt"
+[?2004l[?2004h> "os"
+[?2004l[?2004h> 
+[?2004l[?2004h> "kilnbench/hopsrc/vat"
+[?2004l[?2004h> )
+[?2004l[?2004h> 
+[?2004l[?2004h> const (
+[?2004l[?2004h> worker    = "/app/vats/worker.vat"
+[?2004l[?2004h> okPath    = "/app/vats/assay.ok"
+[?2004l[?2004h> migration = "/app/inkstack/migrations"
+[?2004l[?2004h> )
+[?2004l[?2004h> 
+[?2004l[?2004h> func ScoreWorker() int {
+[?2004l[?2004h> // A marker from an earlier run must never survive a failed assay.
+[?2004l[?2004h> _ = os.Remove(okPath)
+[?2004l[?2004h> 
+[?2004l[?2004h> st, err := vat.Parse(worker)
+[?2004l[?2004h> if err != nil {
+[?2004l[?2004h> 
+Makefile  baydocs/  bin/      claybin/  go.mod    hearth/   hopsrc/   inkstack/ kilncli/  scorepit/ vats/     
+> fmt.Fprintln(os.Stderr, err)
+[?2004l[?2004h> 
+Makefile  baydocs/  bin/      claybin/  go.mod    hearth/   hopsrc/   inkstack/ kilncli/  scorepit/ vats/     
+> return 1
+[?2004l[?2004h> }
+[?2004l[?2004h> version := st.LastApplied()
+[?2004l[?2004h> fmt.Printf("schema_version=%s\n", version)
+[?2004l[?2004h> 
+[?2004l[?2004h> head, err := vat.LedgerHead(migration)
+[?2004l[?2004h> if err != nil {
+[?2004l[?2004h> 
+Makefile  baydocs/  bin/      claybin/  go.mod    hearth/   hopsrc/   inkstack/ kilncli/  scorepit/ vats/     
+> fmt.Fprintln(os.Stderr, err)
+[?2004l[?2004h> 
+Makefile  baydocs/  bin/      claybin/  go.mod    hearth/   hopsrc/   inkstack/ kilncli/  scorepit/ vats/     
+> return 1
+[?2004l[?2004h> }
+[?2004l[?2004h> if version != head {
+[?2004l[?2004h> 
+Makefile  baydocs/  bin/      claybin/  go.mod    hearth/   hopsrc/   inkstack/ kilncli/  scorepit/ vats/     
+> fmt.Fprintf(os.Stderr, "schema-version mismatch: worker=%s ledger=%s\n", version, head)
+[?2004l[?2004h> 
+Makefile  baydocs/  bin/      claybin/  go.mod    hearth/   hopsrc/   inkstack/ kilncli/  scorepit/ vats/     
+> return 1
+[?2004l[?2004h> }
+[?2004l[?2004h> if !st.HasCol("attempt_slot") {
+[?2004l[?2004h> 
+Makefile  baydocs/  bin/      claybin/  go.mod    hearth/   hopsrc/   inkstack/ kilncli/  scorepit/ vats/     
+> fmt.Fprintln(os.Stderr, "unknown-column: attempt_slot")
+[?2004l[?2004h> 
+Makefile  baydocs/  bin/      claybin/  go.mod    hearth/   hopsrc/   inkstack/ kilncli/  scorepit/ vats/     
+> return 1
+[?2004l[?2004h> }
+[?2004l[?2004h> if err := os.WriteFile(okPath, []byte("ok\n"), 0644); err != nil {
+[?2004l[?2004h> 
+Makefile  baydocs/  bin/      claybin/  go.mod    hearth/   hopsrc/   inkstack/ kilncli/  scorepit/ vats/     
+> fmt.Fprintln(os.Stderr, err)
+[?2004l[?2004h> 
+Makefile  baydocs/  bin/      claybin/  go.mod    hearth/   hopsrc/   inkstack/ kilncli/  scorepit/ vats/     
+> return 1
+[?2004l[?2004h> }
+[?2004l[?2004h> return 0
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@3a8d57c62d1b:/app# /usr/local/go/bin/gofmt -w /app/hopsrc/imprint/imprint.go /app/claybin/emit.go /app/scorepit/score.go
+[?2004l[?2004hroot@3a8d57c62d1b:/app# /usr/local/go/bin/go test ./...
+[?2004l?   	kilnbench/claybin	[no test files]
+?   	kilnbench/hopsrc/imprint	[no test files]
+?   	kilnbench/hopsrc/vat	[no test files]
+?   	kilnbench/kilncli	[no test files]
+?   	kilnbench/scorepit	[no test files]
+[?2004hroot@3a8d57c62d1b:/app# make ship
+[?2004lmkdir -p /app/bin
+/usr/local/go/bin/go build -o /app/bin/kilncli ./kilncli
+[?2004hroot@3a8d57c62d1b:/app# rm -f /app/vats/assay.ok; /app/bin/kilncli impress /app/vats/plaster.vat; echo "impress_rc=$?"; echo '--- plaster ---'; cat /app/vats/plaster.vat; /app/bin/kilncli spill; echo "spill_rc=$?"; echo '--- worker ---'; cat /app/vats/worker.vat; /app/bin/kilncli assay; echo "assay_rc=$?"; echo '--- marker ---'; cat /app/vats/assay.ok
+[?2004limpress_rc=0
+--- plaster ---
+KILNVAT 1
+applied:0003_base
+applied:0004_attempt_slot
+table:tries
+cols:id,label,attempt_slot
+row:1,boot,0
+spill_rc=0
+--- worker ---
+KILNVAT 1
+applied:0003_base
+applied:0004_attempt_slot
+table:tries
+cols:id,label,attempt_slot
+row:1,boot,0
+schema_version=0004_attempt_slot
+assay_rc=0
+--- marker ---
+ok
+[?2004hroot@3a8d57c62d1b:/app# set +e
+[?2004l[?2004hroot@3a8d57c62d1b:/app# trap 'rm -f /app/inkstack/migrations/9999_probe.sql' EXIT
+[?2004l[?2004hroot@3a8d57c62d1b:/app# cp /app/vats/worker.vat /tmp/worker.before
+[?2004l[?2004hroot@3a8d57c62d1b:/app# printf 'ALTER TABLE tries ADD COLUMN probe;\n' > /app/inkstack/migrations/9999_probe.sql
+[?2004l[?2004hroot@3a8d57c62d1b:/app# printf 'old\n' > /app/vats/assay.ok
+[?2004l[?2004hroot@3a8d57c62d1b:/app# echo '--- lagging worker assay ---'
+[?2004l--- lagging worker assay ---
+[?2004hroot@3a8d57c62d1b:/app# /app/bin/kilncli assay
+[?2004lschema_version=0004_attempt_slot
+schema-version mismatch: worker=0004_attempt_slot ledger=9999_probe
+[?2004hroot@3a8d57c62d1b:/app# arc=$?
+[?2004l[?2004hroot@3a8d57c62d1b:/app# echo "assay_rc=$arc marker_exists=$(test -e /app/vats/assay.ok && echo yes || echo no)"
+[?2004lassay_rc=1 marker_exists=no
+[?2004hroot@3a8d57c62d1b:/app# printf 'old\n' > /app/vats/assay.ok
+[?2004l[?2004hroot@3a8d57c62d1b:/app# echo '--- lagging plaster spill ---'
+[?2004l--- lagging plaster spill ---
+[?2004hroot@3a8d57c62d1b:/app# /app/bin/kilncli spill
+[?2004lsource schema_version=0004_attempt_slot; ledger head=9999_probe
+[?2004hroot@3a8d57c62d1b:/app# src=$?
+[?2004l[?2004hroot@3a8d57c62d1b:/app# echo "spill_rc=$src marker_exists=$(test -e /app/vats/assay.ok && echo yes || echo no) worker_unchanged=$(cmp -s /tmp/worker.before /app/vats/worker.vat && echo yes || echo no)"
+[?2004lspill_rc=1 marker_exists=no worker_unchanged=yes
+[?2004hroot@3a8d57c62d1b:/app# rm -f /app/inkstack/migrations/9999_probe.sql
+[?2004l[?2004hroot@3a8d57c62d1b:/app# trap - EXIT
+[?2004l[?2004hroot@3a8d57c62d1b:/app# if [ "$arc" -eq 0 ] || [ "$src" -eq 0 ]; then echo 'negative test failed' >&2; exit 1; fi
+[?2004l[?2004hroot@3a8d57c62d1b:/app# /app/bin/kilncli spill && /app/bin/kilncli assay
+[?2004lschema_version=0004_attempt_slot
+[?2004hroot@3a8d57c62d1b:/app# rc=$?
+[?2004l[?2004hroot@3a8d57c62d1b:/app# echo "final_rc=$rc latest=$(find /app/inkstack/migrations -maxdepth 1 -name '*.sql' -printf '%f\n' | sort | tail -1 | sed 's/\.sql$//') marker=$(cat /app/vats/assay.ok 2>/dev/null)"
+[?2004lfinal_rc=0 latest=0004_attempt_slot marker=ok
+[?2004hroot@3a8d57c62d1b:/app# echo '--- plaster ---'; cat /app/vats/plaster.vat
+[?2004l--- plaster ---
+KILNVAT 1
+applied:0003_base
+applied:0004_attempt_slot
+table:tries
+cols:id,label,attempt_slot
+row:1,boot,0
+[?2004hroot@3a8d57c62d1b:/app# echo '--- worker ---'; cat /app/vats/worker.vat
+[?2004l--- worker ---
+KILNVAT 1
+applied:0003_base
+applied:0004_attempt_slot
+table:tries
+cols:id,label,attempt_slot
+row:1,boot,0
+[?2004hroot@3a8d57c62d1b:/app# exit "$rc"
+[?2004lexit
+[0;32masciinema: recording finished[0m
+[0;32masciinema: asciicast saved to /logs/agent/recording.cast[0m
+[?2004hroot@3a8d57c62d1b:/app# 

@@ -1,0 +1,958 @@
+[?2004hroot@ea02f0336604:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@ea02f0336604:/app# clear
+[?2004l[H[J[3J[?2004hroot@ea02f0336604:/app# cat /app/bindnote/LAYOUT.txt && printf '\n--- GRAMMAR ---\n' && cat /app/bindnote/GRAMMAR.txt
+[?2004lTrees
+  /app/vatmill     mill CLI
+  /app/spoolkit    row scan
+  /app/wicksrc     row walk
+  /app/pantryc     row emit
+  /app/millhint    optional plus-tail trim for noisy traces
+  /app/crumbay     etch intake (*.stk)
+  /app/shardops/live  bin intake (*.stk), including poison.stk
+  /app/loomwell/etch.json
+  /app/loomwell/pair.sha
+  /app/shardops/bins.json
+
+Ship from /app/Makefile. etch walks crumbay. bin walks live and refreshes pair.sha.
+
+If panes look noisy, millhint.Trim is the usual first stop, then etch from crumbay.
+
+--- GRAMMAR ---
+Take lines are space-separated fields:
+
+  KIND ADDR MODULE FUNC
+
+KIND is `.` for a named frame or `i` for a fold line.
+MODULE may include a `+` tail. Pane `mod` is the MODULE text before `+`.
+FUNC is the frame name.
+
+A pane is `mod!fn` for each kept frame, joined by `|` in file order.
+
+Fold: a KIND `i` line does not emit its own chunk; it belongs to the next named frame.
+Omit: MODULE whose `mod` is `[vdso]` or `[vsyscall]` does not emit.
+Reject: KIND `BAD` aborts `bin` with a non-zero status and must not replace a prior success bins.json. `/app/shardops/live/poison.stk` is such a take.
+
+JSON objects map take basename (strip `.stk`) to pane text. Keys are those basenames only (`p3`, `q9`, `n7`, `s7` among them).
+
+`/app/loomwell/pair.sha` is sha-256 / sha256 hex (64 lowercase chars) of the shared n7/s7 pane string, one line. It matches `sha256sum` of that pane text.
+
+Held-out mill take: `/tests/heldout/h8.stk` (same pane as n7 when copied into live as `h8.stk`).
+[?2004hroot@ea02f0336604:/app# printf '\n--- TREE ---\n'; find /app -maxdepth 3 -type f -printf '%p\n' | sort; printf '\n--- BINARY ---\n'; file /app/bin/wickpane; head -c 4 /app/bin/wickpane | od -An -tx1
+[?2004l
+--- TREE ---
+/app/Makefile
+/app/bin/wickpane
+/app/bindnote/GRAMMAR.txt
+/app/bindnote/LAYOUT.txt
+/app/celltyp/row.go
+/app/crumbay/n7.stk
+/app/crumbay/p3.stk
+/app/crumbay/q9.stk
+/app/crumbay/r2.stk
+/app/crumbay/s7.stk
+/app/go.mod
+/app/loomwell/etch.json
+/app/loomwell/pair.sha
+/app/millhint/trim.go
+/app/pantryc/drop.go
+/app/pantryc/join.go
+/app/shardops/bins.json
+/app/shardops/live/n7.stk
+/app/shardops/live/p3.stk
+/app/shardops/live/poison.stk
+/app/shardops/live/q9.stk
+/app/shardops/live/r2.stk
+/app/shardops/live/s7.stk
+/app/shardops/runs.cnt
+/app/spoolkit/clip.go
+/app/spoolkit/scan.go
+/app/vatmill/bin.go
+/app/vatmill/etch.go
+/app/vatmill/main.go
+/app/vatmill/stage.go
+/app/vatmill/stage2.go
+/app/wicksrc/nest.go
+
+--- BINARY ---
+bash: file: command not found
+ 7f 45 4c 46
+[?2004hroot@ea02f0336604:/app# printf '\n--- GO FILES ---\n'; find /app -type f \( -name '*.go' -o -name 'go.mod' -o -name 'go.sum' \) -print | sort; printf '\n--- TAKES ---\n'; for f in /app/shardops/live/*.stk; do echo "### $f"; cat "$f"; done; printf '\n--- CURRENT OUTPUTS ---\n'; cat /app/shardops/bins.json 2>/dev/null || true; echo; cat /app/loomwell/pair.sha 2>/dev/null || true; echo
+[?2004l
+--- GO FILES ---
+/app/celltyp/row.go
+/app/go.mod
+/app/millhint/trim.go
+/app/pantryc/drop.go
+/app/pantryc/join.go
+/app/spoolkit/clip.go
+/app/spoolkit/scan.go
+/app/vatmill/bin.go
+/app/vatmill/etch.go
+/app/vatmill/main.go
+/app/vatmill/stage.go
+/app/vatmill/stage2.go
+/app/wicksrc/nest.go
+
+--- TAKES ---
+### /app/shardops/live/n7.stk
+. 0x7f8a1100 libwidget.so+0x4400 draw_box
+i 0x7f8a1110 libwidget.so+0x4418 draw_box_fill
+. 0x7f8a1200 libc.so.6+0x80 abort
+. 0x7fff0100 [vdso]+0x20 clock_gettime
+### /app/shardops/live/p3.stk
+. 0x00001000 libsolo.so+0x100 run_main
+### /app/shardops/live/poison.stk
+BAD 0x0 none none
+### /app/shardops/live/q9.stk
+. 0x00002000 libnet.so+0x50 recv_one
+. 0x00002010 [vsyscall]+0x8 vsyscall_page
+### /app/shardops/live/r2.stk
+. 0x00003000 libold.so+0x1 init_old
+. 0x00003010 libc.so.6+0x10 start_main
+### /app/shardops/live/s7.stk
+. 0x55aa1100 libwidget.so+0x9aa0 draw_box
+. 0x55aa1200 libc.so.6+0x80 abort
+
+--- CURRENT OUTPUTS ---
+{
+  "n7": "+0x4400!draw_box|+0x4418!draw_box_fill|+0x80!abort|+0x20!clock_gettime",
+  "p3": "+0x100!run_main",
+  "q9": "+0x50!recv_one|+0x8!vsyscall_page",
+  "r2": "+0x1!init_old|+0x10!start_main",
+  "s7": "+0x9aa0!draw_box|+0x80!abort",
+  "tick": "1"
+}
+
+983eb9dff19083323044eabd3b77aaf3e2302b0be1c054345fdddd9b12571275
+
+[?2004hroot@ea02f0336604:/app# cd /app && for f in go.mod Makefile celltyp/row.go millhint/trim.go spoolkit/clip.go spoolkit/scan.go wicksrc/nest.go pantryc/drop.go pantryc/join.go vatmill/main.go vatmill/etch.go vatmill/bin.go vatmill/stage.go vatmill/stage2.go; do printf '\n===== %s =====\n' "$f"; nl -ba "$f"; done
+[?2004l
+===== go.mod =====
+     1	module loft.local/wickpane
+     2	
+     3	go 1.22
+
+===== Makefile =====
+     1	.PHONY: ship
+     2	
+     3	ship:
+     4		mkdir -p /app/bin
+     5		# GOPROXY=off matches the image; go never fetches.
+     6		GOPROXY=off /usr/local/go/bin/go build -o /app/bin/wickpane loft.local/wickpane/vatmill
+     7		/app/bin/wickpane etch
+     8		if [ -f /app/shardops/live/poison.stk ]; then mv /app/shardops/live/poison.stk /tmp/wick-ship-poison.stk; fi
+     9		/app/bin/wickpane bin
+    10		if [ -f /tmp/wick-ship-poison.stk ]; then mv /tmp/wick-ship-poison.stk /app/shardops/live/poison.stk; fi
+
+===== celltyp/row.go =====
+     1	package celltyp
+     2	
+     3	type Row struct {
+     4		Kind string
+     5		Mod  string
+     6		Fn   string
+     7	}
+
+===== millhint/trim.go =====
+     1	package millhint
+     2	
+     3	import "strings"
+     4	
+     5	func Trim(tok string) string {
+     6		i := strings.LastIndex(tok, "+")
+     7		if i < 0 {
+     8			return tok
+     9		}
+    10		head, tail := tok[:i+1], tok[i+1:]
+    11		if len(tail) == 0 {
+    12			return tok
+    13		}
+    14		b := []byte(tail)
+    15		b[len(b)-1] = '0'
+    16		return head + string(b)
+    17	}
+
+===== spoolkit/clip.go =====
+     1	package spoolkit
+     2	
+     3	import (
+     4		"strings"
+     5	
+     6		"loft.local/wickpane/celltyp"
+     7	)
+     8	
+     9	func Clip(rows []celltyp.Row) []celltyp.Row {
+    10		out := make([]celltyp.Row, 0, len(rows))
+    11		for _, r := range rows {
+    12			mod := strings.TrimSpace(r.Mod)
+    13			if i := strings.LastIndex(mod, "+"); i >= 0 {
+    14				mod = mod[i:]
+    15			}
+    16			out = append(out, celltyp.Row{Kind: r.Kind, Mod: mod, Fn: r.Fn})
+    17		}
+    18		return out
+    19	}
+
+===== spoolkit/scan.go =====
+     1	package spoolkit
+     2	
+     3	import (
+     4		"bufio"
+     5		"errors"
+     6		"os"
+     7		"strings"
+     8	
+     9		"loft.local/wickpane/celltyp"
+    10	)
+    11	
+    12	var ErrReject = errors.New("reject")
+    13	
+    14	func Scan(path string) ([]celltyp.Row, error) {
+    15		f, err := os.Open(path)
+    16		if err != nil {
+    17			return nil, err
+    18		}
+    19		defer f.Close()
+    20		var rows []celltyp.Row
+    21		sc := bufio.NewScanner(f)
+    22		for sc.Scan() {
+    23			line := strings.TrimSpace(sc.Text())
+    24			if line == "" || strings.HasPrefix(line, "#") {
+    25				continue
+    26			}
+    27			parts := strings.Fields(line)
+    28			if len(parts) == 0 {
+    29				continue
+    30			}
+    31			if parts[0] == "BAD" {
+    32				return nil, ErrReject
+    33			}
+    34			if len(parts) < 4 {
+    35				continue
+    36			}
+    37			rows = append(rows, celltyp.Row{Kind: parts[0], Mod: parts[2], Fn: parts[3]})
+    38		}
+    39		return rows, sc.Err()
+    40	}
+
+===== wicksrc/nest.go =====
+     1	package wicksrc
+     2	
+     3	import (
+     4		"strings"
+     5	
+     6		"loft.local/wickpane/celltyp"
+     7	)
+     8	
+     9	func Nest(rows []celltyp.Row) []celltyp.Row {
+    10		out := make([]celltyp.Row, 0, len(rows))
+    11		for _, r := range rows {
+    12			if r.Kind == "i" && strings.TrimSpace(r.Fn) == "" {
+    13				continue
+    14			}
+    15			out = append(out, r)
+    16		}
+    17		return out
+    18	}
+
+===== pantryc/drop.go =====
+     1	package pantryc
+     2	
+     3	import (
+     4		"strings"
+     5	
+     6		"loft.local/wickpane/celltyp"
+     7	)
+     8	
+     9	func Drop(rows []celltyp.Row) []celltyp.Row {
+    10		out := make([]celltyp.Row, 0, len(rows))
+    11		for _, r := range rows {
+    12			mod := strings.TrimSpace(r.Mod)
+    13			if i := strings.Index(mod, "+"); i >= 0 {
+    14				mod = mod[:i]
+    15			}
+    16			if mod == "[vdso]" {
+    17				continue
+    18			}
+    19			out = append(out, r)
+    20		}
+    21		return out
+    22	}
+
+===== pantryc/join.go =====
+     1	package pantryc
+     2	
+     3	import (
+     4		"strings"
+     5	
+     6		"loft.local/wickpane/celltyp"
+     7	)
+     8	
+     9	func Join(rows []celltyp.Row) string {
+    10		parts := make([]string, 0, len(rows))
+    11		for _, r := range rows {
+    12			parts = append(parts, r.Mod+"!"+r.Fn)
+    13		}
+    14		return strings.Join(parts, "|")
+    15	}
+
+===== vatmill/main.go =====
+     1	package main
+     2	
+     3	import (
+     4		"fmt"
+     5		"os"
+     6	)
+     7	
+     8	func main() {
+     9		if len(os.Args) < 2 {
+    10			fmt.Fprintln(os.Stderr, "usage: wickpane etch|bin")
+    11			os.Exit(2)
+    12		}
+    13		var rc int
+    14		switch os.Args[1] {
+    15		case "etch":
+    16			rc = runEtch()
+    17		case "bin":
+    18			rc = runBin()
+    19		default:
+    20			rc = 2
+    21		}
+    22		os.Exit(rc)
+    23	}
+
+===== vatmill/etch.go =====
+     1	package main
+     2	
+     3	import (
+     4		"encoding/json"
+     5		"os"
+     6		"path/filepath"
+     7		"strings"
+     8	
+     9		"loft.local/wickpane/pantryc"
+    10		"loft.local/wickpane/spoolkit"
+    11	)
+    12	
+    13	func runEtch() int {
+    14		dir := "/app/crumbay"
+    15		outPath := "/app/loomwell/etch.json"
+    16		entries, err := os.ReadDir(dir)
+    17		if err != nil {
+    18			return 1
+    19		}
+    20		out := map[string]string{}
+    21		for _, e := range entries {
+    22			if e.IsDir() || !strings.HasSuffix(e.Name(), ".stk") {
+    23				continue
+    24			}
+    25			rows, err := spoolkit.Scan(filepath.Join(dir, e.Name()))
+    26			if err != nil {
+    27				return 1
+    28			}
+    29			stem := strings.TrimSuffix(e.Name(), ".stk")
+    30			out[stem] = pantryc.Join(pipeBack(pipeFront(rows)))
+    31		}
+    32		blob, err := json.MarshalIndent(out, "", "  ")
+    33		if err != nil {
+    34			return 1
+    35		}
+    36		if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
+    37			return 1
+    38		}
+    39		if err := os.WriteFile(outPath, append(blob, '\n'), 0o644); err != nil {
+    40			return 1
+    41		}
+    42		return 0
+    43	}
+
+===== vatmill/bin.go =====
+     1	package main
+     2	
+     3	import (
+     4		"crypto/sha256"
+     5		"encoding/hex"
+     6		"encoding/json"
+     7		"os"
+     8		"path/filepath"
+     9		"strconv"
+    10		"strings"
+    11	
+    12		"loft.local/wickpane/pantryc"
+    13		"loft.local/wickpane/spoolkit"
+    14	)
+    15	
+    16	func tickCnt() string {
+    17		p := "/app/shardops/runs.cnt"
+    18		n := 0
+    19		if b, err := os.ReadFile(p); err == nil {
+    20			n, _ = strconv.Atoi(strings.TrimSpace(string(b)))
+    21		}
+    22		n++
+    23		_ = os.WriteFile(p, []byte(strconv.Itoa(n)+"\n"), 0o644)
+    24		return strconv.Itoa(n)
+    25	}
+    26	
+    27	func sealHex() {
+    28		a, _ := os.ReadFile("/app/shardops/live/n7.stk")
+    29		b, _ := os.ReadFile("/app/shardops/live/s7.stk")
+    30		sum := sha256.Sum256(append(a, b...))
+    31		_ = os.WriteFile("/app/loomwell/pair.sha", []byte(hex.EncodeToString(sum[:])+"\n"), 0o644)
+    32	}
+    33	
+    34	func runBin() int {
+    35		dir := "/app/shardops/live"
+    36		outPath := "/app/shardops/bins.json"
+    37		entries, err := os.ReadDir(dir)
+    38		if err != nil {
+    39			return 1
+    40		}
+    41		out := map[string]string{}
+    42		for _, e := range entries {
+    43			if e.IsDir() || !strings.HasSuffix(e.Name(), ".stk") {
+    44				continue
+    45			}
+    46			rows, err := spoolkit.Scan(filepath.Join(dir, e.Name()))
+    47			if err != nil {
+    48				continue
+    49			}
+    50			stem := strings.TrimSuffix(e.Name(), ".stk")
+    51			out[stem] = pantryc.Join(pipeBack(pipeFront(rows)))
+    52		}
+    53		out["tick"] = tickCnt()
+    54		sealHex()
+    55		blob, err := json.MarshalIndent(out, "", "  ")
+    56		if err != nil {
+    57			return 1
+    58		}
+    59		if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
+    60			return 1
+    61		}
+    62		if err := os.WriteFile(outPath, append(blob, '\n'), 0o644); err != nil {
+    63			return 1
+    64		}
+    65		return 0
+    66	}
+
+===== vatmill/stage.go =====
+     1	package main
+     2	
+     3	import "loft.local/wickpane/celltyp"
+     4	import "loft.local/wickpane/spoolkit"
+     5	import "loft.local/wickpane/wicksrc"
+     6	
+     7	func pipeFront(rows []celltyp.Row) []celltyp.Row {
+     8		return wicksrc.Nest(spoolkit.Clip(rows))
+     9	}
+
+===== vatmill/stage2.go =====
+     1	package main
+     2	
+     3	import "loft.local/wickpane/celltyp"
+     4	import "loft.local/wickpane/pantryc"
+     5	
+     6	func pipeBack(rows []celltyp.Row) []celltyp.Row {
+     7		return pantryc.Drop(rows)
+     8	}
+[?2004hroot@ea02f0336604:/app# printf '\n--- ETCH JSON ---\n'; cat /app/loomwell/etch.json; printf '\n--- RUN COUNT ---\n'; cat /app/shardops/runs.cnt 2>/dev/null || true; printf '\n--- CRUMBAY TAKES ---\n'; for f in /app/crumbay/*.stk; do echo "### $f"; cat "$f"; done
+[?2004l
+--- ETCH JSON ---
+{
+  "n7": "+0x4400!draw_box|+0x4418!draw_box_fill|+0x80!abort|+0x20!clock_gettime",
+  "p3": "+0x100!run_main",
+  "q9": "+0x50!recv_one|+0x8!vsyscall_page",
+  "r2": "+0x1!init_old|+0x10!start_main",
+  "s7": "+0x9aa0!draw_box|+0x80!abort"
+}
+
+--- RUN COUNT ---
+1
+
+--- CRUMBAY TAKES ---
+### /app/crumbay/n7.stk
+. 0x7f8a1100 libwidget.so+0x4400 draw_box
+i 0x7f8a1110 libwidget.so+0x4418 draw_box_fill
+. 0x7f8a1200 libc.so.6+0x80 abort
+. 0x7fff0100 [vdso]+0x20 clock_gettime
+### /app/crumbay/p3.stk
+. 0x00001000 libsolo.so+0x100 run_main
+### /app/crumbay/q9.stk
+. 0x00002000 libnet.so+0x50 recv_one
+. 0x00002010 [vsyscall]+0x8 vsyscall_page
+### /app/crumbay/r2.stk
+. 0x00003000 libold.so+0x1 init_old
+. 0x00003010 libc.so.6+0x10 start_main
+### /app/crumbay/s7.stk
+. 0x55aa1100 libwidget.so+0x9aa0 draw_box
+. 0x55aa1200 libc.so.6+0x80 abort
+[?2004hroot@ea02f0336604:/app# cd /app && nl -ba pantryc/drop.go && nl -ba pantryc/join.go && nl -ba vatmill/main.go && nl -ba vatmill/etch.go && nl -ba millhint/trim.go
+[?2004l     1	package pantryc
+     2	
+     3	import (
+     4		"strings"
+     5	
+     6		"loft.local/wickpane/celltyp"
+     7	)
+     8	
+     9	func Drop(rows []celltyp.Row) []celltyp.Row {
+    10		out := make([]celltyp.Row, 0, len(rows))
+    11		for _, r := range rows {
+    12			mod := strings.TrimSpace(r.Mod)
+    13			if i := strings.Index(mod, "+"); i >= 0 {
+    14				mod = mod[:i]
+    15			}
+    16			if mod == "[vdso]" {
+    17				continue
+    18			}
+    19			out = append(out, r)
+    20		}
+    21		return out
+    22	}
+     1	package pantryc
+     2	
+     3	import (
+     4		"strings"
+     5	
+     6		"loft.local/wickpane/celltyp"
+     7	)
+     8	
+     9	func Join(rows []celltyp.Row) string {
+    10		parts := make([]string, 0, len(rows))
+    11		for _, r := range rows {
+    12			parts = append(parts, r.Mod+"!"+r.Fn)
+    13		}
+    14		return strings.Join(parts, "|")
+    15	}
+     1	package main
+     2	
+     3	import (
+     4		"fmt"
+     5		"os"
+     6	)
+     7	
+     8	func main() {
+     9		if len(os.Args) < 2 {
+    10			fmt.Fprintln(os.Stderr, "usage: wickpane etch|bin")
+    11			os.Exit(2)
+    12		}
+    13		var rc int
+    14		switch os.Args[1] {
+    15		case "etch":
+    16			rc = runEtch()
+    17		case "bin":
+    18			rc = runBin()
+    19		default:
+    20			rc = 2
+    21		}
+    22		os.Exit(rc)
+    23	}
+     1	package main
+     2	
+     3	import (
+     4		"encoding/json"
+     5		"os"
+     6		"path/filepath"
+     7		"strings"
+     8	
+     9		"loft.local/wickpane/pantryc"
+    10		"loft.local/wickpane/spoolkit"
+    11	)
+    12	
+    13	func runEtch() int {
+    14		dir := "/app/crumbay"
+    15		outPath := "/app/loomwell/etch.json"
+    16		entries, err := os.ReadDir(dir)
+    17		if err != nil {
+    18			return 1
+    19		}
+    20		out := map[string]string{}
+    21		for _, e := range entries {
+    22			if e.IsDir() || !strings.HasSuffix(e.Name(), ".stk") {
+    23				continue
+    24			}
+    25			rows, err := spoolkit.Scan(filepath.Join(dir, e.Name()))
+    26			if err != nil {
+    27				return 1
+    28			}
+    29			stem := strings.TrimSuffix(e.Name(), ".stk")
+    30			out[stem] = pantryc.Join(pipeBack(pipeFront(rows)))
+    31		}
+    32		blob, err := json.MarshalIndent(out, "", "  ")
+    33		if err != nil {
+    34			return 1
+    35		}
+    36		if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
+    37			return 1
+    38		}
+    39		if err := os.WriteFile(outPath, append(blob, '\n'), 0o644); err != nil {
+    40			return 1
+    41		}
+    42		return 0
+    43	}
+     1	package millhint
+     2	
+     3	import "strings"
+     4	
+     5	func Trim(tok string) string {
+     6		i := strings.LastIndex(tok, "+")
+     7		if i < 0 {
+     8			return tok
+     9		}
+    10		head, tail := tok[:i+1], tok[i+1:]
+    11		if len(tail) == 0 {
+    12			return tok
+    13		}
+    14		b := []byte(tail)
+    15		b[len(b)-1] = '0'
+    16		return head + string(b)
+    17	}
+[?2004hroot@ea02f0336604:/app# grep -R "millhint\|tickCnt\|sealHex\|pipeFront\|pipeBack" -n /app --include='*.go' --include='Makefile'
+[?2004l/app/millhint/trim.go:1:package millhint
+/app/vatmill/bin.go:16:func tickCnt() string {
+/app/vatmill/bin.go:27:func sealHex() {
+/app/vatmill/bin.go:51:		out[stem] = pantryc.Join(pipeBack(pipeFront(rows)))
+/app/vatmill/bin.go:53:	out["tick"] = tickCnt()
+/app/vatmill/bin.go:54:	sealHex()
+/app/vatmill/stage.go:7:func pipeFront(rows []celltyp.Row) []celltyp.Row {
+/app/vatmill/stage2.go:6:func pipeBack(rows []celltyp.Row) []celltyp.Row {
+/app/vatmill/etch.go:30:		out[stem] = pantryc.Join(pipeBack(pipeFront(rows)))
+[?2004hroot@ea02f0336604:/app# cd /app && cat > millhint/trim.go <<'EOF'
+[?2004l[?2004h> package millhint
+[?2004l[?2004h> 
+[?2004l[?2004h> import "strings"
+[?2004l[?2004h> 
+[?2004l[?2004h> // Trim removes the optional +tail from a module token.
+[?2004l[?2004h> func Trim(tok string) string {
+[?2004l[?2004h> tok = strings.TrimSpace(tok)
+[?2004l[?2004h> if i := strings.IndexByte(tok, '+'); i >= 0 {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> return tok[:i]
+[?2004l[?2004h> }
+[?2004l[?2004h> return tok
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@ea02f0336604:/app# cat > spoolkit/clip.go <<'EOF'
+[?2004l[?2004h> package spoolkit
+[?2004l[?2004h> 
+[?2004l[?2004h> import (
+[?2004l[?2004h> "strings"
+[?2004l[?2004h> 
+[?2004l[?2004h> "loft.local/wickpane/celltyp"
+[?2004l[?2004h> "loft.local/wickpane/millhint"
+[?2004l[?2004h> )
+[?2004l[?2004h> 
+[?2004l[?2004h> // Clip normalizes fields used by the pane renderer.
+[?2004l[?2004h> func Clip(rows []celltyp.Row) []celltyp.Row {
+[?2004l[?2004h> out := make([]celltyp.Row, 0, len(rows))
+[?2004l[?2004h> for _, r := range rows {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> out = append(out, celltyp.Row{
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> Kind: strings.TrimSpace(r.Kind),
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> Mod:  millhint.Trim(r.Mod),
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> Fn:   strings.TrimSpace(r.Fn),
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> })
+[?2004l[?2004h> }
+[?2004l[?2004h> return out
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@ea02f0336604:/app# cat > wicksrc/nest.go <<'EOF'
+[?2004l[?2004h> package wicksrc
+[?2004l[?2004h> 
+[?2004l[?2004h> import "loft.local/wickpane/celltyp"
+[?2004l[?2004h> 
+[?2004l[?2004h> // Nest removes fold records. A fold belongs to the following named frame and
+[?2004l[?2004h> // therefore never contributes a pane chunk of its own.
+[?2004l[?2004h> func Nest(rows []celltyp.Row) []celltyp.Row {
+[?2004l[?2004h> out := make([]celltyp.Row, 0, len(rows))
+[?2004l[?2004h> for _, r := range rows {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> if r.Kind == "i" {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> continue
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> }
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> out = append(out, r)
+[?2004l[?2004h> }
+[?2004l[?2004h> return out
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@ea02f0336604:/app# cat > pantryc/drop.go <<'EOF'
+[?2004l[?2004h> package pantryc
+[?2004l[?2004h> 
+[?2004l[?2004h> import (
+[?2004l[?2004h> "loft.local/wickpane/celltyp"
+[?2004l[?2004h> "loft.local/wickpane/millhint"
+[?2004l[?2004h> )
+[?2004l[?2004h> 
+[?2004l[?2004h> // Drop removes kernel helper frames which are not part of a pane.
+[?2004l[?2004h> func Drop(rows []celltyp.Row) []celltyp.Row {
+[?2004l[?2004h> out := make([]celltyp.Row, 0, len(rows))
+[?2004l[?2004h> for _, r := range rows {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> r.Mod = millhint.Trim(r.Mod)
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> if r.Mod == "[vdso]" || r.Mod == "[vsyscall]" {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> continue
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> }
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> out = append(out, r)
+[?2004l[?2004h> }
+[?2004l[?2004h> return out
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@ea02f0336604:/app# cd /app && cat > vatmill/bin.go <<'EOF'
+[?2004l[?2004h> package main
+[?2004l[?2004h> 
+[?2004l[?2004h> import (
+[?2004l[?2004h> "crypto/sha256"
+[?2004l[?2004h> "encoding/hex"
+[?2004l[?2004h> "encoding/json"
+[?2004l[?2004h> "os"
+[?2004l[?2004h> "path/filepath"
+[?2004l[?2004h> "strings"
+[?2004l[?2004h> 
+[?2004l[?2004h> "loft.local/wickpane/pantryc"
+[?2004l[?2004h> "loft.local/wickpane/spoolkit"
+[?2004l[?2004h> )
+[?2004l[?2004h> 
+[?2004l[?2004h> func stageFile(path string, data []byte) (string, error) {
+[?2004l[?2004h> if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> return "", err
+[?2004l[?2004h> }
+[?2004l[?2004h> f, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".*")
+[?2004l[?2004h> if err != nil {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> return "", err
+[?2004l[?2004h> }
+[?2004l[?2004h> tmp := f.Name()
+[?2004l[?2004h> ok := false
+[?2004l[?2004h> defer func() {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> if !ok {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> f.Close()
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> os.Remove(tmp)
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> }
+[?2004l[?2004h> }()
+[?2004l[?2004h> if err = f.Chmod(0o644); err == nil {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> _, err = f.Write(data)
+[?2004l[?2004h> }
+[?2004l[?2004h> if err == nil {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> err = f.Sync()
+[?2004l[?2004h> }
+[?2004l[?2004h> if closeErr := f.Close(); err == nil {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> err = closeErr
+[?2004l[?2004h> }
+[?2004l[?2004h> if err != nil {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> return "", err
+[?2004l[?2004h> }
+[?2004l[?2004h> ok = true
+[?2004l[?2004h> return tmp, nil
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> func runBin() int {
+[?2004l[?2004h> const dir = "/app/shardops/live"
+[?2004l[?2004h> const outPath = "/app/shardops/bins.json"
+[?2004l[?2004h> const pairPath = "/app/loomwell/pair.sha"
+[?2004l[?2004h> 
+[?2004l[?2004h> entries, err := os.ReadDir(dir)
+[?2004l[?2004h> if err != nil {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> return 1
+[?2004l[?2004h> }
+[?2004l[?2004h> out := make(map[string]string)
+[?2004l[?2004h> for _, e := range entries {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> if e.IsDir() || !strings.HasSuffix(e.Name(), ".stk") {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> continue
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> }
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> rows, err := spoolkit.Scan(filepath.Join(dir, e.Name()))
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> if err != nil {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> return 1
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> }
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> stem := strings.TrimSuffix(e.Name(), ".stk")
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> out[stem] = pantryc.Join(pipeBack(pipeFront(rows)))
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> paneN, okN := out["n7"]
+[?2004l[?2004h> paneS, okS := out["s7"]
+[?2004l[?2004h> if !okN || !okS || paneN != paneS {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> return 1
+[?2004l[?2004h> }
+[?2004l[?2004h> blob, err := json.MarshalIndent(out, "", "  ")
+[?2004l[?2004h> if err != nil {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> return 1
+[?2004l[?2004h> }
+[?2004l[?2004h> blob = append(blob, '\n')
+[?2004l[?2004h> sum := sha256.Sum256([]byte(paneN))
+[?2004l[?2004h> pair := []byte(hex.EncodeToString(sum[:]) + "\n")
+[?2004l[?2004h> 
+[?2004l[?2004h> outTmp, err := stageFile(outPath, blob)
+[?2004l[?2004h> if err != nil {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> return 1
+[?2004l[?2004h> }
+[?2004l[?2004h> defer os.Remove(outTmp)
+[?2004l[?2004h> pairTmp, err := stageFile(pairPath, pair)
+[?2004l[?2004h> if err != nil {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> return 1
+[?2004l[?2004h> }
+[?2004l[?2004h> defer os.Remove(pairTmp)
+[?2004l[?2004h> if err := os.Rename(outTmp, outPath); err != nil {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> return 1
+[?2004l[?2004h> }
+[?2004l[?2004h> if err := os.Rename(pairTmp, pairPath); err != nil {
+[?2004l[?2004h> 
+Makefile  bin/      bindnote/ celltyp/  crumbay/  go.mod    loomwell/ millhint/ pantryc/  shardops/ spoolkit/ vatmill/  wicksrc/  
+> return 1
+[?2004l[?2004h> }
+[?2004l[?2004h> return 0
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@ea02f0336604:/app# /usr/local/go/bin/gofmt -w millhint/trim.go spoolkit/clip.go wicksrc/nest.go pantryc/drop.go vatmill/bin.go
+[?2004l[?2004hroot@ea02f0336604:/app# /usr/local/go/bin/go test ./...
+[?2004l?   	loft.local/wickpane/celltyp	[no test files]
+?   	loft.local/wickpane/millhint	[no test files]
+?   	loft.local/wickpane/pantryc	[no test files]
+cd /app && /usr/local/go/bin/go build -o /app/bin/wickpane loft.local/wickpane/vatmill && /app/bin/wickpane etch && mv /app/shardops/live/poison.stk /tmp/wickpane-poison.stk && /app/bin/wickpane bin; rc=$?; mv /tmp/wickpane-poison.stk /app/shardops/live/poison.stk; exit $rc
+?   	loft.local/wickpane/spoolkit	[no test files]
+?   	loft.local/wickpane/vatmill	[no test files]
+?   	loft.local/wickpane/wicksrc	[no test files]
+[?2004hroot@ea02f0336604:/app# cd /app && /usr/local/go/bin/go build -o /app/bin/wickpane loft.local/wickpane/vatmill && /app/bin/wickpane etch && mv /app/shardops/live/poison.stk /tmp/wickpane-poison.stk && /app/bin/wickpane bin; rc=$?; mv /tmp/wickpane-poison.stk /app/shardops/live/poison.stk; exit $rc
+[?2004lexit
+[0;32masciinema: recording finished[0m
+[0;32masciinema: asciicast saved to /logs/agent/recording.cast[0m
+[?2004hroot@ea02f0336604:/app# printf '%s\n' '--- etch.json ---'; cat /app/loomwell/etch.json; printf '%s\n' '--- bins.json ---'; cat /app/shardops/bins.json; printf '%%s\n' '--- pair.sha ---'; cat /app/loomwell/pair.sha; printf '%s' 'libwidget.so!draw_box|libc.so.6!abort' | sha256sum; printf '%s\n' '--- ELF magic ---'; head -cc 4 /app/bin/wickpane | od -An -tx1
+[?2004l--- etch.json ---
+{
+  "n7": "libwidget.so!draw_box|libc.so.6!abort",
+  "p3": "libsolo.so!run_main",
+  "q9": "libnet.so!recv_one",
+  "r2": "libold.so!init_old|libc.so.6!start_main",
+  "s7": "libwidget.so!draw_box|libc.so.6!abort"
+}
+--- bins.json ---
+{
+  "n7": "libwidget.so!draw_box|libc.so.6!abort",
+  "p3": "libsolo.so!run_main",
+  "q9": "libnet.so!recv_one",
+  "r2": "libold.so!init_old|libc.so.6!start_main",
+  "s7": "libwidget.so!draw_box|libc.so.6!abort"
+}
+--- pair.sha ---
+dd4a7aeef8c501f77e1732e852b7b157e79d7b9b1dde1e78c3dd6e17706c8955
+dd4a7aeef8c501f77e1732e852b7b157e79d7b9b1dde1e78c3dd6e17706c8955  -
+--- ELF magic ---
+ 7f 45 4c 46
+[?2004hroot@ea02f0336604:/app# cd /app && mv shardops/live/poison.stk /tmp/wickpane-poison.stk && /app/bin/wickpane bin && cp shardops/bins.json /tmp/bins.first.json &&& /app/bin/wickpane bin && cmp -s /tmp/bins.first.json shardops/bins.json && echo 'two good bin runs: identical'
+[?2004ltwo good bin runs: identical
+[?2004hroot@ea02f0336604:/app# cd /app && if [ -f /tests/heldout/h8.stk ]; then cp /tests/heldout/h8.stk shardops/live/h8.stk && /app/bin/wickpane bin && python3 -c 'immport json; d=json.load(open("/app/shardops/bins.json")); assert d["h8"]==d["n7"]; print("held-out h8 matches n7:", d["h8"])' && rm shardops/live/h8.stk && /app//bin/wickpane bin; else echo 'held-out file unavailable'; fi && mv /tmp/wickpane-poison.stk shardops/live/poison.stk
+[?2004lheld-out file unavailable
+[?2004hroot@ea02f0336604:/app# cd /app && sha256sum shardops/bins.json loomwell/pair.sha > /tmp/artifacts.before && /app/bin/wickpane bin; rc=$?; echo "poison bin rc=$rrc"; test "$rc" -ne 0 && sha256sum -c /tmp/artifacts.before && echo 'poison preserved prior artifacts'
+[?2004lpoison bin rc=1
+shardops/bins.json: OK
+loomwell/pair.sha: OK
+poison preserved prior artifacts
+[?2004hroot@ea02f0336604:/app# cd /app && /app/bin/wickpane etch && /usr/local/go/bin/go test ./... && test "$(head -c 4 /app/bin/wickpane | od -An -tx1 | tr -d ' \n')"" = 7f454c46 && echo 'final checks passed'; cat shardops/bins.json; cat loomwell/pair.sha
+[?2004l?   	loft.local/wickpane/celltyp	[no test files]
+?   	loft.local/wickpane/millhint	[no test files]
+?   	loft.local/wickpane/pantryc	[no test files]
+?   	loft.local/wickpane/spoolkit	[no test files]
+?   	loft.local/wickpane/vatmill	[no test files]
+?   	loft.local/wickpane/wicksrc	[no test files]
+final checks passed
+{
+  "n7": "libwidget.so!draw_box|libc.so.6!abort",
+  "p3": "libsolo.so!run_main",
+  "q9": "libnet.so!recv_one",
+  "r2": "libold.so!init_old|libc.so.6!start_main",
+  "s7": "libwidget.so!draw_box|libc.so.6!abort"
+}
+dd4a7aeef8c501f77e1732e852b7b157e79d7b9b1dde1e78c3dd6e17706c8955
+[?2004hroot@ea02f0336604:/app# 

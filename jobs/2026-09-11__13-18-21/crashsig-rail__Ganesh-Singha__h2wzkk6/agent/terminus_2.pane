@@ -1,0 +1,452 @@
+[?2004hroot@3a5f32380cd9:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@3a5f32380cd9:/app# clear
+[?2004l[H[J[3J[?2004hroot@3a5f32380cd9:/app# ls -la /app && find /app/relaydesk -maxdepth 3 -type f -not -path '*/probes/*' -print | sort
+[?2004ltotal 24
+drwxr-xr-x 1 root root 4096 Sep 11 07:39 .
+drwxr-xr-x 1 root root 4096 Sep 11 07:48 ..
+drwxr-xr-x 2 root root 4096 Sep 11 07:39 bin
+drwxr-xr-x 3 root root 4096 Sep 11 07:39 codemill
+drwxr-xr-x 2 root root 4096 Sep 11 07:39 faultdata
+drwxr-xr-x 1 root root 4096 Sep 11 07:39 relaydesk
+/app/relaydesk/__init__.py
+/app/relaydesk/cli_entry.py
+/app/relaydesk/gen/__init__.py
+/app/relaydesk/gen/routing_map.py
+/app/relaydesk/switchboard/__init__.py
+/app/relaydesk/switchboard/direct.py
+/app/relaydesk/switchboard/load_map.py
+[?2004hroot@3a5f32380cd9:/app# sed -n '1,240p' /app/faultdata/roster.toml; printf '\n--- crashrail ---\n'; file /app/bin/crashrail; sed -n '1,260p' /app/bin/crashrail
+[?2004l[roster]
+default_team = "platform-core"
+
+[[roster.signatures]]
+id = "SIG_NULL_DEREF_81c2"
+owner = "graphics-guild"
+
+[[roster.signatures]]
+id = "SIG_IO_TIMEOUT_4f91"
+owner = "storage-cell"
+
+[[roster.signatures]]
+id = "SIG_AUTH_LOOP_22bd"
+owner = "identity-ring"
+
+[[roster.signatures]]
+id = "SIG_NET_RESET_9e04"
+owner = "network-desk"
+
+[[roster.signatures]]
+id = "SIG_HEAP_OOM_7a3f"
+owner = "memory-squad"
+
+--- crashrail ---
+/app/bin/crashrail: Bourne-Again shell script, ASCII text executable
+#!/bin/bash
+set -euo pipefail
+export PYTHONPATH="/app:${PYTHONPATH:-}"
+exec python3 -m relaydesk.cli_entry "$@"
+[?2004hroot@3a5f32380cd9:/app# printf '%s\n' '--- generated map ---'; sed -n '1,260p' /app/relaydesk/gen/routing_map.py 2>&1; printf '%s\n' '--- source references ---'; grep -RIn --exclude-dir=probes --exclude='*.pyc' -E 'SIGNATURE_OWNERS|routing_map|roster|source.*default|source.*table' /app/relaydesk /app/bin 2>/dev/null
+[?2004l--- generated map ---
+"""Generated routing map. Do not edit."""
+
+OWNERS = {
+    "SIG_NULL_DEREF_81c2": "graphics-guild",
+}
+--- source references ---
+/app/relaydesk/switchboard/load_map.py:12:        from relaydesk.gen.routing_map import SIGNATURE_OWNERS
+/app/relaydesk/switchboard/load_map.py:15:    if not isinstance(SIGNATURE_OWNERS, dict):
+/app/relaydesk/switchboard/load_map.py:17:    return {str(k): str(v) for k, v in SIGNATURE_OWNERS.items()}
+/app/relaydesk/cli_entry.py:27:        return 1 if source == "default" else 0
+[?2004hroot@3a5f32380cd9:/app# find /app/codemill -maxdepth 4 -type f -print | sort; printf '\n--- relaydesk sources ---\n'; for f in /app/relaydesk/cli_entry.py /app/relaydesk/switchboard/direct.py /app/relaydesk/switchboard/load_map.py /app/relaydesk/switchboard/__init__.py /app/relaydesk/gen/__init__.py; do echo "### $f"; nl -ba "$f"; done; printf '\n--- codemill sources ---\n'; find /app/codemill -type f -maxdepth 4 -not -name '*.pyc' -exec sh -c 'for f do echo "### $f"; nl -ba "$f"; done' sh {} +
+[?2004l/app/codemill/__init__.py
+/app/codemill/tablegen/__init__.py
+/app/codemill/tablegen/ast_read.py
+/app/codemill/tablegen/driver.py
+/app/codemill/tablegen/guard.py
+/app/codemill/tablegen/publish.py
+/app/codemill/tablegen/roster_read.py
+
+--- relaydesk sources ---
+### /app/relaydesk/cli_entry.py
+     1	"""Crashrail command-line front door."""
+     2	
+     3	from __future__ import annotations
+     4	
+     5	import argparse
+     6	import json
+     7	
+     8	from codemill.tablegen.driver import run_tablegen
+     9	from relaydesk.switchboard.direct import direct
+    10	
+    11	
+    12	def main(argv: list[str] | None = None) -> int:
+    13	    parser = argparse.ArgumentParser(prog="crashrail")
+    14	    sub = parser.add_subparsers(dest="cmd", required=True)
+    15	
+    16	    route = sub.add_parser("route")
+    17	    route.add_argument("--signature", required=True)
+    18	
+    19	    sub.add_parser("compile")
+    20	
+    21	    args = parser.parse_args(argv)
+    22	    if args.cmd == "compile":
+    23	        return run_tablegen()
+    24	    if args.cmd == "route":
+    25	        team, source = direct(args.signature)
+    26	        print(json.dumps({"team": team, "source": source}))
+    27	        return 1 if source == "default" else 0
+    28	    return 2
+    29	
+    30	
+    31	if __name__ == "__main__":
+    32	    raise SystemExit(main())
+### /app/relaydesk/switchboard/direct.py
+     1	"""Signature to team routing."""
+     2	
+     3	from __future__ import annotations
+     4	
+     5	from relaydesk.switchboard.load_map import DEFAULT_TEAM, fetch_map
+     6	
+     7	
+     8	def normalize(sig: str) -> str:
+     9	    text = sig.strip().upper()
+    10	    return text[4:]
+    11	
+    12	
+    13	def direct(sig: str) -> tuple[str, str]:
+    14	    table = fetch_map()
+    15	    key = normalize(sig)
+    16	    if key in table:
+    17	        return table[key], "table"
+    18	    return DEFAULT_TEAM, "default"
+### /app/relaydesk/switchboard/load_map.py
+     1	"""Load generated routing maps."""
+     2	
+     3	from __future__ import annotations
+     4	
+     5	from typing import Dict
+     6	
+     7	DEFAULT_TEAM = "platform-core"
+     8	
+     9	
+    10	def fetch_map() -> Dict[str, str]:
+    11	    try:
+    12	        from relaydesk.gen.routing_map import SIGNATURE_OWNERS
+    13	    except Exception:
+    14	        return {}
+    15	    if not isinstance(SIGNATURE_OWNERS, dict):
+    16	        return {}
+    17	    return {str(k): str(v) for k, v in SIGNATURE_OWNERS.items()}
+### /app/relaydesk/switchboard/__init__.py
+     1	"""Switchboard routing."""
+### /app/relaydesk/gen/__init__.py
+     1	"""Generated routing map package."""
+
+--- codemill sources ---
+find: warning: you have specified the global option -maxdepth after the argument -type, but global options are not positional, i.e., -maxdepth affects tests specified before it as well as those specified after it.  Please specify global options before other arguments.
+### /app/codemill/__init__.py
+     1	"""Table generation from roster data."""
+### /app/codemill/tablegen/ast_read.py
+     1	"""AST helpers for generated maps."""
+     2	
+     3	from __future__ import annotations
+     4	
+     5	import ast
+     6	from typing import Dict
+     7	
+     8	
+     9	def read_map_literal(text: str) -> Dict[str, str]:
+    10	    tree = ast.parse(text)
+    11	    for node in tree.body:
+    12	        if isinstance(node, ast.Assign):
+    13	            for target in node.targets:
+    14	                if isinstance(target, ast.Name) and target.id == "SIGNATURE_OWNERS":
+    15	                    raw = ast.literal_eval(node.value)
+    16	                    if not isinstance(raw, dict):
+    17	                        raise ValueError("not a dict")
+    18	                    return {str(k): str(v) for k, v in raw.items()}
+    19	    raise ValueError("SIGNATURE_OWNERS not found")
+### /app/codemill/tablegen/publish.py
+     1	"""Write routing_map.py from roster rows."""
+     2	
+     3	from __future__ import annotations
+     4	
+     5	from pathlib import Path
+     6	
+     7	from codemill.tablegen.guard import should_emit
+     8	from codemill.tablegen.roster_read import load_pairs
+     9	
+    10	OUT = Path("/app/relaydesk/gen/routing_map.py")
+    11	
+    12	
+    13	def build_source(rows: list[tuple[str, str]]) -> str:
+    14	    lines = ['"""Generated routing map. Do not edit."""', "", "OWNERS = {"]
+    15	    for sig, team in sorted(rows):
+    16	        lines.append(f'    "{sig}": "{team}",')
+    17	    lines.append("}")
+    18	    lines.append("")
+    19	    return "\n".join(lines)
+    20	
+    21	
+    22	def emit_map(path: Path | None = None) -> bool:
+    23	    target = path or OUT
+    24	    target.parent.mkdir(parents=True, exist_ok=True)
+    25	    body = build_source(load_pairs())
+    26	    if not should_emit(target, body):
+    27	        return False
+    28	    target.write_text(body)
+    29	    return True
+### /app/codemill/tablegen/driver.py
+     1	"""Compile driver."""
+     2	
+     3	from __future__ import annotations
+     4	
+     5	import sys
+     6	
+     7	from codemill.tablegen.publish import emit_map
+     8	
+     9	
+    10	def run_tablegen() -> int:
+    11	    emit_map()
+    12	    print("tablegen done", file=sys.stderr)
+    13	    return 0
+### /app/codemill/tablegen/guard.py
+     1	"""Skip-if-unchanged guard for routing map writes."""
+     2	
+     3	from __future__ import annotations
+     4	
+     5	from pathlib import Path
+     6	
+     7	from codemill.tablegen.ast_read import read_map_literal
+     8	
+     9	
+    10	def should_emit(path: Path, fresh_body: str) -> bool:
+    11	    if not path.exists():
+    12	        return True
+    13	    try:
+    14	        on_disk = read_map_literal(path.read_text())
+    15	    except (SyntaxError, ValueError):
+    16	        on_disk = None
+    17	    if on_disk is None:
+    18	        return False
+    19	    return on_disk == read_map_literal(fresh_body)
+### /app/codemill/tablegen/__init__.py
+     1	"""Roster-driven routing table compiler."""
+### /app/codemill/tablegen/roster_read.py
+     1	"""Read fault roster TOML."""
+     2	
+     3	from __future__ import annotations
+     4	
+     5	import tomllib
+     6	from pathlib import Path
+     7	
+     8	ROSTER = Path("/app/faultdata/roster.toml")
+     9	
+    10	
+    11	def load_pairs(path: Path | None = None) -> list[tuple[str, str]]:
+    12	    src = path or ROSTER
+    13	    doc = tomllib.loads(src.read_text())
+    14	    pairs: list[tuple[str, str]] = []
+    15	    for row in doc.get("roster", {}).get("signatures", []):
+    16	        sig = str(row.get("id", "")).strip().upper()
+    17	        team = str(row.get("owner", "")).strip()
+    18	        if sig and team:
+    19	            pairs.append((sig, team))
+    20	    if not pairs:
+    21	        raise ValueError("empty roster")
+    22	    return pairs
+[?2004hroot@3a5f32380cd9:/app# set +e; echo '--- known route before compile ---'; /app/bin/crashrail route --signature SIG_NULL_DEREF_81c2; echo "rc=$?"; echo '--- unknown route before compile ---'; /app/bin/crashrail route --signature SIG_UNKNOWN_FFFF; echo "rc=$?"; echo '--- compile baseline ---'; /app/bin/crashrail compile; echo "rc=$?"; set -e; echo '--- map after compile ---'; nl -ba /app/relaydesk/gen/routing_map.py
+[?2004l--- known route before compile ---
+{"team": "platform-core", "source": "default"}
+rc=1
+--- unknown route before compile ---
+{"team": "platform-core", "source": "default"}
+rc=1
+--- compile baseline ---
+tablegen done
+rc=0
+--- map after compile ---
+     1	"""Generated routing map. Do not edit."""
+     2	
+     3	OWNERS = {
+     4	    "SIG_NULL_DEREF_81c2": "graphics-guild",
+     5	}
+[?2004hroot@3a5f32380cd9:/app# cat > /app/codemill/tablegen/guard.py <<'PY'
+[?2004l[?2004h> """Skip-if-unchanged guard for routing map writes."""
+[?2004l[?2004h> from __future__ import annotations
+[?2004l[?2004h> 
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> 
+[?2004l[?2004h> from codemill.tablegen.ast_read import read_map_literal
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def should_emit(path: Path, fresh_body: str) -> bool:
+[?2004l[?2004h>     """Return true when *path* is absent, invalid, or differs from fresh_body."""
+[?2004l[?2004h>     fresh = read_map_literal(fresh_body)
+[?2004l[?2004h>     if not path.exists():
+[?2004l[?2004h>         return True
+[?2004l[?2004h>     try:
+[?2004l[?2004h>         on_disk = read_map_literal(path.read_text())
+[?2004l[?2004h>     except (OSError, UnicodeError, SyntaxError, ValueError):
+[?2004l[?2004h>         return True
+[?2004l[?2004h>     return on_disk != fresh
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@3a5f32380cd9:/app# cat > /app/codemill/tablegen/publish.py <<'PY'
+[?2004l[?2004h> """Write routing_map.py from roster rows."""
+[?2004l[?2004h> from __future__ import annotations
+[?2004l[?2004h> 
+[?2004l[?2004h> import os
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> import tempfile
+[?2004l[?2004h> 
+[?2004l[?2004h> from codemill.tablegen.guard import should_emit
+[?2004l[?2004h> from codemill.tablegen.roster_read import load_pairs
+[?2004l[?2004h> 
+[?2004l[?2004h> OUT = Path("/app/relaydesk/gen/routing_map.py")
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def build_source(rows: list[tuple[str, str]]) -> str:
+[?2004l[?2004h>     lines = ['"""Generated routing map. Do not edit."""', "", "SIGNATURE_OWNERS = {"]
+[?2004l[?2004h>     for sig, team in sorted(rows):
+[?2004l[?2004h>         lines.append(f"    {sig!r}: {team!r},")
+[?2004l[?2004h>     lines.extend(("}", ""))
+[?2004l[?2004h>     return "\n".join(lines)
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def emit_map(path: Path | None = None) -> bool:
+[?2004l[?2004h>     target = path or OUT
+[?2004l[?2004h>     target.parent.mkdir(parents=True, exist_ok=True)
+[?2004l[?2004h>     body = build_source(load_pairs())
+[?2004l[?2004h>     if not should_emit(target, body):
+[?2004l[?2004h>         return False
+[?2004l[?2004h> 
+[?2004l[?2004h>     # Replace atomically so readers never observe a partial Python module.
+[?2004l[?2004h>     fd, temporary = tempfile.mkstemp(
+[?2004l[?2004h>         dir=target.parent, prefix=f".{target.name}.", suffix=".tmp", text=True
+[?2004l[?2004h>     )
+[?2004l[?2004h>     try:
+[?2004l[?2004h>         with os.fdopen(fd, "w") as stream:
+[?2004l[?2004h>             stream.write(body)
+[?2004l[?2004h>             stream.flush()
+[?2004l[?2004h>             os.fsync(stream.fileno())
+[?2004l[?2004h>         os.replace(temporary, target)
+[?2004l[?2004h>     except BaseException:
+[?2004l[?2004h>         try:
+[?2004l[?2004h>             os.unlink(temporary)
+[?2004l[?2004h>         except FileNotFoundError:
+[?2004l[?2004h>             pass
+[?2004l[?2004h>         raise
+[?2004l[?2004h>     return True
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@3a5f32380cd9:/app# cat > /app/relaydesk/switchboard/direct.py <<'PY'
+[?2004l[?2004h> """Signature to team routing."""
+[?2004l[?2004h> from __future__ import annotations
+[?2004l[?2004h> 
+[?2004l[?2004h> from relaydesk.switchboard.load_map import DEFAULT_TEAM, fetch_map
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def normalize(sig: str) -> str:
+[?2004l[?2004h>     """Normalize input exactly as roster IDs are normalized by the compiler."""
+[?2004l[?2004h>     return sig.strip().upper()
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def direct(sig: str) -> tuple[str, str]:
+[?2004l[?2004h>     table = fetch_map()
+[?2004l[?2004h>     key = normalize(sig)
+[?2004l[?2004h>     if key in table:
+[?2004l[?2004h>         return table[key], "table"
+[?2004l[?2004h>     return DEFAULT_TEAM, "default"
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@3a5f32380cd9:/app# /app/bin/crashrail compile
+[?2004ltablegen done
+[?2004hroot@3a5f32380cd9:/app# echo '--- generated map ---'; cat /app/relaydesk/gen/routing_map.py; echo '--- import and roster coverage ---'; python3 - <<'PY'
+[?2004l[?2004h> import tomllib
+[?2004l[?2004h> from relaydesk.gen.routing_map import SIGNATURE_OWNERS
+[?2004l[?2004h> with open('/app/faultdata/roster.toml', 'rb') as f:
+[?2004l[?2004h>     rows = tomllib.load(f)['roster']['signatures']
+[?2004l[?2004h> expected = {row['id'].strip().upper(): row['owner'].strip() for row in rows}
+[?2004l[?2004h> assert isinstance(SIGNATURE_OWNERS, dict)
+[?2004l[?2004h> assert SIGNATURE_OWNERS == expected, (SIGNATURE_OWNERS, expected)
+[?2004l[?2004h> print(f'complete: {len(SIGNATURE_OWNERS)} roster signatures')
+[?2004l[?2004h> PY
+[?2004l--- generated map ---
+"""Generated routing map. Do not edit."""
+
+SIGNATURE_OWNERS = {
+    'SIG_AUTH_LOOP_22BD': 'identity-ring',
+    'SIG_HEAP_OOM_7A3F': 'memory-squad',
+    'SIG_IO_TIMEOUT_4F91': 'storage-cell',
+    'SIG_NET_RESET_9E04': 'network-desk',
+    'SIG_NULL_DEREF_81C2': 'graphics-guild',
+}
+--- import and roster coverage ---
+complete: 5 roster signatures
+[?2004hroot@3a5f32380cd9:/app# set +e
+[?2004l[?2004hroot@3a5f32380cd9:/app# for sig in SIG_NULL_DEREF_81c2 SIG_IO_TIMEOUT_4f91 SIG_AUTH_LOOP_22bd SIG_NET_RESET_9e04 SIG_HEAP_OOM_7a3f; do /app/bin/crashrail route --signature "$sig"; echo "rc=$? signature=$sig"; done
+[?2004l{"team": "graphics-guild", "source": "table"}
+rc=0 signature=SIG_NULL_DEREF_81c2
+{"team": "storage-cell", "source": "table"}
+rc=0 signature=SIG_IO_TIMEOUT_4f91
+{"team": "identity-ring", "source": "table"}
+rc=0 signature=SIG_AUTH_LOOP_22bd
+{"team": "network-desk", "source": "table"}
+rc=0 signature=SIG_NET_RESET_9e04
+{"team": "memory-squad", "source": "table"}
+rc=0 signature=SIG_HEAP_OOM_7a3f
+[?2004hroot@3a5f32380cd9:/app# /app/bin/crashrail route --signature SIG_UNKNOWN_FFFF; echo "rc=$? signature=SIG_UNKNOWN_FFFF"
+[?2004l{"team": "platform-core", "source": "default"}
+rc=1 signature=SIG_UNKNOWN_FFFF
+[?2004hroot@3a5f32380cd9:/app# set -e
+[?2004l[?2004hroot@3a5f32380cd9:/app# printf 'SIGNATURE_OWNERS = {\n' > /app/relaydesk/gen/routing_map.py
+[?2004l[?2004hroot@3a5f32380cd9:/app# /app/bin/crashrail compile
+[?2004ltablegen done
+[?2004hroot@3a5f32380cd9:/app# python3 -m py_compile /app/relaydesk/gen/routing_map.py
+[?2004l[?2004hroot@3a5f32380cd9:/app# python3 - <<'PY'
+[?2004l[?2004h> from relaydesk.gen.routing_map import SIGNATURE_OWNERS
+[?2004l[?2004h> assert len(SIGNATURE_OWNERS) == 5
+[?2004l[?2004h> print('invalid map repaired')
+[?2004l[?2004h> PY
+[?2004linvalid map repaired
+[?2004hroot@3a5f32380cd9:/app# cat > /app/relaydesk/gen/routing_map.py <<'PY'
+[?2004l[?2004h> SIGNATURE_OWNERS = {
+[?2004l[?2004h>     'SIG_NULL_DEREF_81C2': 'graphics-guild',
+[?2004l[?2004h> }
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@3a5f32380cd9:/app# /app/bin/crashrail compile
+[?2004ltablegen done
+[?2004hroot@3a5f32380cd9:/app# python3 - <<'PY'
+[?2004l[?2004h> from relaydesk.gen.routing_map import SIGNATURE_OWNERS
+[?2004l[?2004h> assert len(SIGNATURE_OWNERS) == 5
+[?2004l[?2004h> print('incomplete map repaired')
+[?2004l[?2004h> PY
+[?2004lincomplete map repaired
+[?2004hroot@3a5f32380cd9:/app# /app/bin/crashrail compile
+[?2004ltablegen done
+[?2004hroot@3a5f32380cd9:/app# python3 -m py_compile /app/codemill/tablegen/*.py /app/relaydesk/switchboard/*.py /app/relaydesk/gen/routing_map.py
+[?2004l[?2004hroot@3a5f32380cd9:/app# python3 - <<'PY'
+[?2004l[?2004h> import tomllib
+[?2004l[?2004h> from relaydesk.gen.routing_map import SIGNATURE_OWNERS
+[?2004l[?2004h> with open('/app/faultdata/roster.toml', 'rb') as stream:
+[?2004l[?2004h>     roster = tomllib.load(stream)['roster']
+[?2004l[?2004h> expected = {
+[?2004l[?2004h>     row['id'].strip().upper(): row['owner'].strip()
+[?2004l[?2004h>     for row in roster['signatures']
+[?2004l[?2004h> }
+[?2004l[?2004h> assert SIGNATURE_OWNERS == expected
+[?2004l[?2004h> print('final table coverage OK:', len(SIGNATURE_OWNERS))
+[?2004l[?2004h> PY
+[?2004lfinal table coverage OK: 5
+[?2004hroot@3a5f32380cd9:/app# set +e
+[?2004l[?2004hroot@3a5f32380cd9:/app# known=$(/app/bin/crashrail route --signature SIG_NULL_DEREF_81c2); known_rc=$?
+[?2004l[?2004hroot@3a5f32380cd9:/app# unknown=$(/app/bin/crashrail route --signature SIG_UNKNOWN_FFFF); unknown_rc=$?
+[?2004l[?2004hroot@3a5f32380cd9:/app# set -e
+[?2004l[?2004hroot@3a5f32380cd9:/app# printf 'known rc=%s %s\nunknown rc=%s %s\n' "$known_rc" "$known" "$unknown_rc" "$unknown"
+[?2004lknown rc=0 {"team": "graphics-guild", "source": "table"}
+unknown rc=1 {"team": "platform-core", "source": "default"}
+[?2004hroot@3a5f32380cd9:/app# test "$known_rc" -eq 0
+[?2004l[?2004hroot@3a5f32380cd9:/app# test "$known" = '{"team": "graphics-guild", "source": "table"}'
+[?2004l[?2004hroot@3a5f32380cd9:/app# test "$unknown_rc" -ne 0
+[?2004l[?2004hroot@3a5f32380cd9:/app# test "$unknown" = '{"team": "platform-core", "source": "default"}'
+[?2004l[?2004hroot@3a5f32380cd9:/app# 

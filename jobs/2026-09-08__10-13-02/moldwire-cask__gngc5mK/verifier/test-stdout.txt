@@ -1,0 +1,87 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py .....F..FF.F                                    [100%]
+
+=================================== FAILURES ===================================
+____________________________ test_mwc06_added_leaf _____________________________
+
+    def test_mwc06_added_leaf() -> None:
+        """A new sheet must appear, then an emitter move must change urn names."""
+        sheet = SHEETS / "mist.sheet"
+        sheet.write_text("NAME mist\nFIELD depth u8\nGROUP climate\nFIELD temp u16be\nEND\n")
+        orig = EMIT.read_text()
+        try:
+            first = _bake()
+>           assert first.returncode == 0, first.stdout
+E           AssertionError: served
+E             
+E           assert 3 == 0
+E            +  where 3 = CompletedProcess(args=['/app/bin/moldwire', 'bake'], returncode=3, stdout='served\n', stderr='').returncode
+
+/tests/test_outputs.py:163: AssertionError
+____________________________ test_mwc09_second_pass ____________________________
+
+    def test_mwc09_second_pass() -> None:
+        """Emitter edit mints new urn names; a follow-up bake keeps that set."""
+        orig = EMIT.read_text()
+        before = _urn_names()
+        try:
+            EMIT.write_text(orig + "\n/* pass */\n")
+            a = _bake()
+            mid = _urn_names()
+            b = _bake()
+>           assert a.returncode == 0, a.stdout
+E           AssertionError: served
+E             
+E           assert 3 == 0
+E            +  where 3 = CompletedProcess(args=['/app/bin/moldwire', 'bake'], returncode=3, stdout='served\n', stderr='').returncode
+
+/tests/test_outputs.py:217: AssertionError
+____________________________ test_mwc10_pair_fields ____________________________
+
+    def test_mwc10_pair_fields() -> None:
+        """lake GROUP carries both temp and wind from a packed frame."""
+        frame = Path("/app/duskpit/lake.bin")
+        packed = frame.read_bytes()
+        proc = _bake()
+>       assert proc.returncode == 0, proc.stdout
+E       AssertionError: served
+E         
+E       assert 3 == 0
+E        +  where 3 = CompletedProcess(args=['/app/bin/moldwire', 'bake'], returncode=3, stdout='served\n', stderr='').returncode
+
+/tests/test_outputs.py:231: AssertionError
+____________________________ test_mwc12_incs_shift _____________________________
+
+    def test_mwc12_incs_shift() -> None:
+        """Emitter source edits must mint new urn names, not reuse the old set."""
+        before = _urn_names()
+        orig = EMIT.read_text()
+        try:
+            EMIT.write_text(orig + "\n/* shift */\n")
+            proc = _bake()
+            after = _urn_names()
+>           assert proc.returncode == 0
+E           AssertionError: assert 3 == 0
+E            +  where 3 = CompletedProcess(args=['/app/bin/moldwire', 'bake'], returncode=3, stdout='served\n', stderr='').returncode
+
+/tests/test_outputs.py:269: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_mwc01_elf_stock
+PASSED ../tests/test_outputs.py::test_mwc02_temp_slot
+PASSED ../tests/test_outputs.py::test_mwc03_holdout_leaf
+PASSED ../tests/test_outputs.py::test_mwc04_served_fail
+PASSED ../tests/test_outputs.py::test_mwc05_corrupt_incs
+PASSED ../tests/test_outputs.py::test_mwc07_json_keys
+PASSED ../tests/test_outputs.py::test_mwc08_blank_temp
+PASSED ../tests/test_outputs.py::test_mwc11_fault_leaf
+FAILED ../tests/test_outputs.py::test_mwc06_added_leaf - AssertionError: served
+FAILED ../tests/test_outputs.py::test_mwc09_second_pass - AssertionError: served
+FAILED ../tests/test_outputs.py::test_mwc10_pair_fields - AssertionError: served
+FAILED ../tests/test_outputs.py::test_mwc12_incs_shift - AssertionError: asse...
+========================= 4 failed, 8 passed in 1.78s ==========================

@@ -1,0 +1,206 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py FFFFFFFFFFFF                                    [100%]
+
+=================================== FAILURES ===================================
+_____________________ test_mill_once_matches_descriptions ______________________
+
+    def test_mill_once_matches_descriptions():
+        """One mill must emit a decoder for every description currently on disk."""
+        r = _mill()
+        assert r.returncode == 0
+>       assert _evd_names() == _kdec_names()
+E       AssertionError: assert {'aileron_pos...av_lamp', ...} == {'aileron_pos...ot_heat', ...}
+E         
+E         Extra items in the left set:
+E         'galley_hatch'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:75: AssertionError
+______________________ test_stock_gap_event_gets_decoder _______________________
+
+    def test_stock_gap_event_gets_decoder():
+        """The description that shipped without a decoder must appear under emitters after one mill."""
+        assert _mill().returncode == 0
+>       assert "galley_hatch" in _kdec_names()
+E       AssertionError: assert 'galley_hatch' in {'aileron_pos', 'brake_temp', 'door_seal', 'fuel_flow', 'nav_lamp', 'pitot_heat', ...}
+E        +  where {'aileron_pos', 'brake_temp', 'door_seal', 'fuel_flow', 'nav_lamp', 'pitot_heat', ...} = _kdec_names()
+
+/tests/test_outputs.py:81: AssertionError
+_____________________ test_stock_gap_event_decodes_fields ______________________
+
+    def test_stock_gap_event_decodes_fields():
+        """The shipped gap event must decode to its latch and force fields after one mill."""
+        assert _mill().returncode == 0
+        data = _decode(FRAMES / "galley_hatch.bin")
+>       assert data["kind"] == "decoded"
+E       AssertionError: assert 'unknown' == 'decoded'
+E         
+E         - decoded
+E         + unknown
+
+/tests/test_outputs.py:88: AssertionError
+________________________ test_new_event_decodes_fields _________________________
+
+    def test_new_event_decodes_fields():
+        """A description added before mill must decode to its integer fields after that mill."""
+        name = "zulu_glow"
+        fields = [("amp", "u16"), ("bit", "u8")]
+        _write_evd(name, fields)
+        frame = _write_frame(name, fields, {"amp": 9, "bit": 4})
+        assert _mill().returncode == 0
+        data = _decode(frame)
+>       assert data["kind"] == "decoded"
+E       AssertionError: assert 'unknown' == 'decoded'
+E         
+E         - decoded
+E         + unknown
+
+/tests/test_outputs.py:101: AssertionError
+_________________________ test_mill_exit_tracks_counts _________________________
+
+    def test_mill_exit_tracks_counts():
+        """Mill must exit non-zero when fewer decoders than descriptions remain after the pass."""
+        r = _mill()
+        evd, kdec = _evd_names(), _kdec_names()
+        if len(kdec) < len(evd):
+>           assert r.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/rivetbay', 'mill'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:111: AssertionError
+____________________ test_unknown_stays_for_nameless_frame _____________________
+
+    def test_unknown_stays_for_nameless_frame():
+        """After mill closes description gaps, a frame with no description still decodes as unknown."""
+        assert _mill().returncode == 0
+>       assert "galley_hatch" in _kdec_names()
+E       AssertionError: assert 'galley_hatch' in {'aileron_pos', 'brake_temp', 'door_seal', 'fuel_flow', 'nav_lamp', 'pitot_heat', ...}
+E        +  where {'aileron_pos', 'brake_temp', 'door_seal', 'fuel_flow', 'nav_lamp', 'pitot_heat', ...} = _kdec_names()
+
+/tests/test_outputs.py:120: AssertionError
+________________________ test_held_out_pair_single_mill ________________________
+
+    def test_held_out_pair_single_mill():
+        """Two newly added descriptions must both receive decoders from a single mill."""
+        a = ("amber_web", [("n", "u8")])
+        b = ("quartz_lid", [("w", "u16")])
+        _write_evd(*a)
+        _write_evd(*b)
+        assert _mill().returncode == 0
+>       assert a[0] in _kdec_names() and b[0] in _kdec_names()
+E       AssertionError: assert ('amber_web' in {'aileron_pos', 'brake_temp', 'door_seal', 'fuel_flow', 'nav_lamp', 'pitot_heat', ...})
+E        +  where {'aileron_pos', 'brake_temp', 'door_seal', 'fuel_flow', 'nav_lamp', 'pitot_heat', ...} = _kdec_names()
+
+/tests/test_outputs.py:132: AssertionError
+_____________________ test_ledger_matches_emitters_and_evd _____________________
+
+    def test_ledger_matches_emitters_and_evd():
+        """After mill, ledger stems, decoder stems, and description stems are the same set."""
+        assert _mill().returncode == 0
+>       assert _ledger_stems() == _evd_names() == _kdec_names()
+E       AssertionError: assert {'aileron_pos...av_lamp', ...} == {'aileron_pos...ot_heat', ...}
+E         
+E         Extra items in the left set:
+E         'galley_hatch'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:138: AssertionError
+________________________ test_kdec_header_for_gap_event ________________________
+
+    def test_kdec_header_for_gap_event():
+        """The gap event's decoder must use the KDEC1 grammar after one mill."""
+        assert _mill().returncode == 0
+>       assert "KDEC1" in (EMIT / "galley_hatch.kdec").read_text()
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/tests/test_outputs.py:144: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/local/lib/python3.13/pathlib/_local.py:546: in read_text
+    return PathBase.read_text(self, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.13/pathlib/_abc.py:632: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/app/rivetbay/emitters/galley_hatch.kdec'), mode = 'r'
+buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/app/rivetbay/emitters/galley_hatch.kdec'
+
+/usr/local/lib/python3.13/pathlib/_local.py:537: FileNotFoundError
+__________________________ test_old_and_new_together ___________________________
+
+    def test_old_and_new_together():
+        """After one mill, a prior sample still decodes and the gap event is no longer unknown."""
+        assert _mill().returncode == 0
+        old = _decode(FRAMES / "wing_ice.bin")
+        new = _decode(FRAMES / "galley_hatch.bin")
+        assert old["kind"] == "decoded" and old["name"] == (FRAMES / "wing_ice.bin").stem
+>       assert new["kind"] == "decoded" and new["name"] == (FRAMES / "galley_hatch.bin").stem
+E       AssertionError: assert ('unknown' == 'decoded'
+E         
+E         - decoded
+E         + unknown)
+
+/tests/test_outputs.py:158: AssertionError
+___________________________ test_held_out_json_kind ____________________________
+
+    def test_held_out_json_kind():
+        """Held-out decode uses kind decoded, not unknown, after one mill."""
+        name = "iota_clip"
+        fields = [("q", "u8")]
+        _write_evd(name, fields)
+        frame = _write_frame(name, fields, {"q": 7})
+        assert _mill().returncode == 0
+        data = _decode(frame)
+>       assert data["kind"] == "decoded"
+E       AssertionError: assert 'unknown' == 'decoded'
+E         
+E         - decoded
+E         + unknown
+
+/tests/test_outputs.py:169: AssertionError
+___________________________ test_held_out_u16_layout ___________________________
+
+    def test_held_out_u16_layout():
+        """A held-out u16 field must round-trip through one mill and decode."""
+        name = "mica_beam"
+        fields = [("mm", "u16")]
+        _write_evd(name, fields)
+        frame = _write_frame(name, fields, {"mm": 1000})
+        assert _mill().returncode == 0
+>       assert _decode(frame)["fields"]["mm"] == 1000
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'fields'
+
+/tests/test_outputs.py:180: KeyError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_mill_once_matches_descriptions - Assert...
+FAILED ../tests/test_outputs.py::test_stock_gap_event_gets_decoder - Assertio...
+FAILED ../tests/test_outputs.py::test_stock_gap_event_decodes_fields - Assert...
+FAILED ../tests/test_outputs.py::test_new_event_decodes_fields - AssertionErr...
+FAILED ../tests/test_outputs.py::test_mill_exit_tracks_counts - AssertionErro...
+FAILED ../tests/test_outputs.py::test_unknown_stays_for_nameless_frame - Asse...
+FAILED ../tests/test_outputs.py::test_held_out_pair_single_mill - AssertionEr...
+FAILED ../tests/test_outputs.py::test_ledger_matches_emitters_and_evd - Asser...
+FAILED ../tests/test_outputs.py::test_kdec_header_for_gap_event - FileNotFoun...
+FAILED ../tests/test_outputs.py::test_old_and_new_together - AssertionError: ...
+FAILED ../tests/test_outputs.py::test_held_out_json_kind - AssertionError: as...
+FAILED ../tests/test_outputs.py::test_held_out_u16_layout - KeyError: 'fields'
+============================== 12 failed in 0.48s ==============================

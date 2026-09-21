@@ -1,0 +1,839 @@
+[?2004hroot@babb99f66bb1:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@babb99f66bb1:/app# clear
+[?2004l[H[J[3J[?2004hroot@babb99f66bb1:/app# cat /app/fieldnotes/LAYOUT.txt && printf '\n--- files ---\n' && find /app -maxdepth 3 -type f -printf '%p\n' | sort
+[?2004lpeatwick mill
+=============
+
+bin/peatwick dispatches kindle. Mill sources under /app/gaitmod, /app/joincue,
+and /app/stillbay must agree with the mill that CLI actually runs. Packed copies
+the CLI loads live under /app/bin/peatwick.d, including
+/app/bin/peatwick.d/gaitmod/stride.rb.
+
+Pipeline modules:
+- gaitmod/  change-set walk
+- joincue/  coverage join
+- stillbay/ empty-pick gate
+
+Desk files live in /app/livefold.
+Snapshot directories live in /app/snapurn/seals.
+kindle refreshes /app/inkvat/sieve.bin and /app/inkvat/pick.json.
+Coverage cards live in /app/lutcards.
+Ops sidecar: /app/opside/SEAL_FIRST.txt.
+
+Mill sources use FOLD SNAP SCRATCH ROSTER LEDGER as path constants for
+/app/livefold, /app/snapurn/seals, /app/inkvat/delta.lst,
+/app/inkvat/pick.json, and /app/inkvat/sieve.bin.
+
+--- files ---
+/app/bin/peatwick
+/app/fieldnotes/DESK.txt
+/app/fieldnotes/LAYOUT.txt
+/app/gaitmod/run_loom.rb
+/app/gaitmod/stride.rb
+/app/gaitmod/treeio.rb
+/app/inkvat/.keep
+/app/inkvat/delta.lst
+/app/inkvat/pick.json
+/app/inkvat/sieve.bin
+/app/inkvat/vat.hold
+/app/joincue/latch.rb
+/app/joincue/run_hitch.rb
+/app/joincue/sheets.rb
+/app/knit.sh
+/app/livefold/doc/fee.rb
+/app/livefold/lib/fee.rb
+/app/livefold/lib/tax.rb
+/app/livefold/notes.md
+/app/lutcards/fee.map
+/app/lutcards/tax.map
+/app/opside/SEAL_FIRST.txt
+/app/opside/pairhint.rb
+/app/snapurn/INDEX.txt
+/app/stillbay/dust.rb
+/app/stillbay/run_vale.rb
+/app/stillbay/vale.rb
+[?2004hroot@babb99f66bb1:/app# printf '\n--- peatwick ---\n'; file /app/bin/peatwick; sed -n '1,240p' /app/bin/peatwick 2>/dev/null || true; printf '\n--- cards ---\n'; find /app/lutcards -maxdepth 2 -type f -print -exec sh -c 'echo "[$1]"; sed -n "1,120p" "$1"' sh {} \; | head -400; printf '\n--- snapshots ---\n'; find /app/snapurn/seals -maxdepth 3 -printf '%y %p\n' | sort | head -300
+[?2004l
+--- peatwick ---
+bash: file: command not found
+#!/bin/bash
+set -euo pipefail
+# PEATWICK_KNIT_MARK
+cmd="${1:-}"
+if [ "$cmd" = "kindle" ]; then
+  ruby /app/bin/peatwick.d/gaitmod/run_loom.rb
+  ruby /app/bin/peatwick.d/joincue/run_hitch.rb
+  ruby /app/bin/peatwick.d/stillbay/run_vale.rb
+else
+  echo "usage: peatwick kindle" >&2
+  exit 2
+fi
+
+--- cards ---
+/app/lutcards/tax.map
+[/app/lutcards/tax.map]
+REL lib/tax.rb
+ASSAY tax_int
+ASSAY tax_unit
+/app/lutcards/fee.map
+[/app/lutcards/fee.map]
+REL lib/fee.rb
+ASSAY fee_int
+ASSAY fee_unit
+
+--- snapshots ---
+d /app/snapurn/seals
+d /app/snapurn/seals/n0
+d /app/snapurn/seals/n0/doc
+d /app/snapurn/seals/n0/lib
+d /app/snapurn/seals/n1
+d /app/snapurn/seals/n1/doc
+d /app/snapurn/seals/n1/lib
+f /app/snapurn/seals/n0/doc/fee.rb
+f /app/snapurn/seals/n0/lib/fee.rb
+f /app/snapurn/seals/n0/lib/tax.rb
+f /app/snapurn/seals/n0/notes.md
+f /app/snapurn/seals/n1/doc/fee.rb
+f /app/snapurn/seals/n1/lib/fee.rb
+f /app/snapurn/seals/n1/lib/tax.rb
+f /app/snapurn/seals/n1/notes.md
+[?2004hroot@babb99f66bb1:/app# printf '%s\n' '--- NOTES ---'; cat /app/opside/SEAL_FIRST.txt /app/fieldnotes/DESK.txt /app/snapurn/INDEX.txt 2>/dev/null; printf '%s\n' '--- SOURCE MODULES ---'; for f in /app/gaitmod/*.rb /app/joincue/*.rb /app/stillbay/*.rb /app/knit.sh; do echo "### $f"; sed -n '1,260p' "$f"; done; printf '%s\n' '--- PACKED MODULES ---'; find /app/bin/peatwick.d -type f -print | sort | while read -r f; do echo "### $f"; sed -n '1,260p' "$f"; done
+[?2004l--- NOTES ---
+Local desk passes sometimes report an unchanged tree even while files on
+/app/livefold still differ from the newest snapshot. Desk ops historically
+copied the live tree into a new directory under /app/snapurn/seals so the
+latest pair looked current, then ran kindle again. That sidecar is loaded by
+the empty-pick gate as an ops note; it is not a mill input schema.
+Live tree is /app/livefold (lib/tax.rb, lib/fee.rb, doc/fee.rb, notes.md). Newest snapshot is the last name under /app/snapurn/seals.
+n0 then n1. n1 is the newest snapshot directory.
+--- SOURCE MODULES ---
+### /app/gaitmod/run_loom.rb
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require_relative 'stride'
+Walkbay.loom
+### /app/gaitmod/stride.rb
+# frozen_string_literal: true
+
+require_relative 'treeio'
+
+module Walkbay
+  FOLD = '/app/livefold'
+  SNAP = '/app/snapurn/seals'
+  SCRATCH = '/app/inkvat/delta.lst'
+
+  module_function
+
+  def newest
+    Dir.children(SNAP).sort.last
+  end
+
+  def prior
+    kids = Dir.children(SNAP).sort
+    kids.length >= 2 ? kids[-2] : kids[-1]
+  end
+
+  def loom
+    a = File.join(SNAP, prior)
+    b = File.join(SNAP, newest)
+    changed = []
+    (Treeio.files(a) | Treeio.files(b)).each do |rel|
+      pa = File.join(a, rel)
+      pb = File.join(b, rel)
+      same = File.file?(pa) && File.file?(pb) && Treeio.digest(pa) == Treeio.digest(pb)
+      next if same
+
+      changed << rel if File.file?(pa) || File.file?(pb)
+    end
+    File.write(SCRATCH, changed.map { |r| "seal:#{r}" }.join("\n"))
+    File.write(SCRATCH, File.read(SCRATCH) + "\n") unless changed.empty?
+    changed
+  end
+end
+### /app/gaitmod/treeio.rb
+# frozen_string_literal: true
+
+require 'digest'
+require 'find'
+
+module Treeio
+  module_function
+
+  def files(root)
+    out = []
+    return out unless Dir.exist?(root)
+
+    Find.find(root) do |p|
+      next unless File.file?(p)
+
+      rel = p.sub(%r{\A#{Regexp.escape(root)}/?}, '')
+      next if rel.empty? || rel.start_with?('.')
+
+      out << rel
+    end
+    out.sort
+  end
+
+  def digest(path)
+    Digest::SHA256.file(path).hexdigest
+  end
+end
+### /app/joincue/latch.rb
+# frozen_string_literal: true
+
+require 'json'
+require_relative 'sheets'
+
+module Bindpit
+  SCRATCH = '/app/inkvat/delta.lst'
+  ROSTER = '/app/inkvat/pick.json'
+  LEDGER = '/app/inkvat/sieve.bin'
+
+  module_function
+
+  def hitch
+    raw = File.exist?(SCRATCH) ? File.read(SCRATCH) : ''
+    tokens = raw.split
+    maps = Sheets.load
+    rows = []
+    tokens.each do |tok|
+      rel = tok.sub(/\A(live|seal):/, '')
+      key = File.basename(rel)
+      assays = []
+      maps.each do |mrel, names|
+        assays.concat(names) if File.basename(mrel) == key
+      end
+      assays = assays.uniq.sort
+      next if assays.empty?
+
+      rows << { 'path' => "live:#{rel}", 'assays' => assays }
+    end
+    File.write(ROSTER, JSON.pretty_generate({ 'rows' => rows }) + "\n")
+    buf = +''.b
+    rows.each do |r|
+      pb = r['path'].encode('UTF-8')
+      buf << [pb.bytesize].pack('n') << pb
+      buf << [r['assays'].length].pack('n')
+      r['assays'].each do |a|
+        ab = a.encode('UTF-8')
+        buf << [ab.bytesize].pack('n') << ab
+      end
+    end
+    File.binwrite(LEDGER, buf)
+    rows
+  end
+end
+### /app/joincue/run_hitch.rb
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require_relative 'latch'
+Bindpit.hitch
+### /app/joincue/sheets.rb
+# frozen_string_literal: true
+
+module Sheets
+  DIR = '/app/lutcards'
+
+  module_function
+
+  def load
+    maps = {}
+    Dir.glob(File.join(DIR, '*.map')).sort.each do |path|
+      rel = nil
+      names = []
+      File.readlines(path, chomp: true).each do |line|
+        if line.start_with?('REL ')
+          rel = line.split(' ', 2)[1]
+        elsif line.start_with?('ASSAY ')
+          names << line.split(' ', 2)[1]
+        end
+      end
+      maps[rel] = names if rel
+    end
+    maps
+  end
+end
+### /app/stillbay/dust.rb
+# frozen_string_literal: true
+
+require 'digest'
+require 'find'
+
+module Dust
+  FOLD = '/app/livefold'
+  SNAP = '/app/snapurn/seals'
+
+  module_function
+
+  def newest_root
+    File.join(SNAP, Dir.children(SNAP).sort.last)
+  end
+
+  def files(root)
+    out = []
+    return out unless Dir.exist?(root)
+
+    Find.find(root) do |p|
+      next unless File.file?(p)
+
+      rel = p.sub(%r{\A#{Regexp.escape(root)}/?}, '')
+      next if rel.empty? || rel.start_with?('.')
+
+      out << rel
+    end
+    out.sort
+  end
+
+  def note
+    File.read('/app/opside/SEAL_FIRST.txt')
+  end
+
+  def dirty?
+    b = newest_root
+    (files(FOLD) | files(b)).any? do |rel|
+      pd = File.join(FOLD, rel)
+      pb = File.join(b, rel)
+      if File.file?(pd) && File.file?(pb)
+        Digest::SHA256.file(pd).hexdigest != Digest::SHA256.file(pb).hexdigest
+      else
+        File.file?(pd) || File.file?(pb)
+      end
+    end
+  end
+end
+### /app/stillbay/run_vale.rb
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require_relative 'vale'
+code = Hushgate.vale
+exit(code)
+### /app/stillbay/vale.rb
+# frozen_string_literal: true
+
+require 'json'
+require_relative 'dust'
+
+module Hushgate
+  ROSTER = '/app/inkvat/pick.json'
+  SCRATCH = '/app/inkvat/delta.lst'
+
+  module_function
+
+  def vale
+    Dust.note
+    rows = JSON.parse(File.read(ROSTER))['rows'] || []
+    scratch = File.exist?(SCRATCH) ? File.read(SCRATCH) : ''
+    return 1 if scratch.strip.empty? && rows.empty?
+
+    0
+  end
+end
+### /app/knit.sh
+#!/bin/bash
+set -euo pipefail
+mkdir -p /app/bin /app/inkvat
+rm -rf /app/bin/peatwick.d
+mkdir -p /app/bin/peatwick.d
+cp -a /app/gaitmod /app/bin/peatwick.d/gaitmod
+cp -a /app/joincue /app/bin/peatwick.d/joincue
+cp -a /app/stillbay /app/bin/peatwick.d/stillbay
+cat > /app/bin/peatwick << 'EOF'
+#!/bin/bash
+set -euo pipefail
+# PEATWICK_KNIT_MARK
+cmd="${1:-}"
+if [ "$cmd" = "kindle" ]; then
+  ruby /app/bin/peatwick.d/gaitmod/run_loom.rb
+  ruby /app/bin/peatwick.d/joincue/run_hitch.rb
+  ruby /app/bin/peatwick.d/stillbay/run_vale.rb
+else
+  echo "usage: peatwick kindle" >&2
+  exit 2
+fi
+EOF
+chmod +x /app/bin/peatwick \
+  /app/bin/peatwick.d/gaitmod/run_loom.rb \
+  /app/bin/peatwick.d/joincue/run_hitch.rb \
+  /app/bin/peatwick.d/stillbay/run_vale.rb
+--- PACKED MODULES ---
+### /app/bin/peatwick.d/gaitmod/run_loom.rb
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require_relative 'stride'
+Walkbay.loom
+### /app/bin/peatwick.d/gaitmod/stride.rb
+# frozen_string_literal: true
+
+require_relative 'treeio'
+
+module Walkbay
+  FOLD = '/app/livefold'
+  SNAP = '/app/snapurn/seals'
+  SCRATCH = '/app/inkvat/delta.lst'
+
+  module_function
+
+  def newest
+    Dir.children(SNAP).sort.last
+  end
+
+  def prior
+    kids = Dir.children(SNAP).sort
+    kids.length >= 2 ? kids[-2] : kids[-1]
+  end
+
+  def loom
+    a = File.join(SNAP, prior)
+    b = File.join(SNAP, newest)
+    changed = []
+    (Treeio.files(a) | Treeio.files(b)).each do |rel|
+      pa = File.join(a, rel)
+      pb = File.join(b, rel)
+      same = File.file?(pa) && File.file?(pb) && Treeio.digest(pa) == Treeio.digest(pb)
+      next if same
+
+      changed << rel if File.file?(pa) || File.file?(pb)
+    end
+    File.write(SCRATCH, changed.map { |r| "seal:#{r}" }.join("\n"))
+    File.write(SCRATCH, File.read(SCRATCH) + "\n") unless changed.empty?
+    changed
+  end
+end
+### /app/bin/peatwick.d/gaitmod/treeio.rb
+# frozen_string_literal: true
+
+require 'digest'
+require 'find'
+
+module Treeio
+  module_function
+
+  def files(root)
+    out = []
+    return out unless Dir.exist?(root)
+
+    Find.find(root) do |p|
+      next unless File.file?(p)
+
+      rel = p.sub(%r{\A#{Regexp.escape(root)}/?}, '')
+      next if rel.empty? || rel.start_with?('.')
+
+      out << rel
+    end
+    out.sort
+  end
+
+  def digest(path)
+    Digest::SHA256.file(path).hexdigest
+  end
+end
+### /app/bin/peatwick.d/joincue/latch.rb
+# frozen_string_literal: true
+
+require 'json'
+require_relative 'sheets'
+
+module Bindpit
+  SCRATCH = '/app/inkvat/delta.lst'
+  ROSTER = '/app/inkvat/pick.json'
+  LEDGER = '/app/inkvat/sieve.bin'
+
+  module_function
+
+  def hitch
+    raw = File.exist?(SCRATCH) ? File.read(SCRATCH) : ''
+    tokens = raw.split
+    maps = Sheets.load
+    rows = []
+    tokens.each do |tok|
+      rel = tok.sub(/\A(live|seal):/, '')
+      key = File.basename(rel)
+      assays = []
+      maps.each do |mrel, names|
+        assays.concat(names) if File.basename(mrel) == key
+      end
+      assays = assays.uniq.sort
+      next if assays.empty?
+
+      rows << { 'path' => "live:#{rel}", 'assays' => assays }
+    end
+    File.write(ROSTER, JSON.pretty_generate({ 'rows' => rows }) + "\n")
+    buf = +''.b
+    rows.each do |r|
+      pb = r['path'].encode('UTF-8')
+      buf << [pb.bytesize].pack('n') << pb
+      buf << [r['assays'].length].pack('n')
+      r['assays'].each do |a|
+        ab = a.encode('UTF-8')
+        buf << [ab.bytesize].pack('n') << ab
+      end
+    end
+    File.binwrite(LEDGER, buf)
+    rows
+  end
+end
+### /app/bin/peatwick.d/joincue/run_hitch.rb
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require_relative 'latch'
+Bindpit.hitch
+### /app/bin/peatwick.d/joincue/sheets.rb
+# frozen_string_literal: true
+
+module Sheets
+  DIR = '/app/lutcards'
+
+  module_function
+
+  def load
+    maps = {}
+    Dir.glob(File.join(DIR, '*.map')).sort.each do |path|
+      rel = nil
+      names = []
+      File.readlines(path, chomp: true).each do |line|
+        if line.start_with?('REL ')
+          rel = line.split(' ', 2)[1]
+        elsif line.start_with?('ASSAY ')
+          names << line.split(' ', 2)[1]
+        end
+      end
+      maps[rel] = names if rel
+    end
+    maps
+  end
+end
+### /app/bin/peatwick.d/stillbay/dust.rb
+# frozen_string_literal: true
+
+require 'digest'
+require 'find'
+
+module Dust
+  FOLD = '/app/livefold'
+  SNAP = '/app/snapurn/seals'
+
+  module_function
+
+  def newest_root
+    File.join(SNAP, Dir.children(SNAP).sort.last)
+  end
+
+  def files(root)
+    out = []
+    return out unless Dir.exist?(root)
+
+    Find.find(root) do |p|
+      next unless File.file?(p)
+
+      rel = p.sub(%r{\A#{Regexp.escape(root)}/?}, '')
+      next if rel.empty? || rel.start_with?('.')
+
+      out << rel
+    end
+    out.sort
+  end
+
+  def note
+    File.read('/app/opside/SEAL_FIRST.txt')
+  end
+
+  def dirty?
+    b = newest_root
+    (files(FOLD) | files(b)).any? do |rel|
+      pd = File.join(FOLD, rel)
+      pb = File.join(b, rel)
+      if File.file?(pd) && File.file?(pb)
+        Digest::SHA256.file(pd).hexdigest != Digest::SHA256.file(pb).hexdigest
+      else
+        File.file?(pd) || File.file?(pb)
+      end
+    end
+  end
+end
+### /app/bin/peatwick.d/stillbay/run_vale.rb
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require_relative 'vale'
+code = Hushgate.vale
+exit(code)
+### /app/bin/peatwick.d/stillbay/vale.rb
+# frozen_string_literal: true
+
+require 'json'
+require_relative 'dust'
+
+module Hushgate
+  ROSTER = '/app/inkvat/pick.json'
+  SCRATCH = '/app/inkvat/delta.lst'
+
+  module_function
+
+  def vale
+    Dust.note
+    rows = JSON.parse(File.read(ROSTER))['rows'] || []
+    scratch = File.exist?(SCRATCH) ? File.read(SCRATCH) : ''
+    return 1 if scratch.strip.empty? && rows.empty?
+
+    0
+  end
+end
+[?2004hroot@babb99f66bb1:/app# printf '%s\n' '--- timestamps ---'; find /app/snapurn/seals -maxdepth 1 -mindepth 1 -type d -printf '%T@ %p\n' | sort -n; printf '%s\n' '--- byte comparisons to n1 ---'; find /app/livefold -type f -printf '%P\n' | sort | while read -r p; do if [ -f "/app/snapurn/seals/n1/$p" ] && cmp -s "/app/livefold/$p" "/app/snapurn/seals/n1/$p"; then echo "SAME $p"; else echo "DIFF $p"; fi; done; printf '%s\n' '--- hashes ---'; sha256sum /app/livefold/* /app/livefold/*/* /app/snapurn/seals/n1/* /app/snapurn/seals/n1/*/* 2>/dev/null; printf '%s\n' '--- current artifacts ---'; cat /app/inkvat/delta.lst /app/inkvat/pick.json 2>/dev/null; od -An -tx1 -v /app/inkvat/sieve.bin 2>/dev/null
+[?2004l--- timestamps ---
+1788868313.0000000000 /app/snapurn/seals/n0
+1788868313.0000000000 /app/snapurn/seals/n1
+--- byte comparisons to n1 ---
+SAME doc/fee.rb
+SAME lib/fee.rb
+DIFF lib/tax.rb
+SAME notes.md
+--- hashes ---
+4e19af6c381d4608baf7ffc8af132f0bd27c39cd1a45f620a6754f38f6d9ae53  /app/livefold/notes.md
+b600e975900909c25397d1b096e52c6605758843921a01b24916d57222565da3  /app/livefold/doc/fee.rb
+eae19b6d09063f56a432b164c33eee251319b8653c531f6297c8a419caf5152a  /app/livefold/lib/fee.rb
+6619710a1486380893d6a05bc85aa7a48b5ee326d81c1313cd013d3f33ef4c0b  /app/livefold/lib/tax.rb
+4e19af6c381d4608baf7ffc8af132f0bd27c39cd1a45f620a6754f38f6d9ae53  /app/snapurn/seals/n1/notes.md
+b600e975900909c25397d1b096e52c6605758843921a01b24916d57222565da3  /app/snapurn/seals/n1/doc/fee.rb
+eae19b6d09063f56a432b164c33eee251319b8653c531f6297c8a419caf5152a  /app/snapurn/seals/n1/lib/fee.rb
+541ba87fae596dccd29fa9bf890f3ecebb24253450b52113cb9d51b0ac48df40  /app/snapurn/seals/n1/lib/tax.rb
+--- current artifacts ---
+seal:notes.md
+{
+  "rows": [
+
+  ]
+}
+[?2004hroot@babb99f66bb1:/app# cat > /app/gaitmod/treeio.rb <<'RUBY'
+[?2004l[?2004h> # frozen_string_literal: true
+[?2004l[?2004h> 
+[?2004l[?2004h> require 'digest'
+[?2004l[?2004h> require 'find'
+[?2004l[?2004h> 
+[?2004l[?2004h> module Treeio
+[?2004l[?2004h>   module_function
+[?2004l[?2004h> 
+[?2004l[?2004h>   def files(root)
+[?2004l[?2004h>     out = []
+[?2004l[?2004h>     return out unless Dir.exist?(root)
+[?2004l[?2004h> 
+[?2004l[?2004h>     Find.find(root) do |path|
+[?2004l[?2004h>       next unless File.file?(path)
+[?2004l[?2004h> 
+[?2004l[?2004h>       rel = path.sub(%r{\A#{Regexp.escape(root)}/?}, '')
+[?2004l[?2004h>       out << rel unless rel.empty?
+[?2004l[?2004h>     end
+[?2004l[?2004h>     out.sort
+[?2004l[?2004h>   end
+[?2004l[?2004h> 
+[?2004l[?2004h>   def digest(path)
+[?2004l[?2004h>     Digest::SHA256.file(path).hexdigest
+[?2004l[?2004h>   end
+[?2004l[?2004h> end
+[?2004l[?2004h> RUBY
+[?2004l[?2004hroot@babb99f66bb1:/app# cat > /app/gaitmod/stride.rb <<'RUBY'
+[?2004l[?2004h> # frozen_string_literal: true
+[?2004l[?2004h> 
+[?2004l[?2004h> require_relative 'treeio'
+[?2004l[?2004h> 
+[?2004l[?2004h> module Walkbay
+[?2004l[?2004h>   FOLD = '/app/livefold'
+[?2004l[?2004h>   SNAP = '/app/snapurn/seals'
+[?2004l[?2004h>   SCRATCH = '/app/inkvat/delta.lst'
+[?2004l[?2004h> 
+[?2004l[?2004h>   module_function
+[?2004l[?2004h> 
+[?2004l[?2004h>   def newest
+[?2004l[?2004h>     Dir.children(SNAP).select { |name| File.directory?(File.join(SNAP, name)) }.sort.last
+[?2004l[?2004h>   end
+[?2004l[?2004h> 
+[?2004l[?2004h>   def loom
+[?2004l[?2004h>     snap_name = newest
+[?2004l[?2004h>     raise 'no snapshot directory found' unless snap_name
+[?2004l[?2004h> 
+[?2004l[?2004h>     snapshot = File.join(SNAP, snap_name)
+[?2004l[?2004h>     changed = (Treeio.files(FOLD) | Treeio.files(snapshot)).select do |rel|
+[?2004l[?2004h>       live_path = File.join(FOLD, rel)
+[?2004l[?2004h>       snap_path = File.join(snapshot, rel)
+[?2004l[?2004h>       !(File.file?(live_path) && File.file?(snap_path) &&
+[?2004l[?2004h>         Treeio.digest(live_path) == Treeio.digest(snap_path))
+[?2004l[?2004h>     end
+[?2004l[?2004h>     File.write(SCRATCH, changed.map { |rel| "live:#{rel}" }.join("\n") + (changed.empty? ? '' : "\n"))
+[?2004l[?2004h>     changed
+[?2004l[?2004h>   end
+[?2004l[?2004h> end
+[?2004l[?2004h> RUBY
+[?2004l[?2004hroot@babb99f66bb1:/app# cat > /app/joincue/sheets.rb <<'RUBY'
+[?2004l[?2004h> # frozen_string_literal: true
+[?2004l[?2004h> 
+[?2004l[?2004h> module Sheets
+[?2004l[?2004h>   DIR = '/app/lutcards'
+[?2004l[?2004h> 
+[?2004l[?2004h>   module_function
+[?2004l[?2004h> 
+[?2004l[?2004h>   def load
+[?2004l[?2004h>     maps = Hash.new { |hash, key| hash[key] = [] }
+[?2004l[?2004h>     Dir.glob(File.join(DIR, '*.map')).sort.each do |path|
+[?2004l[?2004h>       rel = nil
+[?2004l[?2004h>       names = []
+[?2004l[?2004h>       File.readlines(path, chomp: true).each do |line|
+[?2004l[?2004h>         if line.start_with?('REL ')
+[?2004l[?2004h>           rel = line.split(' ', 2)[1]
+[?2004l[?2004h>         elsif line.start_with?('ASSAY ')
+[?2004l[?2004h>           names << line.split(' ', 2)[1]
+[?2004l[?2004h>         end
+[?2004l[?2004h>       end
+[?2004l[?2004h>       maps[rel].concat(names) if rel
+[?2004l[?2004h>     end
+[?2004l[?2004h>     maps
+[?2004l[?2004h>   end
+[?2004l[?2004h> end
+[?2004l[?2004h> RUBY
+[?2004l[?2004hroot@babb99f66bb1:/app# cat > /app/joincue/latch.rb <<'RUBY'
+[?2004l[?2004h> # frozen_string_literal: true
+[?2004l[?2004h> 
+[?2004l[?2004h> require 'json'
+[?2004l[?2004h> require_relative 'sheets'
+[?2004l[?2004h> 
+[?2004l[?2004h> module Bindpit
+[?2004l[?2004h>   SCRATCH = '/app/inkvat/delta.lst'
+[?2004l[?2004h>   ROSTER = '/app/inkvat/pick.json'
+[?2004l[?2004h>   LEDGER = '/app/inkvat/sieve.bin'
+[?2004l[?2004h> 
+[?2004l[?2004h>   module_function
+[?2004l[?2004h> 
+[?2004l[?2004h>   def hitch
+[?2004l[?2004h>     tokens = File.exist?(SCRATCH) ? File.read(SCRATCH).split : []
+[?2004l[?2004h>     maps = Sheets.load
+[?2004l[?2004h>     rows = tokens.map { |token| token.sub(/\A(?:live|seal):/, '') }.uniq.sort.filter_map do |rel|
+[?2004l[?2004h>       assays = maps.fetch(rel, []).uniq.sort
+[?2004l[?2004h>       next if assays.empty?
+[?2004l[?2004h> 
+[?2004l[?2004h>       { 'path' => "live:#{rel}", 'assays' => assays }
+[?2004l[?2004h>     end
+[?2004l[?2004h> 
+[?2004l[?2004h>     File.write(ROSTER, JSON.generate({ 'rows' => rows }) + "\n")
+[?2004l[?2004h>     buffer = +''.b
+[?2004l[?2004h>     rows.each do |row|
+[?2004l[?2004h>       path = row['path'].encode('UTF-8')
+[?2004l[?2004h>       buffer << [path.bytesize].pack('n') << path
+[?2004l[?2004h>       buffer << [row['assays'].length].pack('n')
+[?2004l[?2004h>       row['assays'].each do |assay|
+[?2004l[?2004h>         name = assay.encode('UTF-8')
+[?2004l[?2004h>         buffer << [name.bytesize].pack('n') << name
+[?2004l[?2004h>       end
+[?2004l[?2004h>     end
+[?2004l[?2004h>     File.binwrite(LEDGER, buffer)
+[?2004l[?2004h>     rows
+[?2004l[?2004h>   end
+[?2004l[?2004h> end
+[?2004l[?2004h> RUBY
+[?2004l[?2004hroot@babb99f66bb1:/app# cat > /app/stillbay/dust.rb <<'RUBY'
+[?2004l[?2004h> # frozen_string_literal: true
+[?2004l[?2004h> 
+[?2004l[?2004h> require 'digest'
+[?2004l[?2004h> require 'find'
+[?2004l[?2004h> 
+[?2004l[?2004h> module Dust
+[?2004l[?2004h>   FOLD = '/app/livefold'
+[?2004l[?2004h>   SNAP = '/app/snapurn/seals'
+[?2004l[?2004h> 
+[?2004l[?2004h>   module_function
+[?2004l[?2004h> 
+[?2004l[?2004h>   def newest_root
+[?2004l[?2004h>     name = Dir.children(SNAP).select { |entry| File.directory?(File.join(SNAP, entry)) }.sort.last
+[?2004l[?2004h>     raise 'no snapshot directory found' unless name
+[?2004l[?2004h> 
+[?2004l[?2004h>     File.join(SNAP, name)
+[?2004l[?2004h>   end
+[?2004l[?2004h> 
+[?2004l[?2004h>   def files(root)
+[?2004l[?2004h>     out = []
+[?2004l[?2004h>     return out unless Dir.exist?(root)
+[?2004l[?2004h> 
+[?2004l[?2004h>     Find.find(root) do |path|
+[?2004l[?2004h>       next unless File.file?(path)
+[?2004l[?2004h> 
+[?2004l[?2004h>       rel = path.sub(%r{\A#{Regexp.escape(root)}/?}, '')
+[?2004l[?2004h>       out << rel unless rel.empty?
+[?2004l[?2004h>     end
+[?2004l[?2004h>     out.sort
+[?2004l[?2004h>   end
+[?2004l[?2004h> 
+[?2004l[?2004h>   def dirty?
+[?2004l[?2004h>     snapshot = newest_root
+[?2004l[?2004h>     (files(FOLD) | files(snapshot)).any? do |rel|
+[?2004l[?2004h>       live_path = File.join(FOLD, rel)
+[?2004l[?2004h>       snap_path = File.join(snapshot, rel)
+[?2004l[?2004h>       !(File.file?(live_path) && File.file?(snap_path) &&
+[?2004l[?2004h>         Digest::SHA256.file(live_path).digest == Digest::SHA256.file(snap_path).digest)
+[?2004l[?2004h>     end
+[?2004l[?2004h>   end
+[?2004l[?2004h> end
+[?2004l[?2004h> RUBY
+[?2004l[?2004hroot@babb99f66bb1:/app# cat > /app/stillbay/vale.rb <<'RUBY'
+[?2004l[?2004h> # frozen_string_literal: true
+[?2004l[?2004h> 
+[?2004l[?2004h> require 'json'
+[?2004l[?2004h> require_relative 'dust'
+[?2004l[?2004h> 
+[?2004l[?2004h> module Hushgate
+[?2004l[?2004h>   ROSTER = '/app/inkvat/pick.json'
+[?2004l[?2004h> 
+[?2004l[?2004h>   module_function
+[?2004l[?2004h> 
+[?2004l[?2004h>   def vale
+[?2004l[?2004h>     rows = JSON.parse(File.read(ROSTER)).fetch('rows', [])
+[?2004l[?2004h>     Dust.dirty? && rows.empty? ? 1 : 0
+[?2004l[?2004h>   end
+[?2004l[?2004h> end
+[?2004l[?2004h> RUBY
+[?2004l[?2004hroot@babb99f66bb1:/app# for area in gaitmod joincue stillbay; do cp -a /app/$area/. /app/bin/peatwick.d/$area/; done
+[?2004l[?2004hroot@babb99f66bb1:/app# /app/bin/peatwick kindle; status=$?; echo "kindle_status=$status"; echo '--- delta'; cat /app/inkvat/delta.lst; echo '--- pick'; cat /app/inkvat/pick.json; echo '--- decoded binary'; ruby -e 's=File.binread(ARGV[0]); i=0; while i<s.bytesize; n=s[i,2].unpack1("n"); i+=2; pth=s[i,n]; i+=n; c=s[i,2].unpack1("n"); i+=2; a=[]; c.times { n=s[i,2].unpack1("n"); i+=2; a << s[i,n]; i+=n }; p({"path"=>pth,"assays"=>a}); end; abort "trailing bytes" unless i==s.bytesize' /app/inkvat/sieve.bin
+[?2004lkindle_status=0
+--- delta
+live:lib/tax.rb
+--- pick
+{"rows":[{"path":"live:lib/tax.rb","assays":["tax_int","tax_unit"]}]}
+--- decoded binary
+{"path"=>"live:lib/tax.rb", "assays"=>["tax_int", "tax_unit"]}
+[?2004hroot@babb99f66bb1:/app# exit $status
+[?2004lexit
+[0;32masciinema: recording finished[0m
+[0;32masciinema: asciicast saved to /logs/agent/recording.cast[0m
+[?2004hroot@babb99f66bb1:/app# set -e
+[?2004l[?2004hroot@babb99f66bb1:/app# for area in gaitmod joincue stillbay; do for f in /app/$area/*.rb; do ruby -c "$f" >/dev/null; cmp -s "$f" "/app/bin/peatwick.d/$area/$(basename "$f")" || { echo "packed mismatch: $f"; exit 1; }; done; done
+[?2004l[?2004hroot@babb99f66bb1:/app# echo 'syntax_and_packed_copies=ok'
+[?2004lsyntax_and_packed_copies=ok
+[?2004hroot@babb99f66bb1:/app# set +e
+[?2004l[?2004hroot@babb99f66bb1:/app# mkdir -p /tmp/peatwick-cards
+[?2004l[?2004hroot@babb99f66bb1:/app# mv /app/lutcards/*.map /tmp/peatwick-cards/
+[?2004l[?2004hroot@babb99f66bb1:/app# /app/bin/peatwick kindle
+[?2004l[?2004hroot@babb99f66bb1:/app# uncovered_status=$?
+[?2004l[?2004hroot@babb99f66bb1:/app# mv /tmp/peatwick-cards/*.map /app/lutcards/
+[?2004l[?2004hroot@babb99f66bb1:/app# echo "dirty_uncovered_status=$uncovered_status"
+[?2004ldirty_uncovered_status=1
+[?2004hroot@babb99f66bb1:/app# [ "$uncovered_status" -ne 0 ] || exit 1
+[?2004l[?2004hroot@babb99f66bb1:/app# cp /app/livefold/lib/tax.rb /tmp/peatwick-live-tax.rb
+[?2004l[?2004hroot@babb99f66bb1:/app# cp /app/snapurn/seals/n1/lib/tax.rb /app/livefold/lib/tax.rb
+[?2004l[?2004hroot@babb99f66bb1:/app# /app/bin/peatwick kindle
+[?2004l[?2004hroot@babb99f66bb1:/app# clean_status=$?
+[?2004l[?2004hroot@babb99f66bb1:/app# clean_json=$(cat /app/inkvat/pick.json)
+[?2004l[?2004hroot@babb99f66bb1:/app# cp /tmp/peatwick-live-tax.rb /app/livefold/lib/tax.rb
+[?2004l[?2004hroot@babb99f66bb1:/app# /app/bin/peatwick kindle
+[?2004l[?2004hroot@babb99f66bb1:/app# final_status=$?
+[?2004l[?2004hroot@babb99f66bb1:/app# echo "clean_empty_status=$clean_status clean_json=$clean_json final_status=$final_status"
+[?2004lclean_empty_status=0 clean_json={"rows":[]} final_status=0
+[?2004hroot@babb99f66bb1:/app# [ "$clean_status" -eq 0 ] && [ "$clean_json" = '{"rows":[]}' ] && [ "$final_status" -eq 0 ]
+[?2004l[?2004hroot@babb99f66bb1:/app# cat /app/inkvat/delta.lst; cat /app/inkvat/pick.json; sha256sum /app/inkvat/sieve.bin; ruby -rjson -e 'j=JSON.parse(File.read("/app/inkvat/pick.json")); abort unless j == {"rows"=>[{"path"=>"live:lib/tax.rb", "assays"=>["tax_int","tax_unit"]}]}; s=File.binread("/app/inkvat/sieve.bin"); expected=[15].pack("n")+"live:lib/tax.rb"+[2,7].pack("nn")+"tax_int"+[8].pack("n")+"tax_unit"; abort unless s==expected; puts "final_artifacts=ok"'
+[?2004llive:lib/tax.rb
+{"rows":[{"path":"live:lib/tax.rb","assays":["tax_int","tax_unit"]}]}
+fb0690b8719fe6260dd34e0ddd5d390a9a52ceadf9c1775e8536cfc71903234f  /app/inkvat/sieve.bin
+final_artifacts=ok
+[?2004hroot@babb99f66bb1:/app# 
