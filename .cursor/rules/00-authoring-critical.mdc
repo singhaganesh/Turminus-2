@@ -1,0 +1,116 @@
+---
+description: Critical path for TB3 task edits, gates, submissions, and scripts/approve_task.py.
+alwaysApply: false
+---
+
+# TB3 Critical Path
+
+Short critical path. Deep rules carry details.
+
+## 0. Verify repo facts
+
+Before naming a path, command, field, output, or test file, open source or `commands.md`.
+Platform submission bar: `docs/edition2/` (especially `SUBMISSION_CHECKLIST.md`,
+`QUALITY_GUIDELINES.md`, `HARBOR_COMPONENTS.md`).
+Before accepting a seed, drafting files, revising a task, packaging, or calling a
+task ready, also apply `terminus_blockers_checklist.txt`. Treat any listed item
+found in the current task or zip as a blocker unless a platform/static check
+explicitly allows it.
+
+- `/app/...`: `instruction.md` or environment docs/source; `output_contract.toml` is authoring metadata unless mirrored there.
+- `task.toml`: existing tasks/static-check output. Tests: `tests/test.sh` or verifier files.
+- Long run: `python3 scripts/tb3_doctor.py`.
+- Prefer `task_gate.py`/`harbor_gate.py`; if `echo visible` is invisible, start fresh.
+- Host Python is not task-container Python; task `python3` requires Dockerfile support.
+- Every `task.toml` needs `[environment] allow_internet = false` (blocking CI).
+  Verifier deps (pinned pytest + plugins) belong in `environment/Dockerfile`
+  (e.g. `/opt/verifier`, off agent `PATH`; invoke `/opt/verifier/bin/pytest` from
+  `tests/test.sh`). `tests/test.sh` must **not** apt/pip/uv/uvx/curl install —
+  only invoke `pytest`.
+- Dockerfile must install `tmux` and `asciinema` (Harbor agent runtime). Do not create or modify `/tests` or `/solution` in the image. Every `FROM` must include `@sha256:<digest>`; final runtime should be a §2 canonical TB base or include documented justification — see `docs/edition2/DOCKERFILE_BEST_PRACTICES.md`. Keep `environment/` ≤ 100 MiB total / 50 MiB per file. No `--privileged`, `SYS_ADMIN`, `NET_ADMIN`, `SYS_MODULE`, or docker.sock mounts.
+- `tests/test.sh`: identical conditions for oracle and agent (no `/oracle` branching); always write `/logs/verifier/reward.txt`; reward `if`/`else` is the canonical script end (no trailing `exit` on standard tasks — Harbor scores reward.txt); use `TEST_DIR="${TEST_DIR:-/tests}"` when parameterized.
+- Platform CI: `harbor tasks check <task> -m openai/@openai/gpt-5.6`; oracle: `harbor run -a oracle -p <task>`. Difficulty benchmark models: **GPT-5.6** and **Claude Opus 5**. Metadata/checker complexity floor: **`medium` or `hard`** (prefer hard; `easy`/`too_easy` do not ship). Dockerfile blocking checks: digest-pinned `FROM`, sanctioned final runtime base, `environment/` size limits — see `docs/edition2/CI_CHECKS.md`.
+- All nine primary categories are open. Classify honestly (`@submission-category-blocklist.mdc`, `prompts/terminus_task_category_guide.md`). Do not relabel debugging / software-engineering / data-processing.
+- Task uniqueness: **≤ 15%** similarity (local+platform); **> 15% blocks**. Prefer ≤ 10%. Never invent a %. Authoring probe (tasks + specs) before the rest of the tree: `python3 scripts/uniqueness_probe.py inventory` then `probe --instruction …`. Finished-dir check: `python3 ci_checks/check-similarity.py tasks/<task> --include-structure --enforce-threshold` or `./scripts/check-task.sh --strict` Phase A2. Follow `@unique-task-generation.mdc` and `prompts/oneshot_unique_task.md`.
+- Checker readiness: plant P1–P5 and pass R1–R9 self-probes per `@task-checker-ready.mdc`,
+  `@checker-lessons.mdc`, and `prompts/TASK_CHECKER.md`. Required: `rubric.txt` at
+  task root; pytest in Dockerfile (no install in `test.sh`). Never reintroduce the
+  recurring ship-killers in `@checker-lessons.mdc`.
+
+## 1. Step 2a before Step 2b
+
+If the idea can be solved from `instruction.md` alone, reject/redesign before drafting.
+
+## 2. Before task edits
+
+Read `specs/<task-name>.md`, `task-creation.mdc`, `difficulty-calibration.mdc`,
+`task-checker-ready.mdc`, and `docs/HARD_BUT_FAIR_AUTHORING.md`.
+
+Step 2a produces one human handoff artifact: `specs/<task-name>.md`. Legacy
+validate_loop sidecars are internal diagnostics, not Step 2b inputs. If the spec
+lacks required ledgers/profile/actionability/reference fields, return to Step 2a.
+
+`instruction.md` should read like a natural human task prompt. Public
+bug-report headings are optional. It must reveal source-fix intent, verifier
+pipeline, generated-vs-static rules, and tested schemas/invariants/formulas/types
+without revealing the patch file/function.
+
+## 3. Step 2b gate order
+
+```bash
+python3 scripts/lint_spec.py specs/<task-name>.md --strict
+python3 scripts/spec_satisfiability.py specs/<task-name>.md --strict
+python3 scripts/spec_satisfiability.py specs/<task-name>.md --task-dir tasks/<task-name> --strict
+python3 scripts/task_gate.py tasks/<task-name> --strict --report-dir /tmp/tb3-gates --skip-harbor
+./scripts/check-task.sh --strict --report-dir /tmp/tb3-gates tasks/<task-name>
+python3 scripts/oracle_idempotency_probe.py tasks/<task-name> --strict --report-dir /tmp/tb3-gates
+python3 scripts/harbor_gate.py tasks/<task-name> --oracle --nop
+python3 scripts/step2b_ready.py tasks/<task-name> --strict --report-dir /tmp/tb3-gates --oracle-job-dir jobs/<oracle> --nop-job-dir jobs/<nop>
+python3 scripts/harbor_gate.py tasks/<task-name> --oracle-repeat 10
+python3 scripts/package_task.py tasks/<task-name> --out Task_Ready_To_Submit/<task-name>.zip --validate
+# Step 5 rubric + Step 6 submission notes — platform UI only (prompts/Step5.md, Step6.md)
+python3 scripts/first_look_packet.py tasks/<task-name> --out /tmp/<task-name>-first-look.txt
+python3 scripts/approve_task.py --strict --task-dir tasks/<task-name> --zip Task_Ready_To_Submit/<task-name>.zip ...
+```
+
+Preflight is not Step 2b PASS. Repeated oracle is Step 4 only. Task-file edits
+make evidence stale.
+
+## 4. Dirty flag
+
+`check-task.sh` writes `.step2b-checksum`; `approve_task.py` verifies it. Do not
+delete, forge, or bypass it.
+
+## 5. Final approval
+
+Before READY / APPROVED / SUBMIT: oracle 10x passed, NOP 0.0, zip validation
+passed, strict hidden-contract gate passed or WARN has reviewer decision,
+first-look passed or has packet-hash-bound reviewer note, and `approve_task.py`
+exited 0.
+
+## 6. Forbidden shortcuts
+
+- Proceeding with a task or zip that still hits a blocker from
+  `terminus_blockers_checklist.txt`.
+- Editing tests to fit a broken solution.
+- Hiding golden answers under `environment/` or answer-shaped values in `instruction.md`.
+- Writing `instruction.md` as a patch recipe or output-only prompt when the verifier regenerates outputs.
+- Hidden solver instructions anywhere in the task environment (files, comments, READMEs, configs, scripts, TODOs) or spec/doc loophole splits (`docs/edition2/INSTRUCTION_STYLING.md`).
+- Platform Dockerfile/CI bar: `docs/edition2/CI_CHECKS.md`, `docs/edition2/HARBOR_COMPONENTS.md` (digest-pinned `FROM`, sanctioned runtime base, env size limits, `.dockerignore`, layer hygiene).
+- AI-specific filenames anywhere in the archive.
+- Real author identifiers instead of anonymous placeholders.
+- Decorative code or empty files to satisfy size requirements.
+- Cosmetic `solve.sh` padding to inflate collapse metrics.
+- New multi-container/UI starts.
+- Deprecated root-level milestone layout; use `steps/milestone_N/`.
+- Unsupported Harbor-only `task.toml` fields from `task-creation.mdc`.
+- Claiming a command passed without command output.
+- Bypassing `.step2b-checksum`.
+- Latency/throughput tests; oracle-only or agent-only verifier branches.
+- Runtime web fetch in `test.sh` or `solve.sh` (build-time Dockerfile installs only).
+- Legacy canary strings in `instruction.md`.
+
+## 7. Escalate or demote
+
+Three recurring failures need a CNI entry before another critical bullet. If a
+bullet has not fired in ten task authorings, propose demotion.

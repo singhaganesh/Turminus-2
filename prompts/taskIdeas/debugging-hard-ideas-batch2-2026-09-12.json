@@ -1,0 +1,72 @@
+[
+  {
+    "domain": "debugging",
+    "title": "Grammar conflict resolved by default",
+    "premise": "A configuration language's parser is generated from a grammar file by a parser generator at build time, and the generated tables are compiled into the tool that operators run.",
+    "symptom": "After a grammar change that added an optional guard clause, flat configurations parse correctly but one nesting shape attaches a nested block to the wrong parent, and the tool loads the misparsed config without error.",
+    "defect": "The grammar change introduced a shift/reduce conflict on the nesting boundary. The generator resolves conflicts with its documented default of preferring shift, writes the conflict to a report the build does not treat as fatal, and exits zero, so the emitted table encodes the wrong association for the nested shape. The tool's own round-trip check only exercises flat configurations, so the misparse never appears in the shipped tests, and a misparse is indistinguishable from a legal-but-different structure to anything that does not know the intended nesting.",
+    "why_hard": "The build produces a new parser, the generator exits zero, and every flat config round-trips. Only regenerating the parser, treating conflicts as build failures, and requiring a nested config to parse to its intended tree exposes it, the 83%-missed rebuild-confirmation case.",
+    "difficulty_summary": "The agent must regenerate the parser so the nesting conflict is resolved by the grammar rather than the generator's default, and confirm a nested configuration parses to its intended structure.",
+    "trap": "Post-processing the parse tree to re-parent the one nested shape, which fixes the visible case and leaves every other conflict-driven misparse in place.",
+    "graded_on": "The generated parse tables and the parsed structure. A held-out nested configuration parses to its intended tree; the generator reports no unresolved conflicts; a parser built while a grammar conflict is resolved only by the generator's default makes the build exit non-zero.",
+    "capability": "C2",
+    "capability_name": "Rebuild before you claim",
+    "id": "DEB-C2-0236"
+  },
+  {
+    "domain": "debugging",
+    "title": "Registrar runs before its registry",
+    "premise": "A crash-handling framework registers one handler per fault kind through static initializers spread across several translation units, into a central registry object, and the whole set is linked into one binary.",
+    "symptom": "After moving one handler into a new source file and rebuilding, faults of that kind are taken by the default handler while every other kind is handled correctly, and the build is clean.",
+    "defect": "Static initialization order across translation units is unspecified, and the new translation unit's registrar now runs before the registry object's own constructor, so it writes its entry into storage that is still zero-initialised; the registry's later constructor then overwrites that storage, discarding the entry. A fault kind with no registered handler falls to the default handler, which is a supported outcome, so nothing errors. The other handlers survive only because their translation units happen to initialise after the registry.",
+    "why_hard": "The binary links cleanly, the handler source is obviously correct, and default handling is a legitimate path. Only rebuilding and requiring the moved fault kind to reach its own handler exposes it, and the fix must survive any link order, the 83%-missed rebuild case.",
+    "difficulty_summary": "The agent must rebuild so the registry is constructed before any registrar runs regardless of link order, and confirm the moved fault kind reaches its own handler.",
+    "trap": "Reordering the object files on the link line so the registry initialises first, which works for this binary and breaks again under any link that reorders them.",
+    "graded_on": "The registry contents and the dispatch outcome. Every registered fault kind reaches its own handler after rebuild; the moved kind is not taken by the default; a registry populated in a way that depends on translation-unit link order makes the run exit non-zero.",
+    "capability": "C2",
+    "capability_name": "Rebuild before you claim",
+    "id": "DEB-C2-0237"
+  },
+  {
+    "domain": "debugging",
+    "title": "Stale extension shadows the fix",
+    "premise": "A record-validation library ships its hot validation path as both a compiled native extension built from an annotated source and a pure-Python module, and the loader imports the compiled extension in preference to the module when it is present.",
+    "symptom": "After correcting a validation rule in the source and running the documented build, invalid records still pass validation, while importing the pure-Python module directly and validating the same records rejects them.",
+    "defect": "The documented build target recompiles the pure-Python module and rewrites the annotated source, but the native extension is produced by a separate build step the default target does not invoke, so the installed extension predates the fix. The loader imports that stale extension first, so the corrected rule never runs in the artifact the loader uses. The library's test suite exercises the pure-Python path only, so it passes on the fix that the shipped path does not contain.",
+    "why_hard": "The build exits zero, the corrected rule is plainly in the source, the tests pass, and the pure-Python path proves the fix works. Only rebuilding the extension and requiring the loaded path to reject an invalid record exposes it, the 83%-missed rebuild case.",
+    "difficulty_summary": "The agent must rebuild the artifact the loader actually imports and confirm the validation the loader runs is the corrected one, not the pure-Python fallback.",
+    "trap": "Deleting the extension so the loader falls back to the pure-Python module, which passes and abandons the compiled path the deployment relies on for throughput.",
+    "graded_on": "The imported module's provenance and the validation outcome. A held-out invalid record is rejected by the path the loader selects; the loaded module is the one rebuilt in this run; a loader resolving to an extension older than the source makes the run exit non-zero.",
+    "capability": "C2",
+    "capability_name": "Rebuild before you claim",
+    "id": "DEB-C2-0238"
+  },
+  {
+    "domain": "debugging",
+    "title": "Chunk boundaries shifted under the index",
+    "premise": "A backup deduplication engine splits each stream into content-defined chunks with a rolling hash, stores every unique chunk once keyed by its digest, and rebuilds its chunk index when the chunking parameters change.",
+    "symptom": "After a parameter change intended to lower the average chunk size, re-backing-up data that has not changed stores almost all of it again as new chunks, and the restored backups are byte-correct.",
+    "defect": "The rolling-hash mask that sets the average chunk size was changed, which shifts every chunk boundary, so chunks cut from identical data no longer produce the digests already in the index and never match. The index rebuild ran over new backups only, leaving existing chunks under the old boundaries, and a match requires identical boundaries, so deduplication silently degrades toward zero for all pre-change data. Restores are unaffected because every chunk is still stored, so only storage growth signals the fault and growth is easily read as new data.",
+    "why_hard": "Every backup succeeds and restores correctly, the index is internally consistent, and storage growth reads as ordinary churn. Only re-backing-up identical data after the change and requiring it to deduplicate against what is stored exposes it, the 83%-missed rebuild-confirmation case.",
+    "difficulty_summary": "The agent must make the index and the chunker agree on boundaries after the parameter change and confirm that re-backing-up unchanged data deduplicates against the stored chunks.",
+    "trap": "Reverting the average-chunk-size parameter to its old value, which restores matching for old data and abandons the storage saving the change was made for.",
+    "graded_on": "The chunk index and the deduplication ratio. Re-backing-up an unchanged held-out stream matches the chunks already stored above a stated ratio; the index and the live chunker share one boundary rule; a re-backup of unchanged data that stores it as new chunks makes the run exit non-zero.",
+    "capability": "C2",
+    "capability_name": "Rebuild before you claim",
+    "id": "DEB-C2-0239"
+  },
+  {
+    "domain": "debugging",
+    "title": "Stored classification never recomputed",
+    "premise": "A reporting database carries a generated column that classifies each row by an expression, and a dashboard groups incidents by that column; a migration changes the classification expression.",
+    "symptom": "Incidents recorded after the migration classify under the new rule while incidents recorded before it keep their old class, and the dashboard shows a category shift that reads as a genuine trend change.",
+    "defect": "The column is a stored generated column, computed once at write time and persisted, and altering its expression in the migration applies only to subsequent writes; the database does not recompute and does not backfill existing rows, and the migration completes cleanly. The dashboard reads the persisted value, so historical rows carry the pre-migration classification. A virtual generated column would recompute on read, but the schema declared it stored, and nothing compares a row's stored class against the class the current expression would produce.",
+    "why_hard": "The migration succeeds, every row has a real classification, and a category shift at a point in time looks like a real event. Only applying the migration and requiring every row, old and new, to carry the class the current rule produces exposes it, the 83%-missed rebuild-confirmation case.",
+    "difficulty_summary": "The agent must apply the classification change so that existing rows carry the class the current expression produces, and confirm the stored value equals the recomputed class for old and new rows alike.",
+    "trap": "Recomputing the class inside the dashboard query for display, which corrects the chart and leaves every other consumer of the stored column reading the stale class.",
+    "graded_on": "The stored column and the recomputed classification. Every row's stored class equals the class the current expression yields; a held-out pre-migration row reflects the new rule; a row whose stored class differs from the current expression's result makes the run exit non-zero.",
+    "capability": "C2",
+    "capability_name": "Rebuild before you claim",
+    "id": "DEB-C2-0240"
+  }
+]

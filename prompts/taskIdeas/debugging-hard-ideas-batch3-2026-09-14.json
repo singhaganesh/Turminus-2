@@ -1,0 +1,72 @@
+[
+  {
+    "domain": "debugging",
+    "title": "Checked-in bindings lag the struct",
+    "premise": "A performance tool reads a shared C struct across a foreign-function boundary through language bindings that are generated from the C header, and the generated bindings are committed into the repository rather than regenerated on every build.",
+    "symptom": "After a field was added to the shared struct near the top, the tool reports plausible but wrong values for every field below the addition, while a small C probe compiled directly against the header prints the right values.",
+    "defect": "The bindings were generated before the field was added and were never regenerated, so the binding's field offsets describe the old layout; every field after the insertion is read at the wrong offset. The build compiles the committed bindings without regenerating them because the generation step is a separate, undocumented-in-the-Makefile target, and the values that come out are in range, so nothing looks wrong. The C header and the struct are correct; only the derived bindings are stale.",
+    "why_hard": "The build succeeds, the header is right, the C probe agrees, and the tool's numbers are plausible. Only regenerating the bindings from the current header and requiring the tool's field values to match a known reference exposes it, the 83%-missed rebuild-confirmation case.",
+    "difficulty_summary": "The agent must regenerate the bindings from the current header and confirm the tool reads each field at the offset the current struct defines.",
+    "trap": "Hand-editing the committed bindings to shift the offsets for this one struct, which fixes these fields and desynchronises the bindings from the header for every future change.",
+    "graded_on": "The generated bindings and the tool output. Every field of the shared struct reads to its reference value; the bindings' recorded layout matches the current header; bindings whose layout differs from the header make the build exit non-zero.",
+    "capability": "C2",
+    "capability_name": "Rebuild before you claim",
+    "id": "DEB-C2-0241"
+  },
+  {
+    "domain": "debugging",
+    "title": "Version script kept the old default",
+    "premise": "A crash-analysis library exports its symbols through a linker version script, and a normalisation function was reimplemented while the previous implementation was retained under an older symbol version for compatibility.",
+    "symptom": "Programs linked against the rebuilt library still get the previous normalisation behaviour, while calling the new function through an explicit versioned lookup gives the corrected result.",
+    "defect": "The version script assigns the new implementation a fresh version node but leaves the default version, the one an unversioned link resolves to, pointing at the old implementation, because the default marker was not moved. The library builds and both implementations are present and callable; an ordinary link binds the default, which is the old one. The rebuild is genuine; the symbol resolution is what is wrong, and it is invisible in the build log.",
+    "why_hard": "The library links clean, both symbols exist, and an explicit versioned call proves the new code works. Only rebuilding, relinking a consumer with an ordinary link, and requiring the default-resolved symbol to be the new implementation exposes it, the 83%-missed rebuild-confirmation case.",
+    "difficulty_summary": "The agent must make the default symbol version resolve to the reimplemented function and confirm an ordinary link binds the new behaviour, not the retained compatibility symbol.",
+    "trap": "Removing the old implementation entirely, which fixes the default resolution and breaks every consumer that deliberately pinned the compatibility version.",
+    "graded_on": "The exported symbol versions and the consumer's behaviour. A consumer linked without an explicit version gets the new normalisation; the compatibility version still resolves to the old implementation for those who ask for it; a default version bound to the old implementation makes the run exit non-zero.",
+    "capability": "C2",
+    "capability_name": "Rebuild before you claim",
+    "id": "DEB-C2-0242"
+  },
+  {
+    "domain": "debugging",
+    "title": "Incremental check skips the dependent",
+    "premise": "A static analyser for a service caches its results between runs keyed by source file, and a scheduled gate reruns the analyser incrementally and fails the build on any reported violation.",
+    "symptom": "A change that narrows a shared interface's contract passes the gate, even though a caller in another module now violates the narrowed contract, and analysing that caller's file on its own reports the violation.",
+    "defect": "The incremental cache decides which files to re-analyse from a dependency graph it persists alongside the results, and that graph records only direct imports, not the transitive interface dependency, so the caller is not scheduled for re-analysis when the shared interface changes. Its cached clean result from before the change is reused, and a clean cached result is treated as a pass. The analyser itself is correct; it is simply never rerun on the file that would fail.",
+    "why_hard": "The gate exits zero, the cache is not corrupt, and analysing the caller directly proves the analyser works. Only invalidating what actually depends on the changed interface and requiring the dependent to be re-analysed exposes it, the 83%-missed rebuild-confirmation case.",
+    "difficulty_summary": "The agent must make the incremental analyser re-check every file whose result depends on the changed interface and confirm the violating caller is analysed in that run.",
+    "trap": "Clearing the whole cache for this run, which re-analyses everything once and leaves the dependency graph blind to the next transitive change.",
+    "graded_on": "The set of re-analysed files and the gate verdict. Every file whose result depends on the changed interface is re-analysed in the run; the seeded violating caller is reported; a gate that passes while a dependent of the change went unre-analysed exits non-zero.",
+    "capability": "C2",
+    "capability_name": "Rebuild before you claim",
+    "id": "DEB-C2-0243"
+  },
+  {
+    "domain": "debugging",
+    "title": "Dead-code strip removed the registration",
+    "premise": "A log-parser framework discovers format handlers through self-registration: each handler's translation unit runs a static registrar that adds it to a global table, and the release build links with dead-code section garbage collection enabled to shrink the binary.",
+    "symptom": "In the release build one log format is parsed by the fallback handler, while the debug build, which does not strip, parses it correctly.",
+    "defect": "The garbage-collecting linker removes sections that nothing references, and the self-registering handler is referenced only by the side effect of its static registrar, which the linker does not count as a use, so its section is stripped and the registration never runs. The handler compiles, the debug build keeps it because it does not strip, and an unregistered format falling to the fallback handler is a supported outcome. The rebuild is real; the linker silently drops the code.",
+    "why_hard": "The release build links clean and smaller, the handler source is present and correct, and the debug build works. Only rebuilding the release configuration and requiring the format to reach its own handler exposes it, the 83%-missed rebuild-confirmation case.",
+    "difficulty_summary": "The agent must rebuild the stripping release configuration so the self-registered handler survives collection and confirm the format reaches its own handler, not the fallback.",
+    "trap": "Disabling section garbage collection for the release build, which keeps the handler and abandons the binary-size budget the strip exists to meet.",
+    "graded_on": "The linked release binary and the parse outcome. The seeded format is parsed by its own handler in the stripping build; every registered handler is present in the table; a release binary whose handler set is smaller than the registered handlers makes the build exit non-zero.",
+    "capability": "C2",
+    "capability_name": "Rebuild before you claim",
+    "id": "DEB-C2-0244"
+  },
+  {
+    "domain": "debugging",
+    "title": "Split debug info left behind",
+    "premise": "A symboliser resolves addresses to file and line through split debug information: the compiler emits line tables into separate object-side debug files that a packaging step collects into one debug package the symboliser reads.",
+    "symptom": "After a rebuild, the symboliser reports function names correctly but line numbers that are off by a growing amount for recently changed functions, while unchanged functions resolve exactly.",
+    "defect": "The build recompiles the sources and relinks the binary, but the step that collects the split debug files into the debug package is not part of the default build target, so the package the symboliser reads still contains the previous build's line tables. Function ranges shifted little enough that names still resolve, but the line tables describe the old source positions. The names come from the binary's own symbol table, which is fresh, which is why names are right and lines are wrong.",
+    "why_hard": "The build succeeds, names resolve, and off-by-a-few line numbers read like ordinary optimisation. Only rebuilding, repackaging the split debug info, and requiring a changed function's line to be exact exposes it, the 83%-missed rebuild-confirmation case.",
+    "difficulty_summary": "The agent must repackage the split debug information from the current build and confirm the symboliser's line numbers for changed functions match the current source.",
+    "trap": "Falling back to the binary's embedded minimal line table, which resolves approximately and abandons the precise split line tables the symboliser is built to use.",
+    "graded_on": "The debug package and the resolved backtrace. Line numbers for a changed function match the current source exactly; the debug package's build identity matches the rebuilt binary; a package whose line tables predate the binary makes the run exit non-zero.",
+    "capability": "C2",
+    "capability_name": "Rebuild before you claim",
+    "id": "DEB-C2-0245"
+  }
+]

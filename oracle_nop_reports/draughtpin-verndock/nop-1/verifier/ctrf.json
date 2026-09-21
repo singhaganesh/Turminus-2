@@ -1,0 +1,164 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 12,
+            "passed": 0,
+            "failed": 12,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1789552593.514598,
+            "stop": 1789552593.9896073
+        },
+        "tests": [
+            {
+                "name": "test_outputs.py::test_vn01_reread_lib",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.03012778496486135,
+                "start": 1789552593.7225232,
+                "stop": 1789552593.7835314,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_vn01_reread_lib():\n        \"\"\"Two sip processes rewrite identical card.json for the same dump.\"\"\"\n        r1 = _sip(ALPHA)\n        assert r1.returncode == 0\n        c1 = CARD.read_bytes()\n        r2 = _sip(ALPHA)\n        assert r2.returncode == 0\n        assert CARD.read_bytes() == c1\n        data = _card()\n>       assert data[\"text\"] == _fold(ALPHA.read_bytes()).decode()\nE       AssertionError: assert 'foo\\tbar/' == 'foo bar'\nE         \nE         - foo bar\nE         ?    ^\nE         + foo\tbar/\nE         ?    ^   +\n\n/tests/test_outputs.py:124: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_vn02_ws_run",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.004408336972119287,
+                "start": 1789552593.7839894,
+                "stop": 1789552593.799934,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_vn02_ws_run():\n        \"\"\"Held-out whitespace and control bytes follow the RULES fold.\"\"\"\n        held = Path(\"/tmp/held.raw\")\n        held.write_bytes(b\"A\\x01B\\tC/\")\n        r = _sip(held)\n        assert r.returncode == 0\n        data = _card()\n>       assert data[\"text\"] == _fold(b\"A\\x01B\\tC/\").decode()\nE       AssertionError: assert 'a\\x01b\\tc/' == 'ab c'\nE         \nE         - ab c\nE         + a\u0001b\tc/\n\n/tests/test_outputs.py:134: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_vn03_tail_cut",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.004387812019558623,
+                "start": 1789552593.8003612,
+                "stop": 1789552593.8204641,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_vn03_tail_cut():\n        \"\"\"alpha.raw sip text matches the live fold, not lowercase-only.\"\"\"\n        blob = ALPHA.read_bytes()\n        r = _sip(ALPHA)\n        assert r.returncode == 0\n        data = _card()\n>       assert data[\"text\"] == _fold(blob).decode()\nE       AssertionError: assert 'foo\\tbar/' == 'foo bar'\nE         \nE         - foo bar\nE         ?    ^\nE         + foo\tbar/\nE         ?    ^   +\n\n/tests/test_outputs.py:144: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_vn04_json_tag",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.008510267973178998,
+                "start": 1789552593.8209162,
+                "stop": 1789552593.839588,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_vn04_json_tag():\n        \"\"\"sip writes kind bare and slot equal to the current RULES slot.\"\"\"\n        r = _sip(BETA)\n        assert r.returncode == 0\n        data = _card()\n>       assert data[\"kind\"] == \"bare\"\nE       AssertionError: assert 'raw' == 'bare'\nE         \nE         - bare\nE         + raw\n\n/tests/test_outputs.py:153: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_vn05_void_n",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.005950649996520951,
+                "start": 1789552593.8401575,
+                "stop": 1789552593.855793,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_vn05_void_n():\n        \"\"\"Zero-length dump exits non-zero and leaves SEAL absent.\"\"\"\n        z = Path(\"/tmp/zero.raw\")\n        z.write_bytes(b\"\")\n        if SEAL.exists():\n            SEAL.unlink()\n        r = _sip(z)\n>       assert r.returncode != 0\nE       AssertionError: assert 0 != 0\nE        +  where 0 = CompletedProcess(args=['/app/bin/draughtpin', 'sip', '/tmp/zero.raw'], returncode=0, stdout='', stderr='').returncode\n\n/tests/test_outputs.py:165: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_vn06_magic4",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0072854710451792926,
+                "start": 1789552593.8563035,
+                "stop": 1789552593.8734996,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_vn06_magic4():\n        \"\"\"draughtpin and libdraught are ELF; sip of alpha is the full fold.\"\"\"\n        _assert_native()\n        r = _sip(ALPHA)\n        assert r.returncode == 0\n>       assert _card()[\"text\"] == _fold(ALPHA.read_bytes()).decode()\nE       AssertionError: assert 'foo\\tbar/' == 'foo bar'\nE         \nE         - foo bar\nE         ?    ^\nE         + foo\tbar/\nE         ?    ^   +\n\n/tests/test_outputs.py:174: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_vn07_alt_tag",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.006263404997298494,
+                "start": 1789552593.8738956,
+                "stop": 1789552593.889418,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_vn07_alt_tag():\n        \"\"\"mark of the current slot writes kind named and the corrected fold.\"\"\"\n        r = _mark(ALPHA, _current())\n        assert r.returncode == 0\n        data = _card()\n>       assert data[\"kind\"] == \"named\"\nE       AssertionError: assert 'raw' == 'named'\nE         \nE         - named\nE         + raw\n\n/tests/test_outputs.py:182: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_vn08_ghost_id",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0051837249484378844,
+                "start": 1789552593.8899608,
+                "stop": 1789552593.9059467,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_vn08_ghost_id():\n        \"\"\"mark of an unlisted slot exits non-zero and leaves SEAL absent.\"\"\"\n        if SEAL.exists():\n            SEAL.unlink()\n        r = _mark(ALPHA, \"GHOST_9\")\n>       assert r.returncode != 0\nE       AssertionError: assert 0 != 0\nE        +  where 0 = CompletedProcess(args=['/app/bin/draughtpin', 'mark', '/app/rawspan/alpha.raw', 'GHOST_9'], returncode=0, stdout='', stderr='').returncode\n\n/tests/test_outputs.py:194: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_vn09_fields",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.005910306965233758,
+                "start": 1789552593.9064357,
+                "stop": 1789552593.9218192,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_vn09_fields():\n        \"\"\"card.json exposes slot, text, and kind after sip.\"\"\"\n        r = _sip(ALPHA)\n        assert r.returncode == 0\n        data = _card()\n>       assert set(data) >= {\"slot\", \"text\", \"kind\"}\nE       AssertionError: assert {'kind', 'node', 'text'} >= {'kind', 'slot', 'text'}\nE         \nE         Extra items in the right set:\nE         'slot'\n\n/tests/test_outputs.py:203: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_vn10_rewait",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.009269543050322682,
+                "start": 1789552593.922281,
+                "stop": 1789552593.9446228,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_vn10_rewait():\n        \"\"\"A stuffed card.json is replaced by a later sip.\"\"\"\n        assert _sip(ALPHA).returncode == 0\n        CARD.write_text(\"{}\")\n        r = _sip(BETA)\n        assert r.returncode == 0\n        data = _card()\n>       assert data[\"text\"] == _fold(BETA.read_bytes()).decode()\nE       AssertionError: assert 'hello  world' == 'hello world'\nE         \nE         - hello world\nE         + hello  world\nE         ?       +\n\n/tests/test_outputs.py:216: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_vn11_old_keep",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0094268889806699,
+                "start": 1789552593.945362,
+                "stop": 1789552593.969435,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_vn11_old_keep():\n        \"\"\"After a green sip, the compatibility slot still yields the pre-rework fold.\"\"\"\n        r = _sip(ALPHA)\n        assert r.returncode == 0\n        blob = ALPHA.read_bytes()\n        assert _dl(b\"fold_frame\", _compat().encode(), blob) == _lower(blob)\n        assert _dl(b\"fold_frame\", _current().encode(), blob) == _fold(blob)\n        r2 = _mark(ALPHA, _compat())\n        assert r2.returncode == 0\n        assert _card()[\"text\"] == _lower(blob).decode()\n>       assert _card()[\"kind\"] == \"named\"\nE       AssertionError: assert 'raw' == 'named'\nE         \nE         - named\nE         + raw\n\n/tests/test_outputs.py:231: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_vn12_min_skip",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0058127809897996485,
+                "start": 1789552593.9698503,
+                "stop": 1789552593.9889178,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_vn12_min_skip():\n        \"\"\"DROP.txt deletion note is ignored; compatibility fold remains after sip.\"\"\"\n        r = _sip(ALPHA)\n        assert r.returncode == 0\n        blob = ALPHA.read_bytes()\n>       assert _dl(b\"fold_frame\", None, blob) == _fold(blob)\nE       AssertionError: assert b'foo\\tbar/' == b'foo bar'\nE         \nE         At index 3 diff: b'\\t' != b' '\nE         Use -v to get more diff\n\n/tests/test_outputs.py:239: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            }
+        ]
+    }
+}

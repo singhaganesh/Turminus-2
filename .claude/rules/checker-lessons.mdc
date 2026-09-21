@@ -1,0 +1,166 @@
+---
+description: Non-negotiable lessons from checker failures (crucible-focus-roster and peers). Apply on every new/revised task so the same ship-killers never recur.
+globs:
+  - "tasks/**"
+  - "specs/**"
+alwaysApply: true
+---
+
+# Checker lessons (do not reintroduce)
+
+Pulled from live `needs_fixes` / `too_easy` reports. If you are about to author
+or revise a task, satisfy every item below **before** claiming ready. Full probe
+defs: `@task-checker-ready.mdc` + `prompts/TASK_CHECKER.md`.
+
+## Never again (authoring blockers)
+
+### Verifier / rebuild (R5, P3, IMPL-TEST, GAMEABLE)
+
+- **Do not** call `rebuild.sh` / `cargo build` / `make` / regen from
+  `tests/test_outputs.py` (or helpers). Grade the **prebuilt** artifact the
+  agent must regenerate. Test-side rebuild → R5 reward 1 and C2 is fake.
+- **Do not** accept stubbed rebuild + shell/Python replacement of a native
+  binary. The ELF-assert rule has **two directions — both mandatory**:
+  - **If `instruction.md` requires a native binary** ("native ELF", "compiled",
+    "a script/interpreter is not enough"), the graded suite **MUST** assert the
+    binary is ELF (first 4 bytes `\x7fELF`) **after** the rebuild/brew, on the
+    agent-produced binary. Missing it is **`GAMEABLE-NATIVE`** (BLOCKER): a
+    Python/shell mill that emits correct output scores R7=1. The oracle checking
+    ELF in `solve.sh` does **not** count — the check must be in `tests/`. Verify
+    with `scripts/native_binary_check.py`.
+  - **If the instruction does NOT require native**, do **not** add an ELF assert
+    (it is scenery / `UNSPECIFIED-GRADING`), and an ELF assert on a **prebuilt**
+    binary is NOP-pass scenery to drop. Prefer **held-out** fixtures. Non-native
+    stubs where native is not required are rubric −5 only.
+- **Do not** let a CLI wrapper pass by running the real tool twice (separate
+  processes) or by hand-writing graded artifacts. Plant tests that require one
+  subprocess / one pipeline pass, held-out inputs at grade time, and rubric
+  negatives for wrapper cheats. Probe: shell wrapper around entrypoint → reward 0.
+
+### Oracle idempotency (R8, NOT-IDEMPOTENT, solution_quality)
+
+- `solution/solve.sh` must be **safe to run twice** with `set -euo pipefail`.
+  Naive `patch -i` without `-N` or a dry-run guard fails on repeat and leaves
+  `*.rej` files.
+- Prefer `apply_patch()` with `patch --dry-run` before apply, or `patch -N`
+  plus `rm -f …/*.rej`. Verify:
+  `bash solve.sh && bash solve.sh` → exit 0, no `*.rej`.
+- Automated gate: `python3 scripts/oracle_idempotency_probe.py tasks/<slug> --strict`
+  (also Phase C2 in `check-task.sh --strict`). See `prompts/AUTHOR_PRE_SHIP_PROBES.md`.
+
+### Env decoys (sequencing_recovery, P4)
+
+- Handbook / ops notes may describe **symptoms** only. Never endorse a
+  workaround that passes tests (e.g. “run twice for cold cache”) unless the
+  suite and rubric punish it and it still cannot score reward 1.
+- Automate the decoy + shortcut: `preship/decoy_fix.sh` (R6) and
+  `preship/shortcut_fix.sh` (R7), both expecting reward 0 via
+  `scripts/preship_probes.py` (Phase C3). A decoy the rubric names but the
+  environment does not present is `DEAD-DECOY`.
+
+### Difficulty floor (DIFFICULTY-FLOOR, thin suite)
+
+- The suite must exercise **≥2** capability classes (recompute/consistency,
+  variant/holdout, fault rejection, sequencing/recovery) or **1 + ≥3
+  execution-dependent tests**. Deterministic BLOCKER via
+  `scripts/difficulty_floor_check.py` (Phase B, `--strict`). One class + clones
+  fails. Design the classes in before drafting.
+
+### Caveat audit (ambush, broken class)
+
+- For every capability class the suite grades, `instruction.md` must state the
+  rule in operator language (leg 1), the environment must make the wrong move
+  tempting while builds/oracle/NOP still pass (leg 2), and `solve.sh` must show
+  the correct move (leg 3). Tests punishing a rule the instruction never stated
+  are an **ambush** and block ship. `scripts/caveat_audit_check.py` lists the
+  graded classes + a leg-1 hint (advisory); confirm all three legs with quoted
+  spans. See `docs/edition2/QUALITY_CRITERIA.md`.
+
+### Suite vs broken tree (R3, P5, NOP-PASS, CLONE-TESTS)
+
+- **Every** graded test must fail on the unmodified tree and pass after oracle.
+- No “scenery” tests that only exercise the still-healthy path.
+- No near-duplicate tests asserting the same picked/set twice.
+- Target **>10** graded tests when the static bar expects it; pad with distinct
+  behaviors (held-out closure, whitespace fold, aim_kind, dirty exit), not clones.
+
+### Instruction (HINTS, VERBOSE, anti-decoy spoilers)
+
+- Operator-visible symptoms only. Never name the mechanism
+  (“one-character”, “char-split”, hyphen bag-split, file/function to patch).
+- ≤ ~3 short paragraphs. No 400+ word / multi-block walkthroughs.
+- State the positive contract. **Do not** write anti-decoy spoilers
+  (“do not fix by rejecting…”); punish via decoy + rubric negative instead.
+- **FILE-UNNAMED:** every path the graded suite reads/writes must appear in
+  `instruction.md` (or a clearly linked env doc named from the instruction).
+- **HINTS / instruction_concision (crucible-focus-roster QC):** instruction
+  must **not** name the rebuild command (`make … reforge`, `cargo build`, …),
+  point at patch directories (`…/src`, `…/include`), say “static hand-written …
+  not enough”, or ban a decoy fix (“Do not strip the BOM…”). Put rebuild
+  discoverability in Makefile / handbook; punish BOM-strip / tidy decoys via
+  suite + rubric negatives. Grep-clean before ship:
+  `reforge`, `src`/`include` pointers, `Do not strip`, `Static hand-written`.
+- **CR1 / patch-recipe tokens:** do not put patch verbs (`fix`, `implement`,
+  `edit`, …) within ~80 chars of public CLI nouns that are also oracle symbol
+  stems (`index`/`roster` in `write_index`). Prefer “Repair the C pipeline
+  modules…” then name CLI subcommands in a separate sentence without a patch
+  verb.
+
+### Defect shape (P1)
+
+- Broken code must look like a plausible engineer mistake.
+- Forbidden: `for ch in s.chars()` sabotage, `# BUG`, absurd constants,
+  **or** a broken value that fails the instruction’s schema on sight
+  (e.g. zoneless stamp while the prompt requires `Z`/offset). Prefer a
+  defect that still **looks** schema-valid (local wall + literal `Z`, wrong
+  mode flag, etc.) while cross-case behavior stays wrong.
+- Keep residual difficulty in cooperating loci (e.g. DST cull), not in the
+  first file the agent opens.
+
+### Env docs (LEAK)
+
+- Handbook/docs must not dump suite fixtures: exact instants, payloads,
+  report basenames, or zone lists that mirror `tests/test_outputs.py`.
+  Policy/contract only.
+
+### Offline build + packaging (R1, ORACLE-FAIL, OVERSIZE)
+
+- Prove `docker build --network=none` on the **submission zip contents**, not
+  only the working tree.
+- Prefer multi-stage `COPY --from=` digest-pinned images over shipping fat
+  `.deb`/`.whl` blobs. **No file > 1 MB** in the task tree (`OVERSIZE`).
+- Rust offline vendor: ship `environment/.cargo/config.toml` **and** every
+  `vendor/**/.cargo-checksum.json`. After packaging, **open the zip** and
+  confirm they exist.
+- **TEST-DEPS / pytest PATH (B2):** install pinned pytest under `/opt/verifier`
+  for offline grading, but **do not** put `/opt/verifier/bin` on the agent
+  `PATH`. `tests/test.sh` must call `/opt/verifier/bin/pytest` (absolute).
+  Done when a fresh agent shell has empty `command -v pytest` and
+  `bash /tests/test.sh` still writes reward 0/1. Never apt/pip install in
+  `test.sh`; never warm caches with `pytest --version`.
+
+### Metadata / oracle hygiene (METADATA-DRIFT, HARDCODED-SOLUTION)
+
+- Set `difficulty` to match measured checker complexity (`medium`/`hard` only).
+  Never claim `hard` while P1 fails or level is `too_easy`.
+- Use `tool_specific` only when a real external tool is central; then **tags
+  must name that tool**. Otherwise `subcategories = []`.
+- `solve.sh` must not leave comments that narrate the bug. Neutral docs only.
+
+### Stale zip discipline
+
+- Checker scores the **zip**, not the chat tree. After every fix:
+  `python3 scripts/package_task.py tasks/<slug> --out Task_Ready_To_Submit/<slug>.zip --validate`
+  then spot-check fingerprints the last report failed on.
+
+## Pre-ship self-check (minimum)
+
+1. R1 offline build from a clean extract of the zip (or equivalent).
+2. R3: 0 tests pass on NOP.
+3. R5: source-only (no rebuild) → reward 0.
+4. R7: stub binary / static golden / CLI wrapper → reward 0.
+5. R8 twice: `bash solve.sh` twice → exit 0, no `*.rej` (`oracle_idempotency_probe.py --strict`).
+6. Instruction has no mechanism spoilers; difficulty matches ladder.
+7. Zip contains required cargo vendor metadata when Rust+vendor is used.
+8. `find tasks/<slug> -type f -size +1M` is empty (or waived explicitly).
+9. Full probe table: `prompts/AUTHOR_PRE_SHIP_PROBES.md`.

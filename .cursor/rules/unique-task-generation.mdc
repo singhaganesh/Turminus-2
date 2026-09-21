@@ -1,0 +1,81 @@
+---
+description: Strict unique-task generation — max 15% similarity including structure; never invent a similarity percentage. Apply whenever inventing ideas, drafting specs, or creating tasks.
+alwaysApply: true
+---
+
+# Unique Task Generation (strict)
+
+Whenever asked to make **new** task ideas, specs, or `tasks/<name>/` drafts — or to **edit / revise / fix** a task — produce a design that is distinct on identity **and topology**, not wording. All nine primary categories are open; classify honestly.
+
+Full one-shot prompt: `prompts/oneshot_unique_task.md`.
+
+## Hard similarity gate
+
+- **Maximum allowed similarity: 15%** (`0.15`) local and platform. Target **≤ 10%**.
+- **> 15% is blocking** — new identity (domain, artifact, command, instruction voice, **env topology / layout_family**). Do not synonym-swap or rename modules in the same skeleton.
+
+## Checker readiness (with uniqueness)
+
+Uniqueness alone is not enough to ship. Also plant `@task-checker-ready.mdc`
+floor (P1–P5), obey **`@checker-lessons.mdc`** (no recurring ship-killers), and
+target checker complexity **medium or hard**. Difficulty metadata must be
+`medium` or `hard` (never `easy`). See `prompts/TASK_CHECKER.md`.
+
+## Evidence law (the usual failures)
+
+Do **not** write a similarity percentage unless this turn's tool output contains a
+`Max similarity:` line from:
+
+```bash
+python3 scripts/uniqueness_probe.py inventory
+python3 scripts/uniqueness_probe.py probe --instruction /tmp/<slug>-instruction.md --exclude <slug>
+python3 scripts/uniqueness_probe.py structure-plan --manifest /tmp/<slug>-structure.txt --exclude <slug>
+python3 scripts/uniqueness_probe.py structure --task-dir tasks/<slug> --exclude <slug>
+python3 ci_checks/check-similarity.py tasks/<task> --include-structure --enforce-threshold
+```
+
+A mental audit, “looks unique”, or a guessed `8%` is a policy violation.
+
+**Instruction-only is insufficient.** Official Phase A2 uses `--include-structure`
+(metadata + visible paths + test names). Real failure mode in this repo:
+two Go tasks sharing `environment/cmd/driver/stages/` scored ~9% on prose and
+**~78%** with structure. Authoring must pass instruction **and** structure
+gates before polishing the rest of `tasks/<name>/`.
+
+## Before inventing
+
+1. Run `python3 scripts/uniqueness_probe.py inventory` and avoid occupied
+   categories/outputs/commands/instruction heads/**layout_family**/**env_roots**.
+2. Classify honestly (`.cursor/rules/submission-category-blocklist.mdc`).
+3. Invent **≥ 3** candidates; keep one with **≥ 5** unique properties vs occupied set.
+4. Probe final-voice instruction. Then `structure-plan` before creating the tree.
+5. After skeleton exists, run `structure` + `check-similarity.py --include-structure`.
+   If either FAILs, tear down topology; do not polish.
+
+## Forbidden shallow variations
+
+- CSV / log / ETL reshape that only swaps columns
+- Debugging clone with a different bug in the same topology
+- Software-engineering app that only swaps nouns or APIs
+- API wrapper / report / converter reskin
+- Clone-and-rename of an approved task **or** of a spec public contract
+- House template: “Repair X under `/app` so `/app/bin/Y` regenerates
+  `/app/output/Z.json`. Hand-written JSON is not enough…”
+- **Same layout_family** (e.g. `go-cmd-driver-stages`) with renamed packages
+
+## Never hide or relocate peer tasks
+
+- Canonical path only: `tasks/<slug>/`. Never create `tasks/.peers/`,
+  `tasks/.stash/`, or any other `tasks/.*` tree for tasks.
+- **“Peer”** means another existing directory under `tasks/` — a word in
+  uniqueness docs, not a folder to create.
+- Do **not** `mv` / rename / copy other people's (or prior) tasks out of
+  `tasks/<slug>/` to dodge similarity, free a slug, or “isolate” your work.
+  Dot-directories are skipped by `check-similarity.py` / `check-task.sh`;
+  stashing there is cheating the uniqueness gate.
+- If `tasks/` already has peers, invent a **different identity** and keep
+  peers where they are. Concurrent authoring shares the same `tasks/` tree.
+
+## Policy phrasing
+
+Say **maximum 15%** (not “10–15% band”). “≤ 10%” is the aspirational target only.

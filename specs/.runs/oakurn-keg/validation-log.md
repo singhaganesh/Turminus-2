@@ -1,0 +1,62 @@
+# Validation Log: oakurn-keg
+
+## Attempt 1
+- Derived score: 25 FAILs, 0 WARNs
+- Evidence: specs/.runs/oakurn-keg/attempt-1-evidence.json
+- Evidence errors:
+  - anti_trivialization_checks is missing required ids: hard_only_gate, discovery_budget_test, topology_distribution_test.
+  - anti_trivialization_checks contains unexpected ids: difficulty_floor, discovery_design_budget, checker_lever_plan, topology_distribution, task_uniqueness.
+  - anti_trivialization_checks entry 'disclosure_collapse' must use name 'Disclosure-collapse', found 'Disclosure Collapse'.
+  - anti_trivialization_checks entry 'hidden_instance' must use name 'Hidden-instance', found 'Hidden Instance'.
+  - anti_trivialization_checks entry 'single_artifact_repair' must use name 'Single-artifact repair', found 'Single Artifact Repair'.
+  - anti_trivialization_checks entry 'prompt_honesty' must use name 'Prompt-honesty', found 'Prompt Honesty'.
+  - anti_trivialization_checks entry 'cheating_vs_difficulty' must use name 'Cheating-vs-difficulty', found 'Cheating Vs Difficulty'.
+  - anti_trivialization_checks entry 'mechanical_fix_filter' must use name 'Mechanical-fix filter', found 'Mechanical Fix Filter'.
+  - anti_trivialization_checks entry 'localized_fix' must use name 'Localized-fix', found 'Localized Fix'.
+  - anti_trivialization_checks entry 'oracle_locality' must use name 'Oracle-locality', found 'Oracle Locality'.
+  - anti_trivialization_checks entry 'small_declarative_cluster' must use name 'Small declarative-cluster', found 'Small Declarative Cluster'.
+  - anti_trivialization_checks entry 'grep_collapse' must use name 'Grep-collapse', found 'Grep Collapse'.
+  - anti_trivialization_checks entry 'pre_factored_helper' must use name 'Pre-factored-helper', found 'Pre Factored Helper'.
+  - anti_trivialization_checks entry 'recipe_discount' must use name 'Recipe-discount', found 'Recipe Discount'.
+  - anti_trivialization_checks entry 'security_aura_discount' must use name 'Security-aura discount', found 'Security Aura Discount'.
+  - anti_trivialization_checks entry 'orthogonal_checklist' must use name 'Orthogonal-checklist', found 'Orthogonal Checklist'.
+  - anti_trivialization_checks entry 'harness_discount' must use name 'Harness-discount', found 'Harness Discount'.
+  - anti_trivialization_checks entry 'one_pass_solvability' must use name 'One-pass solvability', found 'One Pass Solvability'.
+  - anti_trivialization_checks entry 'instruction_specificity_test' must use name 'Instruction specificity test', found 'Instruction Specificity Test'.
+  - rubric_axes entry 'verifiable' must use name 'Verifiable', found 'verifiable'.
+  - rubric_axes entry 'well_specified' must use name 'Well-specified', found 'well_specified'.
+  - rubric_axes entry 'solvable' must use name 'Solvable', found 'solvable'.
+  - rubric_axes entry 'difficult' must use name 'Difficult', found 'difficult'.
+  - rubric_axes entry 'interesting' must use name 'Interesting', found 'interesting'.
+  - rubric_axes entry 'outcome_verified' must use name 'Outcome-verified', found 'outcome_verified'.
+- Blocking evidence failures:
+  - anti_trivialization_checks is missing required ids: hard_only_gate, discovery_budget_test, topology_distribution_test.
+  - anti_trivialization_checks contains unexpected ids: difficulty_floor, discovery_design_budget, checker_lever_plan, topology_distribution, task_uniqueness.
+  - anti_trivialization_checks entry 'disclosure_collapse' must use name 'Disclosure-collapse', found 'Disclosure Collapse'.
+  - anti_trivialization_checks entry 'hidden_instance' must use name 'Hidden-instance', found 'Hidden Instance'.
+  - anti_trivialization_checks entry 'single_artifact_repair' must use name 'Single-artifact repair', found 'Single Artifact Repair'.
+  - anti_trivialization_checks entry 'prompt_honesty' must use name 'Prompt-honesty', found 'Prompt Honesty'.
+  - anti_trivialization_checks entry 'cheating_vs_difficulty' must use name 'Cheating-vs-difficulty', found 'Cheating Vs Difficulty'.
+  - anti_trivialization_checks entry 'mechanical_fix_filter' must use name 'Mechanical-fix filter', found 'Mechanical Fix Filter'.
+  - anti_trivialization_checks entry 'localized_fix' must use name 'Localized-fix', found 'Localized Fix'.
+  - anti_trivialization_checks entry 'oracle_locality' must use name 'Oracle-locality', found 'Oracle Locality'.
+  - anti_trivialization_checks entry 'small_declarative_cluster' must use name 'Small declarative-cluster', found 'Small Declarative Cluster'.
+  - anti_trivialization_checks entry 'grep_collapse' must use name 'Grep-collapse', found 'Grep Collapse'.
+  - anti_trivialization_checks entry 'pre_factored_helper' must use name 'Pre-factored-helper', found 'Pre Factored Helper'.
+  - anti_trivialization_checks entry 'recipe_discount' must use name 'Recipe-discount', found 'Recipe Discount'.
+  - anti_trivialization_checks entry 'security_aura_discount' must use name 'Security-aura discount', found 'Security Aura Discount'.
+  - anti_trivialization_checks entry 'orthogonal_checklist' must use name 'Orthogonal-checklist', found 'Orthogonal Checklist'.
+  - anti_trivialization_checks entry 'harness_discount' must use name 'Harness-discount', found 'Harness Discount'.
+  - anti_trivialization_checks entry 'one_pass_solvability' must use name 'One-pass solvability', found 'One Pass Solvability'.
+  - anti_trivialization_checks entry 'instruction_specificity_test' must use name 'Instruction specificity test', found 'Instruction Specificity Test'.
+  - rubric_axes entry 'verifiable' must use name 'Verifiable', found 'verifiable'.
+  - rubric_axes entry 'well_specified' must use name 'Well-specified', found 'well_specified'.
+  - rubric_axes entry 'solvable' must use name 'Solvable', found 'solvable'.
+  - rubric_axes entry 'difficult' must use name 'Difficult', found 'difficult'.
+  - rubric_axes entry 'interesting' must use name 'Interesting', found 'interesting'.
+  - rubric_axes entry 'outcome_verified' must use name 'Outcome-verified', found 'outcome_verified'.
+
+## Attempt 2
+- Derived score: 0 FAILs, 0 WARNs
+- Evidence: specs/.runs/oakurn-keg/attempt-2-evidence.json
+

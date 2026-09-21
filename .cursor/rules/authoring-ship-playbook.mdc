@@ -1,0 +1,212 @@
+---
+alwaysApply: true
+---
+# Global authoring ship playbook
+
+Distilled from live QC failures (`holdtrace-forge`, `kernlag-probe`, collapse
+gates, approval blockers). Applies to **every** new or revised task in this
+repo — any category, language, or topology. Read alongside
+`@checker-lessons.mdc`, `@task-checker-ready.mdc`,
+`terminus_blockers_checklist.txt`, and `prompts/AUTHOR_PRE_SHIP_PROBES.md`.
+
+## Global authoring workflow
+
+```
+1. inventory → probe → structure-plan → structure (uniqueness)
+2. plan topology: distinct fix roots + similarity budget (<15% raw)
+3. list instruction contract sentences → map each to ≥1 test name
+4. balance construction_manifest.json flipping contract (≤50% per location)
+5. build env + tests + oracle; run Phase B lints on draft instruction
+6. full gate chain before any PASS/READY/APPROVED claim
+```
+
+Do not claim ship without command output. Checker scores the **zip**, not the
+chat tree.
+
+## Anti-cheat and difficulty (run before ship)
+
+| Trap | Failure mode | Prevent up front |
+|------|----------------|------------------|
+| Test-side rebuild | Tests call `forge` / `make` / regen → R5 reward 1 on source-only patch | Grade **post-rebuild state**. Agent must run rebuild CLI; **tests must not** |
+| Hand-written output (R7) | Agent writes graded artifacts by hand → reward 1 without real pipeline | Add `test_zz_*_regenerates_corrupt_*`: corrupt outputs, run regen CLI in verifier, assert recovery. Instruction must say manual/static writes insufficient |
+| Layout-only shortcut | Hardcoded template + broken driver still passes when tests re-forge | Consumer artifact must be a **template**; broken driver copies raw template; test asserts `render_tpl(...)` not `read_text()` |
+| Comment-game source test | `"symbol" in file body` passes with a comment | Import and **call** real API: `fn(schema)["key"] == expected` |
+| NOP not fully red | 1–2 tests pass on broken tree | NOP must be **0 tests pass**, reward 0. Drop scenery tests (ELF magic on a **prebuilt** binary, smoke-only paths). But when the instruction **requires** a native binary, an ELF assert on the **rebuilt** agent binary is mandatory anti-cheat, not scenery — see `GAMEABLE-NATIVE` below |
+| Native binary not enforced | Instruction requires native ELF but suite never asserts it → Python/shell mill emitting correct output scores R7=1 | `GAMEABLE-NATIVE`: add an ELF-magic assert (`\x7fELF`) on the agent binary **after** rebuild/brew, in `tests/` (not just `solve.sh`). Verify `native_binary_check.py` clean |
+| Lenient CLI on fault | Broken pipeline exits 0 with wrong fields or accepts forbidden input | Test non-zero exit + absent success markers when fault injected |
+| Thin suite / difficulty floor | QC `DIFFICULTY-FLOOR`, `THIN-COVERAGE` | Target **>10** graded tests, **≥2** capability classes (or 1 class + ≥3 execution-dependent tests). Pad with distinct behaviors, not clones |
+
+**Recovery-test pattern (any regen task):**
+
+1. Corrupt the graded artifact(s) the agent would hand-write.
+2. Run the real regen CLI inside the verifier (`subprocess` with literal argv, not opaque constants only).
+3. Assert artifacts and downstream behavior match the public contract.
+
+**Fault-rejection pattern (any “must fail” rule in instruction):**
+
+1. Temporarily restore or inject the broken/fixture path that triggers the fault.
+2. Assert non-zero exit and absence of success side-effects (e.g. guard file missing).
+3. Restore tree so later tests still grade the agent-fixed state.
+
+**Container probes (required before submit):**
+
+```
+NOP                    → reward 0, 0 tests pass
+R5                     → patch sources, skip rebuild/regen → reward 0
+R7                     → hand-write graded artifacts only → reward 0
+layout-only            → hardcode template/output only → reward 0
+refined_shortcut       → minimal stub + hardcoded output + rebuild → reward 0
+oracle + rebuild       → reward 1
+R8 twice               → bash solve.sh && bash solve.sh → exit 0, no *.rej
+```
+
+Recovery/regen tests that call `make` or the regen CLI inside the verifier are
+allowed when they prove **anti-hand-write** — distinct from R5 (agent must still
+rebuild before grade; verifier does not replace agent rebuild for scoring).
+
+## Instruction ↔ test contract (global)
+
+Every **public** requirement in `instruction.md` needs ≥1 flipping test.
+
+| Instruction claim | Test must prove |
+|-------------------|-----------------|
+| Manual / hand-written output insufficient | Corrupt-then-regen recovery test (R7) |
+| Forbidden input or origin must exit non-zero | Fault-rejection test with fixture swap |
+| Success writes marker file / guard | Assert present after fix; absent on injected failure |
+| Field must not have value X (`bundle:`, etc.) | Positive contract test (prefer `startswith("live:")` over bare `not …` when lints complain) |
+| Boolean polarity (`false`, absent when fail) | Same sentence must appear in instruction or linked env doc if tests assert `not …` or missing file |
+
+**Phase B — `actionability_check.py` (strict):**
+
+- State source must be fixed: e.g. “Correct … pipeline modules …; source fixes under `/app` are required” — or explicitly allow output-only work.
+- Give subsystem scope: `pipeline`, `module`, `directory`, `component`, or `/app/environment` — not metaphor alone.
+- Name verifier-rerun command chain at contract level (`inspect`, `decode`, etc.).
+
+**Phase B — `no_hidden_contracts.py` (strict):**
+
+- Literal `subprocess` commands in tests must appear in `instruction.md` or visible env doc (use inline argv lists, not only `VAR = [...]` if the linter cannot see the command).
+- Tested CLI flags, profiles, and output keys need a visible schema home in instruction or env docs.
+
+## Instruction and path contract
+
+- Every graded path must appear in `instruction.md` **or** a solver-visible env
+  doc named from the instruction (e.g. `…/notes/layout.txt`, `…/fieldnotes/ROUTE_MAP.txt`).
+- Do not misdirect: if fixes live outside the main toolkit dir, say so via linked
+  repair map — do not only say “fix the toolkit”.
+- **RC2 tension:** listing exact fix paths in `instruction.md` can FAIL collapse
+  RC2. Prefer absolute repair paths in a linked env doc and instruction line:
+  “correct sources named in …/ROUTE_MAP.txt” (symptoms in instruction, paths in env doc).
+- `output_contract.toml`: put graded record paths in `user_visible_outputs`;
+  corpus/harness dirs in `internal_harness_files` only if not named in instruction.
+
+## Topology, similarity, and collapse
+
+| Check | Lesson |
+|-------|--------|
+| Similarity | Official: `check-similarity.py --include-structure --enforce-threshold`. Need **raw score < 0.15** (int 15% can still fail at 0.155). Run after skeleton exists |
+| Layout family | Avoid peer `layout_family` (e.g. three sibling `pkg*` dirs mirroring `holdtrace-forge`). Use distinct names and hybrid layout when needed |
+| Hybrid topology | When similarity and CR2 conflict: put **one** fix module at env root, nest others under driver dir → ≥2 distinct roots, similarity often drops |
+| CR2 flipping | ≥3 fix locations in **distinct top-level env roots** — not all under one package dir |
+| CR2 concentration | In `construction_manifest.json`, no single `controls_tests` list may exceed **50%** of union test count |
+| RC2 predictability | No extensionless files (`NOTE`, `ORIGIN`, `BUILDCHANNEL`) **under fix-module dirs** — path tokens leak into collapse visible signals. Fix dirs = source files only; context in linked `.txt` docs |
+| CR8 orchestration | No single env file references >2 manifest fix symbols — split CLI per subcommand |
+| GX8 test imports | No `importlib.util` in tests; import modules that exist under `/app` |
+| GX6 instruction | Symptoms only; no “restore/fix under X” + causal connective + frontier token |
+| GX3 oracle | `solve.sh` needs substantive multi-file semantic diff (~30+ LOC), not one-liners |
+| Spec + approve | `spec_satisfiability.py --task-dir`, harbor job dirs, first-look JSON, fresh `.step2b-checksum` after edits |
+
+## Test design rules
+
+1. No agent-rebuild subprocess in `test_outputs.py` for **grading** (R5). Exception: anti-cheat recovery/rejection tests that prove regen works.
+2. **>10** graded tests when static bar expects it; distinct behaviors (held-out closure, live parity, field order, fault exit, recovery).
+3. ≥2 **behavioral** source tests (import + call), not substring guards on files, when source APIs are graded.
+4. ≥1 consumer/driver test where template rendering or pipeline output is required — not verbatim `read_text()` of golden files.
+5. Corpus/output tests: fail clearly if agent skipped regen (“run … after repair”).
+6. Instruction ↔ tests: every public requirement has ≥1 test; no overreach.
+7. CLI tests: junk/invalid input fails; valid artifacts survive fault-injection tests.
+8. No NOP-pass scenery: **prebuilt**-binary magic, healthy-path-only smoke, duplicate asserts. (But if the instruction requires native, assert ELF on the **rebuilt** binary — mandatory, not scenery: `GAMEABLE-NATIVE`.)
+
+## Environment and packaging
+
+- No nested `vendor/vendor/`; no wheel **>1 MB** (`pygments==2.10.0` not 2.17.2).
+- `find tasks/<slug> -type f -size +1M` empty before zip.
+- Executable smoke helpers: shebang + `chmod +x` in Dockerfile.
+- pytest only in `/opt/verifier`; not on agent `PATH`. `tests/test.sh` calls `/opt/verifier/bin/pytest`.
+- `docker build --network=none` on zip contents.
+- `task.toml`: `subcategories = []` unless value is in the allowed platform list.
+- After renames, sync `rubric.txt`, `construction_manifest.json`, env docs, and `solution/` include paths with **container** layout (not repo-only paths).
+
+## Oracle / solution
+
+- `set -euo pipefail`; idempotent full-file writes; run rebuild/regen; self-check held-out fixture.
+- Fix all cooperative roots; `solution/*.c` / `*.py` includes must match paths **after** `solve.sh` copies into `/app`.
+- No bug narration in comments.
+- `bash solve.sh && bash solve.sh` — no `*.rej` (R8).
+
+## Rubric (Step 5)
+
+- Positives **10–40**; ≥3 negatives; one negative names a **real planted decoy** (path from `decoy_manifest` when present).
+- Negatives for: template-only, runtime hand-edit, hand-written regen output, corpus-only, smoke-only, context stub, decode hardcode, pin/decoy-only bump.
+- Update rubric when dirs rename; no pytest/verifier/reward wording.
+- Ship `tasks/<slug>/rubric.txt` only — not `[rubric]` in `task.toml`.
+
+## Uniqueness
+
+- Official gate: `check-similarity.py --include-structure --enforce-threshold`.
+- Instruction-only probe can fail while structure passes — do not ship on prose alone.
+- Run `inventory` → `probe` → `structure-plan` → create tree → `structure` before polishing.
+- Never stash peer tasks under `tasks/.*`; canonical path only `tasks/<slug>/`.
+
+## Approval artifacts
+
+`approve_task.py --strict` requires:
+
+- Fresh `.step2b-checksum` after task edits
+- Phase B JSON reports (`actionability`, `no_hidden_contracts`, `obfuscation_lint`)
+- Harbor oracle + NOP job dirs (and oracle×10 for final)
+- Validated zip: `package_task.py --validate`
+- **First-look result JSON** with `decision: PASS` and required fields per `docs/FIRST_LOOK_DRY_RUN.md` (`packet_hash` from `first_look_packet.py --json`)
+
+## Not bugs (do not “fix”)
+
+- `capability_classes` / execution-dependent test counts in QC metadata — intentional when regen-before-grade is required.
+- `FILE-UNNAMED` discarded when path is in linked repair/layout notes.
+- Collapse **WARN** with approve **PASS** — justify in Step 3b; do not weaken anti-cheat to clear WARN.
+
+## Pre-submit checklist
+
+```
+DESIGN
+[ ] inventory + structure-plan + structure pass (similarity raw < 0.15)
+[ ] ≥3 distinct fix roots (or hybrid topology with ≥2 top-level roots)
+[ ] instruction sentence → test map complete
+[ ] construction_manifest flipping contract ≤50% per location
+[ ] Decoy passes smoke but fails real graded behavior
+
+TESTS
+[ ] >10 distinct graded tests (when bar expects it); ≥2 capability classes
+[ ] test_zz_* recovery if manual output insufficient
+[ ] fault-rejection test for every “must exit non-zero” rule
+[ ] Behavioral source tests where APIs are graded
+[ ] NOP 0 pass; R5 / R7 / layout-only / refined_shortcut → reward 0
+[ ] Oracle → reward 1; R8 twice
+
+INSTRUCTION
+[ ] Symptoms only; repair paths in linked env doc
+[ ] Source-fix + subsystem scope for actionability_check
+[ ] Regen required before grade; verifier does not replace agent rebuild for score
+[ ] Boolean polarity and CLI commands visible for no_hidden_contracts
+
+ENV
+[ ] No extensionless files under fix-module dirs (RC2)
+[ ] No duplicate vendor; no file >1MB; offline Dockerfile
+[ ] rubric + manifest + solution paths match final tree
+
+GATES
+[ ] check-task.sh --strict
+[ ] collapse_check (justify WARNs)
+[ ] harbor oracle + NOP + oracle×10
+[ ] oracle_idempotency_probe.py --strict
+[ ] package_task.py --validate
+[ ] approve_task.py --strict + first-look JSON
+```

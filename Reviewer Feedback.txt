@@ -1,0 +1,50 @@
+Reviewer Feedback
+The rubrics should not be referencing any testing logic or test files. The instructions is too dense and prescriptive. Please reduce it to be concise as 150-200 words of actionable info. Remove the [reference_pattern] and justification_if_none since they are not part of the requirements. The apt packages should not be pinned. The Dockerfile does not align with good practices, especially with uv "https://snorkel-ai.github.io/Terminus-EC-Training-stateful/portal/docs/creating-tasks/dockerfile-best-practices".
+
+
+
+
+
+
+Reviewer Feedback
+The task is strong overall, but it should be revised before approval. The clearest issue is that verifier-only dependencies are installed in environment/Dockerfile: uv, pytest==8.4.1, and pytest-json-ctrf==0.3.5. These belong in tests/test.sh, not in the agent-visible Docker image. The agent review also flags that the opening instruction is too abstract and jargon-heavy, so it would be better to add a simple first sentence explaining that the Rust workspace has bugs and the tr binary must regenerate a coherent /app/output/sweep_report.json. One more concern is that the difficulty report says several agents produced correct output but still failed an ablation/structure test, especially around the hold.rs storage refresh. That means at least one structural expectation may not be clear enough from the task instruction, so it should either be made visible in the spec or tested through observable behavior.
+
+
+
+
+Reviewer Feedback
+In instruction.md and tests/test_outputs.py, the prompt only says stale authority snapshots may break paired traces. It never names /app/h7/y1/src/hold.rs or merge_pack. The ablation helper _strip_merge_storage_refresh only removes a line when state.storage = *incoming sits right before state.last_b = stamp_b inside the else branch. Agents often add the storage refresh in a different spot or skip hold.rs because the shipped inputs still pass most output tests. Recorded evaluation runs show test_dual_crate_ablation_breaks_pipeline at 2/10 while many runs hit 14/15 tests. Either spell the hold.rs fix in the prompt or replace the regex ablation with a behavior check that proves stale storage really breaks output.
+
+In instruction.md and tests/test_outputs.py, test_crest_ladder_driver_sensitivity regex-matches an inline "crest", vec![...] block in /app/k3/n42/src/main.rs and bumps the last ladder tuple from (1, 1) to (2, 1). The prompt never says the crest ladder must stay as that inline literal or that refactoring the scenario table is off limits. Recorded runs show test_crest_ladder_driver_sensitivity at 8/10. Either add one clear line about keeping the inline crest ladder table or rewrite the test to mutate ladder data without locking main.rs layout.
+
+In tests/test.sh, the script runs pytest and only writes /logs/verifier/reward.txt after pytest finishes. It never writes 0 before tests start and never runs mkdir -p /logs/verifier. The latest reviewer rules say the harness should write 0 first so a crash mid-run still leaves a reward, so please add mkdir -p /logs/verifier and echo 0 > /logs/verifier/reward.txt before pytest, then write 1 or 0 after pytest based on exit code.
+
+In instruction.md and tests/test_outputs.py, the prompt says that the coherent runs need band_ok, chain_ok, and seal_ok all true with drift_code zero. It never says chain_ok must drop when reconcile_b in /app/h7/y2/src/tie.rs is reverted to the shipped stub. test_lineage_bits_ablation_breaks_coherence reverts reconcile_b and expects _assert_not_fully_coherent to pass. Recorded runs show that test at 7/10. Either state that chain_ok must track full lineage bits in tie.rs or loosen the ablation so a partial chain_ok fix cannot pass.
+
+In environment/docs/build_hints.txt, line five tells the agent the verifier runs pytest with --ctrf /logs/verifier/ctrf.json on /tests/test_outputs.py. That file lives under /app/docs and is copied into the agent image. It exposes test runner paths the agent should not see. Remove pytest, /tests/, and /logs/verifier/ lines. Keep only build and run hints for the rd binary and output path.
+
+In tests/test_outputs.py, several ablation checks read Rust source with regex instead of running broken code alone. _reconcile_b_uses_full_lineage parses reconcile_b body text. _strip_merge_storage_refresh uses a lookahead on two assignment lines. _bump_crest_ladder_tail_step needs a literal "crest", vec![ pattern. These checks can fail on correct logic with different formatting. Prefer rebuild-and-output checks for ablation, or document the exact source shapes in instruction.md if regex must stay.
+
+In task.toml, category is security and category_profile is security_authority_split, but the work is Rust debugging, cargo workspace repair, and JSON report math. The tags fit better than the security category label alone. Change category to a better match such as software-engineering or debugging, or tighten the prompt to show real security impact if security must stay.
+-----------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+Reviewer Feedback
+The instruction is about twice as long as it should be — roughly 430 words across four dense paragraphs, with the second one alone clocking in around 250 words as a single block of spec. Trim it down to ~150–200 words of actionable content. The failure-scenario ramp-up about "stale symbol generations from retained cache ancestry" can shrink to a sentence or two. And since the module-header doc in main.rs already defines the digest reduction, the aligned label, and generation_span, the instruction can just point there instead of restating all that.
+
+Several sentences in instruction.md describe what the verifier does, which the agent shouldn't be seeing. "Validation executes the compiled /app/target/release/ab binary from the project build and recomputes probe_digest using that module-header reduction contract" — that's verifier internals. "The pytest harness may invoke /bin/true /app/environment/z9 before cargo as a no-op layout anchor; see /app/docs/build_hints.txt for cargo and pytest argv notes" names the pytest harness directly. "Ablation and ladder-sensitivity checks expect a repaired build to lose coherence when a library helper is regressed in source or when the incr scenario ladder steps are changed" frames things in terms of test categories rather than actual requirements. Rewrite all of these as agent-facing requirements — what the rebuild must produce, and what must continue to work after `cargo build --release && /app/target/release/ab` — not descriptions of how the tests work.
+
+One non-blocking note on the rubric: validation flags Max Cumulative Score, but the positives sum to 20, which is inside the 10–40 range. That's a validator quirk, not something you need to act on.
+
+
+
+
+
+
+Reviewer Feedback
+The dual crate ablation test is too structure-specific: it removes state.storage = *incoming; only when that line appears immediately before state.last_b = stamp_b;. A functionally correct fix using a combined last_a || last_b refresh condition can fail that regex even though it satisfies the required behavior. Please make the ablation check structure-agnostic or clearly document the required code shape if that exact structure is intended. Also, task.toml includes bash in languages, but the agent deliverable is Rust source/workspace work, not Bash. Finally, remove verifier-facing wording from instruction.md / build_hints.txt, such as references to the verifier, pytest, /tests, and CTRF logs, and phrase those as normal build/run requirements instead.

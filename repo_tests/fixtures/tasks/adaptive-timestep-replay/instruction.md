@@ -1,0 +1,5 @@
+Adaptive workloads that resume from checkpoints are currently finishing "green" while later replay phases still diverge. The visible symptom is inconsistent row behavior after restart boundaries: mirrored scenario pairs that should track together drift apart, and summary health can disagree with the actual per-row state.
+
+From the Java project in `/app`, produce `/app/output/convergence_report.json` with top-level `rows` and `summary`. Each row must report per-scenario status flags plus a lane stamp, and the summary must aggregate those emitted rows with `rows_total`, `reload_status`, `generation_span`, and `probe_digest`.
+
+Use the seeded fixtures already present in the repository. Ensure mirrored pairs stay aligned on lane stamps, keep status booleans internally coherent for each row, and derive summary fields from the same finalized row set written to the report. The digest must be deterministic over the emitted rows, not a separate precomputed constant. The verifier recompiles and runs the Java program, then checks row-to-summary coherence, pair alignment, lane stamp formatting, and digest integrity across the generated report.

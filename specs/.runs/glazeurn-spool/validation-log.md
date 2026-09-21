@@ -1,0 +1,76 @@
+# Validation Log: glazeurn-spool
+
+## Attempt 1
+- Derived score: 32 FAILs, 0 WARNs
+- Evidence: specs/.runs/glazeurn-spool/attempt-1-evidence.json
+- Evidence errors:
+  - hardness_axes entry 'discover' must use name 'Discover', found 'discover'.
+  - hardness_axes entry 'synthesize' must use name 'Synthesize', found 'synthesize'.
+  - hardness_axes entry 'diagnose_or_design' must use name 'Diagnose or Design/Search', found 'diagnose_or_design'.
+  - hardness_axes entry 'navigate_coupling' must use name 'Navigate coupling', found 'navigate_coupling'.
+  - hardness_axes entry 'reason_beyond_training' must use name 'Reason beyond training', found 'reason_beyond_training'.
+  - anti_trivialization_checks entry 'disclosure_collapse' must use name 'Disclosure-collapse', found 'disclosure_collapse'.
+  - anti_trivialization_checks entry 'hidden_instance' must use name 'Hidden-instance', found 'hidden_instance'.
+  - anti_trivialization_checks entry 'single_artifact_repair' must use name 'Single-artifact repair', found 'single_artifact_repair'.
+  - anti_trivialization_checks entry 'generalization' must use name 'Generalization', found 'generalization'.
+  - anti_trivialization_checks entry 'prompt_honesty' must use name 'Prompt-honesty', found 'prompt_honesty'.
+  - anti_trivialization_checks entry 'cheating_vs_difficulty' must use name 'Cheating-vs-difficulty', found 'cheating_vs_difficulty'.
+  - anti_trivialization_checks entry 'mechanical_fix_filter' must use name 'Mechanical-fix filter', found 'mechanical_fix_filter'.
+  - anti_trivialization_checks entry 'localized_fix' must use name 'Localized-fix', found 'localized_fix'.
+  - anti_trivialization_checks entry 'oracle_locality' must use name 'Oracle-locality', found 'oracle_locality'.
+  - anti_trivialization_checks entry 'small_declarative_cluster' must use name 'Small declarative-cluster', found 'small_declarative_cluster'.
+  - anti_trivialization_checks entry 'grep_collapse' must use name 'Grep-collapse', found 'grep_collapse'.
+  - anti_trivialization_checks entry 'pre_factored_helper' must use name 'Pre-factored-helper', found 'pre_factored_helper'.
+  - anti_trivialization_checks entry 'recipe_discount' must use name 'Recipe-discount', found 'recipe_discount'.
+  - anti_trivialization_checks entry 'security_aura_discount' must use name 'Security-aura discount', found 'security_aura_discount'.
+  - anti_trivialization_checks entry 'orthogonal_checklist' must use name 'Orthogonal-checklist', found 'orthogonal_checklist'.
+  - anti_trivialization_checks entry 'harness_discount' must use name 'Harness-discount', found 'harness_discount'.
+  - anti_trivialization_checks entry 'one_pass_solvability' must use name 'One-pass solvability', found 'one_pass_solvability'.
+  - anti_trivialization_checks entry 'hard_only_gate' must use name 'Hard-only gate', found 'hard_only_gate'.
+  - anti_trivialization_checks entry 'discovery_budget_test' must use name 'Discovery/design budget test', found 'discovery_budget_test'.
+  - anti_trivialization_checks entry 'instruction_specificity_test' must use name 'Instruction specificity test', found 'instruction_specificity_test'.
+  - anti_trivialization_checks entry 'topology_distribution_test' must use name 'Topology distribution test', found 'topology_distribution_test'.
+  - rubric_axes entry 'verifiable' must use name 'Verifiable', found 'verifiable'.
+  - rubric_axes entry 'well_specified' must use name 'Well-specified', found 'well_specified'.
+  - rubric_axes entry 'solvable' must use name 'Solvable', found 'solvable'.
+  - rubric_axes entry 'difficult' must use name 'Difficult', found 'difficult'.
+  - rubric_axes entry 'interesting' must use name 'Interesting', found 'interesting'.
+  - rubric_axes entry 'outcome_verified' must use name 'Outcome-verified', found 'outcome_verified'.
+- Blocking evidence failures:
+  - hardness_axes entry 'discover' must use name 'Discover', found 'discover'.
+  - hardness_axes entry 'synthesize' must use name 'Synthesize', found 'synthesize'.
+  - hardness_axes entry 'diagnose_or_design' must use name 'Diagnose or Design/Search', found 'diagnose_or_design'.
+  - hardness_axes entry 'navigate_coupling' must use name 'Navigate coupling', found 'navigate_coupling'.
+  - hardness_axes entry 'reason_beyond_training' must use name 'Reason beyond training', found 'reason_beyond_training'.
+  - anti_trivialization_checks entry 'disclosure_collapse' must use name 'Disclosure-collapse', found 'disclosure_collapse'.
+  - anti_trivialization_checks entry 'hidden_instance' must use name 'Hidden-instance', found 'hidden_instance'.
+  - anti_trivialization_checks entry 'single_artifact_repair' must use name 'Single-artifact repair', found 'single_artifact_repair'.
+  - anti_trivialization_checks entry 'generalization' must use name 'Generalization', found 'generalization'.
+  - anti_trivialization_checks entry 'prompt_honesty' must use name 'Prompt-honesty', found 'prompt_honesty'.
+  - anti_trivialization_checks entry 'cheating_vs_difficulty' must use name 'Cheating-vs-difficulty', found 'cheating_vs_difficulty'.
+  - anti_trivialization_checks entry 'mechanical_fix_filter' must use name 'Mechanical-fix filter', found 'mechanical_fix_filter'.
+  - anti_trivialization_checks entry 'localized_fix' must use name 'Localized-fix', found 'localized_fix'.
+  - anti_trivialization_checks entry 'oracle_locality' must use name 'Oracle-locality', found 'oracle_locality'.
+  - anti_trivialization_checks entry 'small_declarative_cluster' must use name 'Small declarative-cluster', found 'small_declarative_cluster'.
+  - anti_trivialization_checks entry 'grep_collapse' must use name 'Grep-collapse', found 'grep_collapse'.
+  - anti_trivialization_checks entry 'pre_factored_helper' must use name 'Pre-factored-helper', found 'pre_factored_helper'.
+  - anti_trivialization_checks entry 'recipe_discount' must use name 'Recipe-discount', found 'recipe_discount'.
+  - anti_trivialization_checks entry 'security_aura_discount' must use name 'Security-aura discount', found 'security_aura_discount'.
+  - anti_trivialization_checks entry 'orthogonal_checklist' must use name 'Orthogonal-checklist', found 'orthogonal_checklist'.
+  - anti_trivialization_checks entry 'harness_discount' must use name 'Harness-discount', found 'harness_discount'.
+  - anti_trivialization_checks entry 'one_pass_solvability' must use name 'One-pass solvability', found 'one_pass_solvability'.
+  - anti_trivialization_checks entry 'hard_only_gate' must use name 'Hard-only gate', found 'hard_only_gate'.
+  - anti_trivialization_checks entry 'discovery_budget_test' must use name 'Discovery/design budget test', found 'discovery_budget_test'.
+  - anti_trivialization_checks entry 'instruction_specificity_test' must use name 'Instruction specificity test', found 'instruction_specificity_test'.
+  - anti_trivialization_checks entry 'topology_distribution_test' must use name 'Topology distribution test', found 'topology_distribution_test'.
+  - rubric_axes entry 'verifiable' must use name 'Verifiable', found 'verifiable'.
+  - rubric_axes entry 'well_specified' must use name 'Well-specified', found 'well_specified'.
+  - rubric_axes entry 'solvable' must use name 'Solvable', found 'solvable'.
+  - rubric_axes entry 'difficult' must use name 'Difficult', found 'difficult'.
+  - rubric_axes entry 'interesting' must use name 'Interesting', found 'interesting'.
+  - rubric_axes entry 'outcome_verified' must use name 'Outcome-verified', found 'outcome_verified'.
+
+## Attempt 2
+- Derived score: 0 FAILs, 0 WARNs
+- Evidence: specs/.runs/glazeurn-spool/attempt-2-evidence.json
+

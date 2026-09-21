@@ -1,0 +1,30 @@
+[
+  {
+    "domain": "debugging",
+    "title": "Recompiled dispatcher still calls the old handler table",
+    "premise": "A protocol dispatcher for an embedded control system is generated from a command-table specification: a code generator emits a jump table mapping opcode to handler function pointer, and separately regenerates a companion shadow table used only by the firmware's self-test to confirm every opcode has a handler before the image is sealed.",
+    "symptom": "After adding a new opcode to the specification and rebuilding, the self-test reports full coverage and the seal step succeeds, but sending the new opcode to the running firmware image falls through to the default handler.",
+    "defect": "The generator emits the shadow table by iterating the current specification, so it always lists every opcode. The real dispatch table is written as a fixed-size C array literal whose length is fixed by a #define OPCODE_COUNT macro that lives in a header the generator does not touch, and this project's build flags treat excess initializers for a statically sized array as a warning rather than an error. Adding an opcode without bumping the macro means the compiler silently drops the array literal's last entry once the literal has one more element than the macro allows, and because opcodes are appended at the end of the specification in order, the entry dropped is always the newest one. The self-test compares the shadow table against the specification, not against the size the dispatch table was actually compiled with, so it reports full coverage on a binary whose real table is one short.",
+    "why_hard": "The build produces a new binary, the self-test passes, and the seal step succeeds. Every artifact an operator would think to check is green; only inspecting the compiled jump table's actual entry count, or driving the running firmware with the new opcode, exposes the gap. This is the 83%-missed rebuild-confirmation case: the agent must confirm what was actually compiled into the running artifact, not what the generator or the self-test claims.",
+    "difficulty_summary": "The agent must rebuild after adding the opcode and confirm the compiled jump table, not the shadow table or the self-test result, dispatches the new opcode by driving the running firmware image with it.",
+    "trap": "Widening the self-test to also parse the compiled array literal from source text and count its entries, which passes today and stays fooled the next time the size macro and the array literal drift for an unrelated reason.",
+    "graded_on": "The running firmware's response to every opcode in the specification. Every specification opcode invoked against the built image reaches its declared handler, not the default; the compiled jump table's entry count equals the opcode count the specification declares; an image where the two counts differ makes the seal step exit non-zero.",
+    "capability": "C2",
+    "capability_name": "Rebuild before you claim",
+    "id": "DEB-C2-0235"
+  },
+  {
+    "domain": "debugging",
+    "title": "Rehearsal drifted onto the weak verification path",
+    "premise": "A backup tool snapshots a set of time-partitioned tables and writes one manifest recording total row counts; a combined backup-and-verify command runs backup then verification in one process, and verification has a full mode that recomputes row counts against the restored data and a fast mode that only checks the manifest file is present and non-empty, selected by a flag whose default changed in a later release to speed up CI.",
+    "symptom": "Backup-and-verify rehearsals report success on every scheduled run, but a real restore performed after an incident is missing all rows for the most recent time partition, even though that partition's source table plainly had rows at backup time.",
+    "defect": "The backup step excludes partitions whose partition date is on or after the configured retention cutoff, intending to exclude only future, not-yet-populated partitions, but the cutoff comparison is off by one partition boundary, so the newest already-populated partition is also excluded from every snapshot. The manifest's row count totals whatever partitions were actually included, so it is internally consistent with what was backed up and always non-empty. Verification defaults to the fast mode, which only confirms the manifest exists and its total is non-empty, so it never compares that total against the source tables' own row counts and cannot see that a whole partition went missing; the full mode, which does that comparison, exists in the tool and is exercised nowhere, because the rehearsal script was written against an older release where fast mode did not exist and was never updated to disable it.",
+    "why_hard": "Every invocation exits zero, the manifest is well-formed and non-empty, and rehearsals have a long unbroken history of reported success. Only running backup-and-verify in full mode against a table with a genuinely current partition, and requiring the verified count to equal a source count taken independently of the manifest, exposes the retention-boundary bug, the 91% end-to-end miss.",
+    "difficulty_summary": "The agent must run backup-and-verify in full mode against live partitioned data and require the verified row count to equal a source count computed independently of the manifest.",
+    "trap": "Lowering the fast mode's threshold to also check the total against a minimum expected count, which passes with the current partition count and stays fooled the next time a partition is silently dropped for any other reason.",
+    "graded_on": "The restored data and the verification outcome. The restored row count for the newest partition equals a source count computed independently of the manifest; verification runs in full mode by default; a verification that completes without comparing against source data makes the run exit non-zero.",
+    "capability": "C1",
+    "capability_name": "Run it end to end",
+    "id": "DEB-C1-0235"
+  }
+]

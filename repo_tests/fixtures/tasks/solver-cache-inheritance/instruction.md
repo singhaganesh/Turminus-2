@@ -1,0 +1,3 @@
+This Java service currently emits a convergence report that can drift across mirrored restore scenarios. The visible failures are pair instability and summary/row disagreement.
+
+Using the code in /app/environment, generate /app/output/convergence_report.json with top-level rows and summary from the seeded fixtures. Rows should carry scenario_id, tilt_ok, epoch_ok, gate_seq_ok, tilt_code, and lane_stamp_hex. Summary should carry rows_total, reload_status, generation_span, and probe_digest. Keep mirrored scenario pairs consistent, keep row health fields coherent with each other, and compute summary values from the finalized rows that are actually emitted.

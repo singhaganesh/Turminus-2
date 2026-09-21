@@ -1,0 +1,75 @@
+[
+  {
+    "domain": "debugging",
+    "title": "Commit marker synced before the data",
+    "premise": "A crash-report store appends each record's bytes to a data file and then writes a fixed-size commit marker into an index, and on startup a recovery pass trusts the marker to decide which records are durable.",
+    "symptom": "After a power-loss test that kills the process mid-append, recovery reports a record as committed and present, but reading it back yields zeros or a short read, while records written well before the crash are intact.",
+    "defect": "The store flushes the index (and its commit marker) to stable storage before it flushes the record's data pages, because the two flushes were written in the order the code computes them rather than the order durability requires. When the crash lands between the two flushes, the marker is durable and the data is not, so recovery believes a record that never fully landed. There is no torn-write detection because the marker was assumed to imply the data.",
+    "why_hard": "Ordinary runs are perfect, recovery exits 0, and a zero-filled record reads like an unrelated corruption. Only injecting a crash between the two flushes and requiring every marker-committed record to be fully readable exposes it, and the fix is an ordering change, not a retry, the rebuild-versus-verify gap missed 83% of the time.",
+    "difficulty_summary": "The agent must make the data durable before the commit marker and confirm that after a crash injected between flushes, every committed record reads back complete.",
+    "trap": "Adding a retry that re-reads the record after a short pause, which never helps because the data was never written, and masks the ordering bug behind a flaky-looking read.",
+    "graded_on": "The recovered store after a deterministic crash injection. Every record the marker calls committed reads back byte-complete; a marker present without its full data makes recovery exit non-zero.",
+    "capability": "C2",
+    "capability_name": "Rebuild before you claim",
+    "id": "DEB-C2-0246"
+  },
+  {
+    "domain": "debugging",
+    "title": "Poll read hoisted out of the loop",
+    "premise": "A diagnostic agent waits for a background collector to finish by spinning on a shared status word the collector updates, and the project ships a release build compiled at high optimisation and a debug build compiled without it.",
+    "symptom": "The debug build observes completion and proceeds; the release build spins forever or proceeds on the initial value, on the same hardware with the same inputs.",
+    "defect": "The status word is a plain non-atomic, non-volatile variable, and at high optimisation the compiler proves the loop body does not modify it and hoists the read out of the loop, so the release build tests a value cached in a register once. This is a correctness fault in the memory model, not a timing race: the emitted code deterministically never re-reads the word. The debug build re-reads it only because optimisation is off.",
+    "why_hard": "The source looks like an ordinary wait loop, the debug build works, and a hang in a release build reads like a deadlock elsewhere. Only building the release configuration and requiring the wait to observe the collector's update exposes it, the 83%-missed rebuild-confirmation case.",
+    "difficulty_summary": "The agent must make the shared status observation correct under optimisation and confirm the release build sees the collector's completion.",
+    "trap": "Inserting a sleep in the loop body, which perturbs the optimiser enough to work on this compiler and reintroduces the hoist on the next compiler or optimisation level.",
+    "graded_on": "The release build's behaviour. The optimised build observes the collector's completion and proceeds with the updated value; a release build that proceeds on the stale initial value or never observes the update makes the run exit non-zero.",
+    "capability": "C2",
+    "capability_name": "Rebuild before you claim",
+    "id": "DEB-C2-0247"
+  },
+
+
+  
+  {
+    "domain": "debugging",
+    "title": "Field spans the byte the reader split",
+    "premise": "A trace decoder unpacks a fixed-width binary record whose flag fields are packed as bit ranges, and a viewer prints each decoded field for investigators.",
+    "symptom": "Small flag values decode correctly, but records whose one wide field crosses an internal byte boundary decode that field, and only that field, to a wrong value; every other field is right.",
+    "defect": "The decoder reads each field by masking within a single byte, which is correct for fields that fit inside one byte but wrong for the one field whose bit range spans two bytes, because it never combines the high and low parts across the boundary. The values that stay inside the low byte look correct, so the bug is invisible until a value large enough to reach into the next byte appears. The record layout and every other field are handled correctly.",
+    "why_hard": "Most records decode perfectly, the code reads as a straightforward mask-and-shift, and a single wrong field looks like bad input. Only decoding a record whose wide field carries a boundary-crossing value and requiring it to match the reference exposes it, and the fix is in the bit assembly, not the layout.",
+    "difficulty_summary": "The agent must assemble the boundary-crossing field across bytes and confirm a record with a large value in that field decodes to its reference value.",
+    "trap": "Widening the field's declared byte offset by one, which fixes the crossing case for this record and shifts every following field for records that pack differently.",
+    "graded_on": "The decoded records. A held-out record whose wide field carries a boundary-crossing value decodes to its reference; every in-byte field still decodes correctly; a boundary-crossing field decoded from a single byte makes the run exit non-zero.",
+    "capability": "C2",
+    "capability_name": "Rebuild before you claim",
+    "id": "DEB-C2-0248"
+  },
+  {
+    "domain": "debugging",
+    "title": "Handler buffered its own last words",
+    "premise": "A service installs a fault handler that, on a fatal signal, writes a final diagnostic record naming the failing thread and the last operation before the process ends, and a triage tool reads that record.",
+    "symptom": "For faults that abort the process outright, the diagnostic record is present but truncated or empty, while faults that let the handler return leave a complete record.",
+    "defect": "The handler writes the record through the standard buffered output layer, whose buffer is only flushed at normal process exit. When the fault aborts the process, exit never runs, so the buffered final record is discarded and only whatever happened to already be flushed survives. Faults that let the handler return flush on the way out, which is why those records are whole. The record content is correct; it simply never reaches disk on the abort path.",
+    "why_hard": "The handler code is obviously correct, non-abort faults produce whole records, and a truncated crash record reads like an ordinary crash artifact. Only injecting an aborting fault and requiring the complete diagnostic record to be on disk exposes it, and the fix is the write path, not the content.",
+    "difficulty_summary": "The agent must make the fault handler's final record durable on the aborting path and confirm the complete record is on disk after an aborting fault.",
+    "trap": "Enlarging the output buffer so the record fits and happens to flush earlier, which passes for this record size and drops the next longer one.",
+    "graded_on": "The diagnostic record after a deterministic aborting fault. The record is present and complete, naming the failing thread and last operation; a truncated or empty record after an aborting fault makes the run exit non-zero.",
+    "capability": "C2",
+    "capability_name": "Rebuild before you claim",
+    "id": "DEB-C2-0249"
+  },
+  {
+    "domain": "debugging",
+    "title": "Snapshot shared the live buffer",
+    "premise": "A state inspector takes a snapshot of a mutable session object so an investigator can compare the session before and after an operation, and the operation mutates the live session in place.",
+    "symptom": "The before-snapshot and the after-view always report identical state, so every comparison shows no change, even for operations that plainly alter the session.",
+    "defect": "The snapshot copies the session's top-level fields but shares the same underlying collection buffer by reference rather than duplicating it, so a later in-place mutation of the live session also mutates the snapshot's view of it. The scalar fields that were copied by value do differ, but the collection everyone actually compares is the same object, so it reads as unchanged. The copy looks like a copy and passes any check that only inspects the scalar fields.",
+    "why_hard": "The snapshot code reads as a normal copy, scalar fields do differ, and no-change is a legitimate outcome for read-only operations. Only snapshotting, mutating the live session's collection, and requiring the snapshot to still hold the pre-mutation contents exposes it, and the fix is a deep copy of the shared buffer, not the comparison.",
+    "difficulty_summary": "The agent must make the snapshot independent of the live session's collection and confirm a post-mutation snapshot still holds the pre-operation contents.",
+    "trap": "Comparing only the scalar fields that are copied by value, which reports a change for those and keeps the shared collection invisible to every comparison.",
+    "graded_on": "The snapshot after an in-place mutation. The snapshot's collection equals the session's pre-operation contents while the live session reflects the mutation; a snapshot whose collection changed with the live session makes the run exit non-zero.",
+    "capability": "C2",
+    "capability_name": "Rebuild before you claim",
+    "id": "DEB-C2-0250"
+  }
+]

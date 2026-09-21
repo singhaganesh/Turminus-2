@@ -1,0 +1,209 @@
+---
+description: Author so tasks pass prompts/TASK_CHECKER.md quality+complexity probes, with programme floors (difficulty ≥ medium, similarity ≤ 15%).
+globs:
+  - "tasks/**"
+  - "specs/**"
+  - "prompts/TASK_CHECKER.md"
+alwaysApply: false
+---
+
+# Task-checker readiness (authoring)
+
+Tasks must be built to pass `prompts/TASK_CHECKER.md` (quality + complexity probes)
+**and** this programme’s floors. Pull `@task-checker-ready.mdc` during Step 2a/2b,
+Step 3 review, and before packaging.
+
+Full probe definitions live in `prompts/TASK_CHECKER.md`. This rule is the
+**authoring contract** — plant the properties the checker will measure.
+
+## Immutable programme floors (do not weaken)
+
+1. **Difficulty:** `task.toml` `difficulty` is `"medium"` or `"hard"` only.
+   Checker level `easy` / `too_easy` does **not** ship. Prefer `hard`; `medium`
+   is the minimum. Empirical bar: at least MEDIUM vs **Claude Opus 5** and
+   **GPT-5.6** (`@difficulty-calibration.mdc` Part E). EASY/TRIVIAL = blocker.
+2. **Similarity:** max **15%** local+platform (`@unique-task-generation.mdc`).
+   Target ≤ 10%. Never invent a %. Probe before inventing; structure after skeleton.
+
+## Programme overrides vs raw checker text
+
+When Harbor / Edition 2 conflict with checker defaults, **this programme wins**:
+
+| Topic | Programme rule (author this way) |
+|---|---|
+| Verifier / pytest | Install pinned pytest (+ plugins) in `environment/Dockerfile` under `/opt/verifier`. **Do not** put `/opt/verifier/bin` on agent `PATH`. `tests/test.sh` calls `/opt/verifier/bin/pytest` (absolute); must **not** apt/pip/uv/uvx/curl install. `allow_internet = false`. |
+| Rubric file | **Required:** `tasks/<slug>/rubric.txt` (checker format). Ships in the zip. Do **not** use `rubrics.txt` or `[rubric]` in `task.toml`. |
+| Images | Canonical `public.ecr.aws/...@sha256:…` final base (`docs/edition2/DOCKERFILE_BEST_PRACTICES.md`). |
+| Multi-container | No new compose / multi-container starts. |
+| Ship on `easy` | Forbidden here even if the raw checker would allow it. |
+
+All other checker quality/complexity rules apply as written.
+
+## Plant before you draft (checker floor P1–P5)
+
+Missing any of P1–P4 ⇒ checker `too_easy` ⇒ **do not ship**. Design them in:
+
+| | Property | Author must |
+|---|---|---|
+| P1 | Defect survives reading | Broken code looks like a plausible engineer mistake — not sabotage, `# BUG`, absurd constants |
+| P2 | Symptom one layer from cause | `instruction.md` states operator-visible symptom only; never names the wrong file/function/line the oracle patches |
+| P3 | Graded artifact needs skipped step | Scoring depends on rebuild / regen / later pipeline stage — **source-only edit must leave reward 0** (R5, automated by `preship/source_only.sh`) |
+| P4 | Decoy planted and punished | One plausible wrong fix in the env + ≥1 negative rubric criterion that fires on it (R6, automated by `preship/decoy_fix.sh`) |
+| P5 | Suite against broken tree | Every graded test fails on NOP (R3) and passes after oracle (R4) |
+
+Also plant at least one **capability lever** the checker ranks highly: end-to-end run, rebuild-after-edit, verify/re-run, avoid decoy/hardcode, fault path, or implied contract — enough that checker complexity is **medium or hard**, not `easy`.
+
+**Difficulty floor (deterministic BLOCKER).** The graded suite must exercise **≥2** capability classes — or **1 class + ≥3 execution-dependent tests**. Repair classes: recompute/cross-artifact consistency, variant/holdout generalisation, fault-path rejection, sequencing/recovery. Non-repair (`constrained_build`/SE) classes also count: spec_coverage, interface_contract, protocol_conformance, concurrency_safety. Enforced by `scripts/difficulty_floor_check.py` (Phase B, blocks under `--strict`). Design the classes in before drafting; do not pad with clones.
+
+**Caveat audit (per graded class).** For every capability class the suite grades, all three legs must hold: (1) `instruction.md` states the rule in operator language, (2) the environment makes the wrong move tempting while builds/oracle/NOP still pass, (3) `solution/solve.sh` shows the correct move. A `broken` leg-1 is an ambush and blocks ship. `scripts/caveat_audit_check.py` lists the graded classes and hints leg-1 (advisory); confirm all three legs with quoted spans. See `docs/edition2/QUALITY_CRITERIA.md`.
+
+## Recurring ship-killers (do not reintroduce)
+
+Canonical list (expanded): **`@checker-lessons.mdc`** (always applied).
+Summary — treat each as an authoring blocker:
+
+1. **Verifier must not perform the rebuild lever (R5 / P3).** Tests grade the
+   prebuilt graded binary/artifact only. Never call `rebuild.sh`, `cargo build`,
+   `make`, or equivalent from `tests/test_outputs.py` (or helpers) before scoring.
+
+2. **Every graded test fails on NOP (P5 / NOP-PASS).** No scenery-only tests;
+   no clone tests; prefer >10 distinct behavioral tests when the bar asks.
+
+3. **Anti-hardcode / anti-stub (R7 / GAMEABLE).** Held-out fixtures; refuse
+   shell hardcoders. **Native-binary rule, both directions mandatory:** if the
+   instruction requires a native binary, the graded suite MUST assert ELF magic
+   (`\x7fELF`) on the agent binary **after rebuild** — missing it is
+   `GAMEABLE-NATIVE` (a Python/shell mill emitting correct output scores R7=1;
+   an ELF check only in `solve.sh` does not count). If the instruction does NOT
+   require native, do not add an ELF assert (scenery), and non-native stubs are
+   rubric −5 only. Verify with `scripts/native_binary_check.py`.
+
+4. **Do not telegraph the defect (P1 / P2 / HINTS).** No mechanism spoilers;
+   no anti-decoy “do not strip/reject…” lines; no named rebuild commands or
+   patch-directory pointers in `instruction.md`; ≤ ~3 paragraphs. Rebuild
+   lives in Makefile/handbook; decoys punished by suite + rubric.
+
+5. **Plausible defects only (P1).** No `for ch in s.chars()` / `# BUG` sabotage.
+
+6. **R1 offline + zip integrity.** `docker build --network=none`; no >1 MB
+   files; Rust vendor must ship `.cargo/config.toml` + `.cargo-checksum.json`
+   **inside the zip** (verify after `package_task.py`); no `pytest --version`
+   in Dockerfile.
+
+7. **Metadata / oracle hygiene.** `difficulty` matches measured level;
+   `tool_specific` ⇒ tool name in `tags`; oracle comments must not narrate bugs.
+
+8. **Repackage after every fix.** Checker scores the zip, not the working tree.
+
+## Self-probes before claiming ready (R1–R9)
+
+Run (or Harbor-equivalent) and keep evidence. Do not claim pass from reading alone.
+
+| Probe | Must observe |
+|---|---|
+| R1 Build | Image builds offline in `build_timeout_sec`; `WORKDIR` set |
+| R2 Symptom | Instruction’s reported symptom reproduces |
+| R3 NOP | Reward `0`; **every** graded test fails |
+| R4 Oracle | `solve.sh` then tests → reward `1`; all tests pass |
+| R5 Source-only | Apply only source edits; skip rebuild/regen/lever step → reward still `0` (`preship/source_only.sh`; `preship_probes.py`) |
+| R6 Decoy | Apply the wrong fix the negative rubric names → reward `0`; criterion earned (`preship/decoy_fix.sh`) |
+| R7 Shortcut | Hardcode fixtures / sample constants / edit data tests read → reward `0` (`preship/shortcut_fix.sh`) |
+| R8 Determinism | Two separate test runs identical; `solve.sh` twice exits 0 with no `*.rej` (`oracle_idempotency_probe.py`) |
+| R9 Fresh | Rebuild clean; R4 still reward `1` |
+| ALT No-false-failure | A genuinely-different but correct solution still passes → reward `1` (`preship/alt_solution.sh`) |
+
+Stop and repair on R1/R4 failure before polishing. Collect all other findings in one pass when possible.
+
+R5/R6/R7 are automated: declare them in `tasks/<slug>/preship/preship.json` (a task-root dir the packager excludes from the zip) with `source_only.sh`, `decoy_fix.sh`, `shortcut_fix.sh`, each expecting reward `0`. Run `python3 scripts/preship_probes.py tasks/<slug> --strict` (wired into `check-task.sh` Phase C3). See `prompts/AUTHOR_PRE_SHIP_PROBES.md`.
+
+**Mechanism fidelity (BLOCKING).** The built task must realize the source idea's
+`defect` / `why_hard` mechanism, not merely its domain. A task that shares the
+idea's nouns but implements an easier substitute (e.g. a grammar/format parser in
+place of the idea's actual defect) is a **drift failure** — reject. Before ship,
+map the idea's `defect` verbatim to the exact files and broken lines that realize
+each part; any part with no home means the mechanism was dropped. This is the
+gap that lets a HARD idea become an easy task: the hard mechanism never gets
+built. Verify by asking "is the idea's mechanism physically present in the
+patched source?" before spending a rollout.
+
+**Spec fidelity (BLOCKING — non-repair / `constrained_build` shape).** For SE tasks
+there is no `defect`; the built task must realize the idea's `spec` +
+`hardness_source` + `adversarial_cases`. Map each: (1) the stated contract in
+`instruction.md` == the idea's `spec`; (2) each of the ≥3 interacting facets is
+exercised by ≥1 test; (3) the held-out/adversarial conformance corpus is actually
+graded (not happy-path only). If the suite only checks visible/happy-path cases, or
+a naive first-pass impl would pass it, the build has drifted — deepen it; this is
+the same `MECHANISM-DRIFT` BLOCKER in SE clothing. The floor is met via the SE
+capability classes (spec_coverage / interface_contract / protocol_conformance /
+concurrency_safety) that `difficulty_floor_check.py` also detects.
+
+**No false failures (BLOCKING).** A false failure is a correct solution the suite marks fail because a test enforces something the instruction never required (exact bytes / whole-output equality / output digest / fixed order when alternatives are valid). Two guards, both at creation time — no agent run needed:
+- **`scripts/false_failure_lint.py`** (Phase B) flags over-strict / oracle-identity assertions, unless the instruction states an exact-form requirement (byte-identical, magic, digest, fixed order — then exact matches are legitimate and suppressed).
+- **ALT probe** — author `preship/alt_solution.sh`, a deliberately-different but valid solution, and declare it in `preship.json` as `"ALT": {"script": "alt_solution.sh", "expect_reward": 1}`. It MUST score reward `1`; a `0` means the suite rejects a correct solution — fix the test (grade the invariant) or state the exact-form rule in the instruction. Every graded assertion must accept all valid solutions.
+
+## Instruction / tests / solution / rubric (checker Part 2)
+
+**instruction.md**
+- Concise (≤ ~3 paragraphs; requirements ≤ 2 paragraphs or 20 bullets)
+- Well-specified goal; absolute paths; schemas for structured outputs
+- No answers/hints/walkthroughs/bold solution constants/"look for…"
+- Human voice, not model template; no canary; no vague "make it better"
+- Every graded requirement stated; nothing graded that is unstated
+
+**environment**
+- Reads as a real codebase; decoys are plausible working code
+- No answer leakage, backups, `.git`, reserved `/tests` `/solution` in image
+- No runtime network beyond build-time package installs
+- Files < 1 MB; no privileged containers
+
+**tests**
+- Docstring on every test; behavior names; behavior not implementation text
+- Full instruction coverage; independent; no latency tests; no brittle whole-string dumps
+- `test.sh` always writes reward on both branches; identical oracle/agent conditions; `TEST_DIR` default; accepted reward footer
+- Pytest is **pre-installed in the Dockerfile**; `test.sh` only runs `pytest` (no install/uvx)
+- No oracle-only branches
+
+**solution**
+- `#!/bin/bash` + `set -euo pipefail`; derives answer (no hardcoded goldens); deterministic; **idempotent** (`bash solve.sh` twice → exit 0, no `*.rej`); does not touch `tests/`
+- No comments that narrate the planted fault (“must not gate…”, “BUG was…”)
+
+**rubric** (`rubric.txt` required in task + zip)
+- Lines: `Agent …, ±N` with N in {1,2,3,5} only (no 4)
+- ≥3 distinct negatives; positives sum 10–40
+- Trajectory-decidable; task-specific; at least one negative names a real decoy (R6)
+- No `[rubric]` in `task.toml`; no `rubrics.txt`
+
+## Quality tags that block ship
+
+Treat checker BLOCKERs as ship-blockers here too, including:
+`ORACLE-FAIL`, `NOP-PASS`, `UNSPECIFIED-GRADING`, `TEST-IS-SPEC`, `LEAK`,
+`ORACLE-ONLY-BRANCH`, `NO-REWARD-FILE`, `GAMEABLE` (R7), `GAMEABLE-NATIVE`
+(native binary required but the suite never asserts ELF), `HINTS`,
+`METADATA-DRIFT`, `OVERSIZE`, `IMPL-TEST`, `CLONE-TESTS`,
+`HARDCODED-SOLUTION`, `COVERAGE-GAP`, `FILE-UNNAMED`, `DIFFICULTY-FLOOR`
+(<2 capability classes), `FALSE-FAILURE` (a test rejects a valid solution — the
+ALT probe scores 0 or `false_failure_lint.py` flags an over-strict assertion),
+`MECHANISM-DRIFT` (built task does not realize the idea's `defect` mechanism),
+a `broken` caveat class, and programme floors (`easy`/`too_easy`, similarity >15%).
+
+Programme note: pytest under `/opt/verifier` via Dockerfile is **required**,
+but keep it **off** agent `PATH` (invoke absolute path from `test.sh`). Do not
+fail ship solely on `TEST-DEPS-IN-IMAGE` for that isolated-prefix layout.
+
+Every finding needs a concrete repair (file + change). Do not shrink scope to dodge hardness; expand or redesign the mechanism instead.
+
+## Ship gate (this programme)
+
+`ship` only when:
+- R1–R9 pass (or Harbor-equivalent evidence); R5/R6/R7 via `preship_probes.py` (Phase C3)
+- No outstanding BLOCKER, including `DIFFICULTY-FLOOR` (`difficulty_floor_check.py` clean)
+  and `GAMEABLE-NATIVE` (`native_binary_check.py` clean — ELF asserted in tests when native required)
+- Every graded caveat class passes all three legs (not `broken`)
+- No false failures: `false_failure_lint.py` clean and the ALT probe scores reward `1`
+- Fairness is teach (not ambush / unspecified grading)
+- Checker complexity level is **`medium` or `hard`** (not `easy` / `too_easy`)
+- `task.toml` difficulty is `medium` or `hard`
+- Similarity ≤ 15% with quoted `Max similarity:` evidence
+- Harbour offline / Dockerfile / packaging rules satisfied
+
+Reference: `prompts/TASK_CHECKER.md`. Overrides for this delivery are also in that file’s Appendix · Programme composition rules.

@@ -1,0 +1,476 @@
+TERMINUS TASK REVIEW BLOCKERS CHECKLIST
+
+Use this as a practical blocker checklist when reviewing or revising task zips.
+If a task hits any item below, mark Needs Revision unless the platform/static check explicitly allows it.
+
+============================================================
+1. TASK CATEGORIES (ALL OPEN)
+============================================================
+
+- All nine primary categories are open: `debugging`, `software-engineering`, `data-processing`, `system-administration`, `build-and-dependency-management`, `games`, `machine-learning`, `security`, `scientific-computing`.
+- Applies to **new** ideas/specs/tasks **and** to **edits / revisions / fixes**: assign the honest dominant category. Do not relabel debugging / software-engineering / data-processing as something else.
+- Classifier and overlap cases: `prompts/terminus_task_category_guide.md`. Three-question test: start state, dominant reasoning, what the verifier proves — used to **label**, not to reject a category.
+- Blocker: dishonest category (dominant activity does not match `task.toml` category), or a shallow clone of an existing task regardless of category.
+
+============================================================
+2. TASK DIFFICULTY BLOCKERS
+============================================================
+
+- Empirical difficulty is judged on **Claude Opus 5** and **GPT-5.6** (not weaker models).
+- Difficulty report says EASY.
+- Difficulty report says TRIVIAL.
+- `task.toml` / checker complexity says `easy` or `too_easy`.
+- Required threshold is at least MEDIUM on those two models and on
+  `prompts/TASK_CHECKER.md` complexity (P1–P4 hold; enough levers for medium+).
+  Prefer HARD. Medium is the ship floor; Easy does not ship.
+- Checker R5 source-only reaches reward 1, or R7 shortcut scores above zero.
+- Checker P1–P4 floor miss (visible defect, instruction points at fix, no rebuild
+  lever, missing/punished decoy).
+- Tests call rebuild/regen (`rebuild.sh`, `cargo build`, etc.) before grading —
+  verifier must not perform the agent’s rebuild lever (R5/P3 collapse).
+- Any graded test already passes on the unmodified/NOP tree (NOP-PASS / P5).
+- Instruction telegraphs defect mechanics (e.g. “one-character” / char-split /
+  names the fix file), names rebuild commands / patch dirs, bans decoy fixes
+  (“Do not strip the BOM…”), or exceeds the concise bar (~3 paragraphs)
+  (`HINTS` / instruction_concision).
+- Obvious sabotage in sources (`for ch in s.chars()`, `# BUG`) that fails P1.
+- Stubbed rebuild + replaced graded binary still scores reward 1 (GAMEABLE/R7);
+  CLI wrapper that runs the real entrypoint twice (separate processes) still
+  scores reward 1 — block with single-subprocess tests and rubric negatives.
+- `solution/solve.sh` not idempotent: second run exits non-zero or leaves
+  `*.rej` (`NOT-IDEMPOTENT` / R8_twice); use dry-run `apply_patch()` or
+  `patch -N` + `rm -f …/*.rej`. Probe:
+  `python3 scripts/oracle_idempotency_probe.py tasks/<slug> --strict`.
+- Env handbook / ops notes endorse a workaround that passes tests
+  (`sequencing_recovery` / decoy rewarded).
+- Dockerfile `apt-get update` / network required for build (R1 fail under
+  `--network=none`), or agent `PATH` exposes `/opt/verifier/bin/pytest`
+  (`TEST-DEPS-IN-IMAGE` hygiene): keep `/opt/verifier`, invoke absolute path
+  from `test.sh` only.
+- Any environment file > 1 MB (`OVERSIZE`); prefer multi-stage `COPY --from=`
+  over fat vendored `.deb`/`.whl` blobs.
+- Rust/cargo offline vendor missing from the **zip**: no
+  `environment/.cargo/config.toml` or zero `vendor/**/.cargo-checksum.json`
+  (package_task used to strip all dotpaths — verify zip listing after package).
+- `subcategories` has `tool_specific` but `tags` never name the tool
+  (`METADATA-DRIFT`).
+- Oracle `solve.sh` comments narrate the planted bug (`HARDCODED-SOLUTION`).
+- Instruction anti-decoy spoilers (“do not fix by rejecting…”).
+- Env docs leak suite fixtures (instants/payloads/report names) (`LEAK`).
+- Broken code fails the instruction’s schema on sight (P1 / HINTS) — e.g.
+  zoneless stamp while the prompt requires `Z`/offset.
+- Graded suite paths not named in `instruction.md` (`FILE-UNNAMED`).
+- Checker scored an old zip while the tree was fixed — always repackage and
+  re-upload after repairs (`@checker-lessons.mdc`).
+- **Not a programme blocker:** pytest installed under `/opt/verifier` in the
+  Dockerfile (required here) when kept **off** agent `PATH`. Still block
+  apt/pip installs inside `test.sh`.
+- If best agents among Opus 5 / GPT-5.6 pass too often, especially near 80-100%, flag Task Difficulty.
+- If the task is only hard because of hidden, under-specified, or ambiguous rules, flag Test Alignment/Coverage Issues instead of treating it as valid difficulty.
+- If agent failures show repeated same spec ambiguity, flag Test Alignment/Coverage Issues.
+- If fresh agent report is missing after major hardening, do not mark difficulty as confirmed; say fresh agent results are needed.
+- A prior Medium/Hard label from Opus 4.x or GPT-5.5 is not sufficient evidence for the current bar.
+
+============================================================
+3. CANONICAL BASE IMAGE BLOCKERS
+============================================================
+
+- Final runtime Docker base image is not from the approved canonical list.
+- Base image is not digest-pinned with @sha256.
+- Docker Hub image is used instead of the exact public.ecr.aws canonical reference.
+- A custom/non-canonical image is used without a strong, specific justification.
+- Unsupported language uses custom image when canonical Debian/Ubuntu could be used.
+- Multi-stage Dockerfile has any FROM line not digest-pinned.
+- Base-image justification is vague, generic, or missing.
+
+Canonical images currently remembered:
+
+Python:
+public.ecr.aws/docker/library/python:3.13-slim-bookworm@sha256:01f42367a0a94ad4bc17111776fd66e3500c1d87c15bbd6055b7371d39c124fb
+
+Node:
+public.ecr.aws/docker/library/node:22-bookworm-slim@sha256:f3a68cf41a855d227d1b0ab832bed9749469ef38cf4f58182fb8c893bc462383
+
+Go:
+public.ecr.aws/docker/library/golang:1.24-bookworm@sha256:1a6d4452c65dea36aac2e2d606b01b4a029ec90cc1ae53890540ce6173ea77ac
+
+Rust:
+public.ecr.aws/docker/library/rust:1.85-slim@sha256:9f841bbe9e7d8e37ceb96ed907265a3a0df7f44e3737d0b100e7907a679acb36
+
+Java JDK:
+public.ecr.aws/docker/library/eclipse-temurin:21-jdk-jammy@sha256:25d1276565738d3c805e632a4542c3a7598866ef967f4def6544c15de3a74b14
+
+C/C++ GCC:
+public.ecr.aws/docker/library/gcc:13-bookworm@sha256:930f2ebe239275fa67226654cb79273ea34eee672ae61c8a39f689c37fb7ac5c
+
+Ruby:
+public.ecr.aws/docker/library/ruby:3.3-slim-bookworm@sha256:e76733e94b3a5893e4a141024ef3a583dc10781dc24becebf74f9c9f9a33e3df
+
+Maven:
+public.ecr.aws/docker/library/maven:3.9.9-eclipse-temurin-21@sha256:3a4ab3276a087bf276f79cae96b1af04f53731bec53fb2e651aca79e4b10211e
+
+Debian:
+public.ecr.aws/docker/library/debian:bookworm-slim@sha256:4724b8cc51e33e398f0e2e15e18d5ec2851ff0c2280647e1310bc1642182655d
+
+Ubuntu:
+public.ecr.aws/docker/library/ubuntu:24.04@sha256:0d39fcc8335d6d74d5502f6df2d30119ff4790ebbb60b364818d5112d9e3e932
+
+============================================================
+4. METADATA BLOCKERS
+============================================================
+
+- task.toml contains category_profile.
+- task.toml contains [reference_pattern].
+- task.toml uses invalid/nonstandard metadata fields under current schema.
+- category is invalid or blocked.
+- difficulty field is invalid.
+- codebase_size does not match expected static-check requirements.
+- verifier.timeout_sec or agent.timeout_sec is outside allowed range.
+- allow_internet setting conflicts with actual task needs.
+- Missing or wrong milestone [[steps]] entries for milestone tasks.
+- Broken or inconsistent task paths in metadata.
+- `difficulty` claims `hard` while checker complexity is `too_easy` / P1–P5 miss
+  (`METADATA-DRIFT`).
+- `subcategories` includes `tool_specific` but tags omit the concrete tool name.
+
+============================================================
+5. INTERNET USAGE BLOCKERS
+============================================================
+
+- allow_internet = false but the task requires internet access to solve.
+- Runtime HuggingFace/model/download dependency is needed while solving.
+- Runtime package installation is required during solve/test execution.
+- Solve commands use curl, wget, git clone, npm install, pip install, cargo fetch, go get, apt-get, or similar network actions when allow_internet = false.
+- Dockerfile does not preinstall pytest (and other deps) needed offline.
+- tests/test.sh downloads or installs dependencies (including `uvx`, pip, apt, curl).
+- Task claims offline but relies on external APIs, live URLs, remote package registries, or online model downloads.
+- If internet is genuinely required, allow_internet must be true and the task/category must permit that.
+
+============================================================
+6. TEST.SH / STATIC-CHECK BLOCKERS
+============================================================
+
+- tests/test.sh installs or provisions pytest (`uvx`, pip, apt, curl).
+- tests/test.sh does not create /logs/verifier.
+- tests/test.sh does not initialize /logs/verifier/reward.txt to 0 before pytest.
+- tests/test.sh does not run pytest.
+- pytest command does not use -rA when static checks require it.
+- tests/test.sh can exit 0 after pytest fails.
+- tests/test.sh does not end with the accepted reward-section pattern.
+- Do not fix static-check footer by only adding exit "$rc"; the footer format itself must match.
+
+Accepted pattern 1:
+
+pytest --ctrf /logs/verifier/ctrf.json /tests/test_outputs.py -rA
+if [ $? -eq 0 ]; then
+    echo 1 > /logs/verifier/reward.txt
+else
+    echo 0 > /logs/verifier/reward.txt
+fi
+
+Accepted pattern 2:
+
+pytest --ctrf /logs/verifier/ctrf.json /tests/test_outputs.py -rA
+rc=$?
+if [ "$rc" -eq 0 ]; then
+    echo 1 > /logs/verifier/reward.txt
+else
+    echo 0 > /logs/verifier/reward.txt
+fi
+
+- For milestone tasks, each localized milestone tests/test.sh must follow the accepted footer pattern.
+- Static checker may require the accepted reward section to be at the end of the file.
+- Blank lines or extra commands between rc=$? and if block can trigger static-check failure depending on checker strictness.
+
+============================================================
+7. EXPOSING HINTS / ANSWERS BLOCKERS
+============================================================
+
+Agent-facing files must not mention:
+
+- verifier
+- grader
+- grading
+- hidden tests
+- pytest
+- CTRF
+- /logs
+- reward.txt
+- tests/test.sh
+- oracle
+- solution
+- reference solution
+- bench/platform mechanics
+- do not edit verifier files
+- passes the verifier
+- signal completion so the bench can advance
+- fixture ids used in verifier scenarios
+- tests check
+- verifier rebuilds/reruns
+- the verifier uses
+- hidden scenario
+- direct descriptions of internal test strategy
+
+Also blocker:
+
+- Agent-facing docs describe which exact modules are broken.
+- Agent-facing docs include repair guides, .repair hints, helper-agent failure notes, or exact patch instructions.
+- Agent-facing docs expose ablation fixture strategy.
+- Agent-facing docs expose internal test seeds or exact values only because they map to hidden tests, unless they are legitimate public examples.
+- Files visible to the agent contain solution logic, answer keys, expected output digests, hidden fixture answers, or oracle code.
+
+Fix:
+
+- Reword to normal public contract language.
+- Move verifier-only files/fixtures under tests/ or protect them.
+- Keep exact formulas only when they are part of the public task contract, not hidden test strategy.
+
+============================================================
+8. TEST ALIGNMENT / COVERAGE BLOCKERS
+============================================================
+
+- Tests require behavior not specified in instruction.md or contract docs.
+- Spec contains ambiguous formulas that tests interpret one exact way.
+- Test expectations depend on hidden/unexplained values.
+- Tests only check output shape, not exact required behavior.
+- Tests recompute a value from the implementation output instead of checking the implementation chose the correct value.
+- Tests compare the Python reference against itself and never run the submitted implementation.
+- Tests check only one malformed case while the spec requires many rejection conditions.
+- Tests fail to verify atomicity/output preservation after malformed input.
+- Tests allow broad labels/statuses when the contract requires one exact label/status.
+- Tests use or-fallback assertions that let wrong behavior pass.
+- Tests only check rounding against itself.
+- Tests do not assert exact totals equal the sum of returned rows/batches/items.
+- Tests do not assert CLI output fields that lower-level function tests cover.
+- Tests do not verify deterministic ordering when contract requires canonical sort order.
+- Tests do not cover tie-break rules.
+- Tests do not check malformed/invalid input handling when contract requires rejection.
+- Tests do not check resume/idempotence/byte-identical behavior when required.
+- Tests do not check non-empty output when task requires real planning/reconstruction.
+- Tests depend on exact source file structure instead of public behavior.
+- Tests mutate source files or grep source code to enforce implementation shape.
+- Tests copy ablation fixtures into source paths instead of testing behavior/data mutations.
+- Agent-visible ablation fixtures can be modified to bypass tests.
+- Verifier-only fixtures are stored under /app/environment and writable by the agent without integrity checks.
+- Tests are too weak and allow hardcoded fixture-specific shortcuts.
+
+============================================================
+9. SOURCE-ABLATION / ANTI-CHEAT BLOCKERS
+============================================================
+
+- Tests patch implementation source files directly as an ablation check.
+- Tests require specific helper names, function names, source lines, or internal code layout not specified as public API.
+- Tests grep for exact implementation text.
+- Tests reward/penalize a particular algorithm shape when multiple correct implementations should pass.
+- Agent can edit test fixtures used by verifier to avoid fixing real implementation.
+- Verifier-only assets are in the runtime environment and writable.
+- Dockerfile copies tests/ or solution/ into runtime image.
+- .dockerignore does not exclude sensitive directories and actual leakage risk exists.
+- Precomputed output can persist and satisfy tests without rebuilding/recomputing.
+
+============================================================
+10. ORACLE / SOLUTION BLOCKERS
+============================================================
+
+- solution/ is copied into the Docker image.
+- solution code is referenced from agent-facing instructions.
+- solution script writes hardcoded final outputs instead of demonstrating a real solve path when not acceptable.
+- Provided oracle/reference implementation is wrong.
+- Provided solution fails tests.
+- Provided solution uses internet when task is offline.
+- Provided solution depends on files not included in task.
+- Provided solution only patches tests or verifier assets.
+- Provided solution encodes hidden answers rather than implementing behavior.
+- Solution output format is inconsistent with contract/tests.
+- Oracle and tests disagree.
+
+============================================================
+11. RUBRIC BLOCKERS
+============================================================
+
+- Missing `rubric.txt` at the task root (required; must ship in the zip).
+- `rubrics.txt` (plural) present instead of or in addition to `rubric.txt`.
+- `[rubric]` section present in `task.toml`.
+- Rubric is empty.
+- Criteria do not start exactly with "Agent ".
+- Non-milestone task has fewer than 3 distinct negative criteria.
+- Score values are not in allowed set: +/-1, +/-2, +/-3, +/-5.
+- Positive criteria sum outside 10–40 for non-milestone tasks.
+- No negative criterion names a real decoy planted in the environment (R6/P4).
+- Rubric uses process-only criteria that cannot be verified from final output, such as Agent reads docs or Agent runs command.
+- Rubric rewards hidden workflow instead of final behavior.
+- Rubric references tests, verifier, hidden tests, or platform internals.
+- Rubric gives credit for behavior not required by task.
+- Rubric misses major required behavior.
+- Milestone rubric section totals are outside required range.
+- Milestone rubric headers/structure are invalid.
+- Multiple non-milestone # Rubric headers when not expected.
+- Rubric includes meta criteria like read the spec before editing; remove those.
+
+============================================================
+12. MILESTONE TASK BLOCKERS
+============================================================
+
+- Uses old/global milestone layout when current layout requires steps/milestone_N.
+- Missing steps/ directory.
+- Missing milestone-specific instruction.md.
+- Missing milestone-specific tests.
+- Missing milestone-specific solution.
+- Missing or incorrect [[steps]] entries in task.toml.
+- Milestone tests/instructions reference wrong paths.
+- Milestone instruction exposes verifier/platform wording.
+- Milestone tests do not enforce the milestone contract.
+- Milestone outputs are not localized or are inconsistent across steps.
+- Milestone rubric sections are invalid.
+- A later milestone can pass without implementing earlier required behavior when cumulative behavior is expected.
+
+============================================================
+13. DOCKER / DEPENDENCY / BUILD BLOCKERS
+============================================================
+
+- Docker build requires network but internet is not allowed.
+- Dependencies are installed in tests/test.sh instead of Dockerfile.
+- Package versions are unpinned where static checks require pinning.
+- Lockfile is missing when static checks require deterministic install.
+- npm install used where npm ci is required by static checks or project lockfile expectations.
+- pip install resolves transitive dependencies at build time without lock/hashes when flagged as error.
+- Dockerfile copies tests/ or solution/.
+- Dockerfile uses unpinned apt packages if static checker requires pins.
+- Dockerfile uses curl|sh or unverified downloads without hashes/signatures.
+- Build artifacts/precompiled solutions are baked into image.
+- Required CLI is not executable.
+- Runtime image lacks required files.
+- Build script fails from clean checkout.
+- tests/test.sh assumes dependencies not present in image.
+- Missing .dockerignore exclusions can become blocker if it leaks tests/solution/.git/secrets or static checks mark as error.
+
+============================================================
+14. INSTRUCTION STYLING / SPEC QUALITY BLOCKERS
+============================================================
+
+- Instruction is too vague to determine expected behavior.
+- Instruction is too dense and omits normative formulas or paths.
+- Instruction includes exact hidden-test hints.
+- Instruction says to inspect tests/verifier.
+- Instruction asks for impossible behavior.
+- Instruction contradicts contract docs.
+- Instruction contradicts tests.
+- Required output path is missing.
+- Required CLI command/API is missing.
+- Required input file locations are missing.
+- Required output schema is missing or inconsistent.
+- Required sorting/tie-break/rounding/hash/digest formulas are missing.
+- Required invalid-input behavior is missing.
+- Stateful behavior is tested but not documented.
+- Resume/idempotence/atomicity behavior is tested but not documented.
+- Public examples conflict with tests.
+
+============================================================
+15. TIME / NONDETERMINISM BLOCKERS
+============================================================
+
+- Tests depend on wall-clock time without freezing.
+- Tests depend on current date/time/timezone.
+- Tests use randomness without fixed seed.
+- Tests use unordered output where deterministic order is required.
+- Tests depend on file-system iteration order without sorting.
+- Tests depend on online/live data.
+- Tests are flaky across repeated runs.
+- Tests have race conditions or parallelism assumptions.
+- Tests use timeouts as correctness signals instead of deterministic assertions.
+
+============================================================
+16. LONG CONTEXT BLOCKERS
+============================================================
+
+- Long-context docs are filler, repetitive, or unrealistic.
+- Long-context docs contain hidden answer clues.
+- Long-context docs are not needed to solve the task.
+- Long-context docs are just huge JSONL dumps without realistic structure.
+- Critical requirements are buried only in long context without clear references.
+- Long-context content contradicts main instruction/spec.
+
+============================================================
+17. TEST BUILD / QUALITY STATIC CHECK BLOCKERS
+============================================================
+
+- Ruff/flake/static linter errors in tests.
+- Example remembered error: E741 ambiguous variable name l in tests/test_outputs.py.
+- Syntax errors in tests.
+- Tests import missing modules.
+- Tests reference missing files.
+- Tests use wrong output path.
+- Tests fail against oracle solution.
+- Tests pass against nop/baseline when they should not.
+- Tests cannot run offline.
+- Tests produce no CTRF/reward output when expected.
+- Static checks fail with error status.
+
+============================================================
+18. ACCEPTANCE SIGNALS
+============================================================
+
+A zip-level review can usually be Accept only when:
+
+- Category is allowed and not Software Engineering/Debugging.
+- Canonical digest-pinned base image is used.
+- allow_internet matches actual solve requirements.
+- task.toml metadata is clean.
+- No agent-facing verifier/grader/test-harness wording exists.
+- tests/test.sh footer matches accepted static-check pattern.
+- Tests are behavior-based, not source-ablation/source-grep based.
+- Tests enforce all specified contract behaviors.
+- Spec documents all tested formulas, edge cases, ordering, atomicity, and invalid-input behavior.
+- Dockerfile does not copy tests/solution into image.
+- Oracle solution passes.
+- Nop/baseline fails.
+- At least one real agent run passes all tests.
+- Difficulty report is at least MEDIUM.
+- Rubric is valid and outcome-based.
+
+============================================================
+19. REVIEW OUTPUT FORMAT TO USE
+============================================================
+
+Decision: Accept / Needs Revision
+Accept Boosted Task: No
+
+Does this task use an approved canonical base image? Select No if you are using a custom image that does not come from the canonical set. Yes / No
+
+Justification for Non-Canonical Base Image:
+[only when No]
+
+Error categories:
+
+* Category or * None
+
+Short note:
+
+Reviewer Feedback
+
+* concrete bullet
+* concrete bullet
+
+
+============================================================
+21. TASK UNIQUENESS BLOCKERS
+============================================================
+
+- Task similarity to any peer task is **> 15%** (local `check-similarity.py` or platform search). Local default threshold is **0.15** — same as platform.
+- Task is a clone-and-rename / house-template reskin (same instruction skeleton, env topology, verifier cluster, or oracle pattern with swapped nouns).
+- New idea was drafted without a uniqueness audit (≥5 distinct properties vs existing tasks) per `.cursor/rules/unique-task-generation.mdc` / `prompts/terminus_unique_task_generator_prompt.md`.
+- Batch of tasks share the same narrative arc, schema fan-out, or repair topology without distinct causal structure.
+
+============================================================
+20. IMPORTANT REVIEW BEHAVIOR
+============================================================
+
+- Check the zip before claiming a blocker.
+- Do not hallucinate file names, lines, or issues.
+- If unsure whether a task is Debugging, do not classify it as Debugging.
+- Only call a task Debugging when the zip clearly asks the agent to repair broken existing code/behavior.
+- Treat `software-engineering`, `debugging`, and `data-processing` as blocked for new work and for edits that would classify into them; see `prompts/terminus_task_category_guide.md`.
+- Do not call Docker warnings blockers unless static checks mark them as errors or they cause a real task issue.
+- For test.sh footer static checks, verify the exact accepted pattern, not just that reward is written.
+- Fresh agent reports are required to confirm difficulty after major changes.
+- Enforce ≤ 15% task similarity (local+platform); reject reskins even under TF-IDF if they lack ≥5 unique properties.
