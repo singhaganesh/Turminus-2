@@ -1,0 +1,114 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 16 items
+
+../tests/test_outputs.py ...FFF.....FF..F                                [100%]
+
+=================================== FAILURES ===================================
+______________________________ test_vx04_pack_len ______________________________
+
+    def test_vx04_pack_len() -> None:
+        """Some held pull matches the seed slip length."""
+        payload = SEED.read_bytes()
+        _wake()
+        lengths = [len(_pull(hid)) for hid in _held()]
+>       assert len(payload) in lengths
+E       AssertionError: assert 22 in [18, 26]
+E        +  where 22 = len(b'seed-alpha-payload-01\n')
+
+/tests/test_outputs.py:113: AssertionError
+_____________________________ test_vx05_seed_keep ______________________________
+
+    def test_vx05_seed_keep() -> None:
+        """Some held pull returns the prior slip bytes."""
+        payload = PRIOR.read_bytes()
+        _wake()
+>       assert any(_pull(hid) == payload for hid in _held())
+E       assert False
+E        +  where False = any(<generator object test_vx05_seed_keep.<locals>.<genexpr> at 0x7a368d280ba0>)
+
+/tests/test_outputs.py:120: AssertionError
+______________________________ test_vx06_tag_set _______________________________
+
+    def test_vx06_tag_set() -> None:
+        """wake.json kind and note match CARD.txt on a clean pass, and seed/prior pulls match."""
+        r = _wake()
+        assert r.returncode == 0
+        assert json.loads(WAKE.read_text())["note"] == "ok"
+        doc = _load_wake()
+        assert doc["kind"] == "live"
+        bodies = [_pull(hid) for hid in doc["held"]]
+>       assert SEED.read_bytes() in bodies
+E       AssertionError: assert b'seed-alpha-payload-01\n' in [b'oak-alpha-payload\n', b'oak-charlie-payload-grade\n']
+E        +  where b'seed-alpha-payload-01\n' = read_bytes()
+E        +    where read_bytes = PosixPath('/app/inbox/seed.slip').read_bytes
+
+/tests/test_outputs.py:131: AssertionError
+______________________________ test_vx12_keep_old ______________________________
+
+    def test_vx12_keep_old() -> None:
+        """Older seed and prior bodies stay pullable after nick."""
+        slip = INBOX / "oak-e.slip"
+        before = set(_held())
+        _cli("nick", str(slip))
+        r = _wake()
+        assert r.returncode == 0
+        after = set(_held())
+        assert after <= before
+        bodies = [_pull(hid) for hid in after]
+>       assert SEED.read_bytes() in bodies
+E       AssertionError: assert b'seed-alpha-payload-01\n' in [b'oak-alpha-payload\n', b'oak-charlie-payload-grade\n', b'oak-delta-len-check\n']
+E        +  where b'seed-alpha-payload-01\n' = read_bytes()
+E        +    where read_bytes = PosixPath('/app/inbox/seed.slip').read_bytes
+
+/tests/test_outputs.py:203: AssertionError
+_____________________________ test_vx13_void_span ______________________________
+
+    def test_vx13_void_span() -> None:
+        """held pull of seed equals the seed slip bytes."""
+        payload = SEED.read_bytes()
+        _wake()
+>       assert any(_pull(hid) == payload for hid in _held())
+E       assert False
+E        +  where False = any(<generator object test_vx13_void_span.<locals>.<genexpr> at 0x7a368d282500>)
+
+/tests/test_outputs.py:211: AssertionError
+____________________________ test_zz_rewrites_wake _____________________________
+
+    def test_zz_rewrites_wake() -> None:
+        """Hand-written wake.json is replaced by a real wake pass."""
+        WAKE.write_text("{}")
+        r = _wake()
+        doc = _load_wake()
+        assert "held" in doc
+        assert "kind" in doc
+        if r.returncode == 0:
+            assert doc["kind"] == "live"
+            bodies = [_pull(hid) for hid in doc["held"]]
+>           assert SEED.read_bytes() in bodies
+E           assert b'seed-alpha-payload-01\n' in [b'oak-alpha-payload\n', b'oak-charlie-payload-grade\n', b'oak-delta-len-check\n', b'oak-delta-len-check\n', b'\x00\x0...05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&\'()*+,-./']
+E            +  where b'seed-alpha-payload-01\n' = read_bytes()
+E            +    where read_bytes = PosixPath('/app/inbox/seed.slip').read_bytes
+
+/tests/test_outputs.py:251: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_vx01_full_copy
+PASSED ../tests/test_outputs.py::test_vx02_tide_gap
+PASSED ../tests/test_outputs.py::test_vx03_short_rc
+PASSED ../tests/test_outputs.py::test_vx07_omit_bad
+PASSED ../tests/test_outputs.py::test_vx08_extra_oak
+PASSED ../tests/test_outputs.py::test_vx09_obj_keys
+PASSED ../tests/test_outputs.py::test_vx10_span_len
+PASSED ../tests/test_outputs.py::test_vx11_hue_gap
+PASSED ../tests/test_outputs.py::test_vx14_card_id
+PASSED ../tests/test_outputs.py::test_vx15_hold_span
+FAILED ../tests/test_outputs.py::test_vx04_pack_len - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_vx05_seed_keep - assert False
+FAILED ../tests/test_outputs.py::test_vx06_tag_set - AssertionError: assert b...
+FAILED ../tests/test_outputs.py::test_vx12_keep_old - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_vx13_void_span - assert False
+FAILED ../tests/test_outputs.py::test_zz_rewrites_wake - assert b'seed-alpha-...
+========================= 6 failed, 10 passed in 8.33s =========================

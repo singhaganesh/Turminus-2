@@ -1,0 +1,205 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py FFFFFFFFFFFF                                    [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_dk01_twice_blob _____________________________
+
+    def test_dk01_twice_blob():
+        """Two clasp processes write identical latest names matching the stage set."""
+        _restore()
+        r1 = _clasp()
+        assert r1.returncode == 0
+        names1 = sorted(p.name for p in LATEST.glob("*.tbl"))
+        stage1 = sorted(p.name for p in STAGE.glob("*.tbl"))
+>       assert names1 == stage1
+E       AssertionError: assert ['d20260910.t...20260911.tbl'] == ['d20260910.t...20260912.tbl']
+E         
+E         Right contains one more item: 'd20260912.tbl'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:72: AssertionError
+_____________________________ test_dk02_held_extra _____________________________
+
+    def test_dk02_held_extra():
+        """An older held-out day file is unpacked; a day past the wall is not."""
+        _restore()
+        (DAY / "d20260908.tbl").write_text("11\n12\n")
+        (DAY / "d20260914.tbl").write_text("91\n92\n93\n")
+        r = _clasp()
+        assert r.returncode == 0
+        assert (LATEST / "d20260908.tbl").is_file()
+        assert _nlines(LATEST / "d20260908.tbl") == 2
+        assert not (LATEST / "d20260914.tbl").is_file()
+        n, live = _live_newest()
+        assert n == WALL
+>       assert _nlines(LATEST / f"d{n:08d}.tbl") == live
+E       AssertionError: assert 0 == 7
+E        +  where 0 = _nlines((PosixPath('/app/packbay/latest') / 'd20260913.tbl'))
+
+/tests/test_outputs.py:94: AssertionError
+______________________________ test_dk03_cur_pack ______________________________
+
+    def test_dk03_cur_pack():
+        """Restored row count for the wall day equals the daywell count."""
+        _restore()
+        assert _clasp().returncode == 0
+        n, live = _live_newest()
+>       assert _nlines(LATEST / f"d{n:08d}.tbl") == live
+E       AssertionError: assert 0 == 7
+E        +  where 0 = _nlines((PosixPath('/app/packbay/latest') / 'd20260913.tbl'))
+
+/tests/test_outputs.py:103: AssertionError
+_____________________________ test_dk04_kind_word ______________________________
+
+    def test_dk04_kind_word():
+        """check.json probe is live after clasp."""
+        _restore()
+        assert _clasp().returncode == 0
+        data = _load_check()
+>       assert data["probe"] == "live"
+E       AssertionError: assert 'ledger' == 'live'
+E         
+E         - live
+E         + ledger
+
+/tests/test_outputs.py:112: AssertionError
+_____________________________ test_dk05_solo_today _____________________________
+
+    def test_dk05_solo_today():
+        """A daywell that holds only the wall file still unpacks those rows."""
+        _restore()
+        keep = DAY / f"d{WALL:08d}.tbl"
+        blob = keep.read_bytes()
+        for p in DAY.glob("*.tbl"):
+            p.unlink()
+        keep.write_bytes(blob)
+        r = _clasp()
+        assert r.returncode == 0
+>       assert _nlines(LATEST / f"d{WALL:08d}.tbl") == _nlines(keep)
+E       AssertionError: assert 0 == 7
+E        +  where 0 = _nlines((PosixPath('/app/packbay/latest') / 'd20260913.tbl'))
+E        +  and   7 = _nlines(PosixPath('/app/daywell/d20260913.tbl'))
+
+/tests/test_outputs.py:125: AssertionError
+_____________________________ test_dk06_hdr_magic ______________________________
+
+    def test_dk06_hdr_magic():
+        """dewkiln is ELF and the wall day survives clasp."""
+        _restore()
+        _assert_native()
+        assert _clasp().returncode == 0
+        n, live = _live_newest()
+>       assert _nlines(LATEST / f"d{n:08d}.tbl") == live
+E       AssertionError: assert 0 == 7
+E        +  where 0 = _nlines((PosixPath('/app/packbay/latest') / 'd20260913.tbl'))
+
+/tests/test_outputs.py:135: AssertionError
+_____________________________ test_dk07_stamp_text _____________________________
+
+    def test_dk07_stamp_text():
+        """GUARD is ok on a live check; empty daywell leaves GUARD absent."""
+        _restore()
+        r = _clasp()
+        data = _load_check()
+        if data.get("probe") != "live":
+>           assert r.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/dewkiln', 'clasp'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:144: AssertionError
+_____________________________ test_dk08_ahead_omit _____________________________
+
+    def test_dk08_ahead_omit():
+        """A day past the wall stays out of latest while the wall day stays in."""
+        _restore()
+        (DAY / "d20260914.tbl").write_text("77\n")
+        assert _clasp().returncode == 0
+        assert not (LATEST / "d20260914.tbl").is_file()
+>       assert _nlines(LATEST / f"d{WALL:08d}.tbl") == _nlines(DAY / f"d{WALL:08d}.tbl")
+E       AssertionError: assert 0 == 7
+E        +  where 0 = _nlines((PosixPath('/app/packbay/latest') / 'd20260913.tbl'))
+E        +  and   7 = _nlines((PosixPath('/app/daywell') / 'd20260913.tbl'))
+
+/tests/test_outputs.py:163: AssertionError
+______________________________ test_dk09_keys_obj ______________________________
+
+    def test_dk09_keys_obj():
+        """matched equals the live sum for days at or before the wall."""
+        _restore()
+        assert _clasp().returncode == 0
+        data = _load_check()
+>       assert data["probe"] == "live"
+E       AssertionError: assert 'ledger' == 'live'
+E         
+E         - live
+E         + ledger
+
+/tests/test_outputs.py:172: AssertionError
+_____________________________ test_dk10_zz_corrupt _____________________________
+
+    def test_dk10_zz_corrupt():
+        """Hand-broken bloturn files are rebuilt by a later clasp."""
+        _restore()
+        assert _clasp().returncode == 0
+        CHECK.write_text("{}")
+        LEDGER.write_text("{}")
+        r = _clasp()
+        assert r.returncode == 0
+        data = _load_check()
+>       assert data["probe"] == "live"
+E       AssertionError: assert 'ledger' == 'live'
+E         
+E         - live
+E         + ledger
+
+/tests/test_outputs.py:192: AssertionError
+_____________________________ test_dk11_once_pass ______________________________
+
+    def test_dk11_once_pass():
+        """One clasp subprocess unpacks every staged shard."""
+        _restore()
+        r = _clasp()
+        assert r.returncode == 0
+        stage = sorted(p.name for p in STAGE.glob("*.tbl"))
+        latest = sorted(p.name for p in LATEST.glob("*.tbl"))
+>       assert latest == stage
+E       AssertionError: assert ['d20260910.t...20260911.tbl'] == ['d20260910.t...20260912.tbl']
+E         
+E         Right contains one more item: 'd20260912.tbl'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:205: AssertionError
+___________________________ test_dk12_floor_ignored ____________________________
+
+    def test_dk12_floor_ignored():
+        """Newest-day parity holds even when taken already clears the CI floor."""
+        _restore()
+        floor = int(Path("/app/floorcue/MIN.txt").read_text().strip())
+        assert _clasp().returncode == 0
+        data = _load_check()
+>       assert data["probe"] == "live"
+E       AssertionError: assert 'ledger' == 'live'
+E         
+E         - live
+E         + ledger
+
+/tests/test_outputs.py:215: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_dk01_twice_blob - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_dk02_held_extra - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_dk03_cur_pack - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_dk04_kind_word - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_dk05_solo_today - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_dk06_hdr_magic - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_dk07_stamp_text - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_dk08_ahead_omit - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_dk09_keys_obj - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_dk10_zz_corrupt - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_dk11_once_pass - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_dk12_floor_ignored - AssertionError: as...
+============================== 12 failed in 0.24s ==============================

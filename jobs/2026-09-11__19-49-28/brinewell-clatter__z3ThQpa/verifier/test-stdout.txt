@@ -1,0 +1,288 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 14 items
+
+../tests/test_outputs.py FFFFFFFFFFFFFF                                  [100%]
+
+=================================== FAILURES ===================================
+____________________________ test_bw01_repeat_pair _____________________________
+
+    def test_bw01_repeat_pair() -> None:
+        """two fresh mints write identical keg bytes."""
+        _restore()
+        assert _mint().returncode == 0
+        j1 = JSON_PATH.read_bytes()
+        t1 = TSV_PATH.read_bytes()
+        assert _mint().returncode == 0
+>       assert JSON_PATH.read_bytes() == j1
+E       assert b'{"batch_cou...aaaaaaa"}]}\n' == b'{"batch_cou...2020202"}]}\n'
+E         
+E         At index 45 diff: b'o' != b'a'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:120: AssertionError
+_____________________________ test_bw02_arc_order ______________________________
+
+    def test_bw02_arc_order() -> None:
+        """seq names follow decoded dump chronology."""
+        _restore()
+        assert _mint().returncode == 0
+        body = _load_json()
+        got = [row["name"] for row in sorted(body["entries"], key=lambda r: r["seq"])]
+>       assert got == _want_names()
+E       AssertionError: assert ['d.clat', 'o...at', 'b.clat'] == ['old.clat', ...'e.clat', ...]
+E         
+E         At index 0 diff: 'd.clat' != 'old.clat'
+E         Right contains 2 more items, first extra item: 'e.clat'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:130: AssertionError
+______________________________ test_bw03_pair_adj ______________________________
+
+    def test_bw03_pair_adj() -> None:
+        """same-guid extras sit beside their primary."""
+        _restore()
+        assert _mint().returncode == 0
+        names = [row["name"] for row in sorted(_load_json()["entries"], key=lambda r: r["seq"])]
+>       assert names.index("a.clat") + 1 == names.index("a2.clat")
+                                            ^^^^^^^^^^^^^^^^^^^^^^
+E       ValueError: 'a2.clat' is not in list
+
+/tests/test_outputs.py:143: ValueError
+_____________________________ test_bw04_hold_extra _____________________________
+
+    def test_bw04_hold_extra() -> None:
+        """a dump added at grade time lands in chronology."""
+        _restore()
+        extra = WELL / "mid.clat"
+        raw = bytearray((WELL / "b.clat").read_bytes())
+        unix = 1550000000
+        ft = (unix + DELTA) * TICKS
+        lo_d = ft & 0xFFFFFFFF
+        hi_d = (ft >> 32) & 0xFFFFFFFF
+        n = _u16(bytes(raw), 10)
+        off = 12
+        for _ in range(n):
+            st = _u32(bytes(raw), off)
+            rva = _u32(bytes(raw), off + 4)
+            off += 12
+            if st == 3:
+                raw[rva : rva + 4] = int(lo_d).to_bytes(4, "little")
+                raw[rva + 4 : rva + 8] = int(hi_d).to_bytes(4, "little")
+            if st == 15:
+                raw[rva : rva + 16] = bytes([0x55]) * 16
+                raw[rva + 16] = 0
+        extra.write_bytes(bytes(raw))
+        assert _mint().returncode == 0
+        names = [row["name"] for row in sorted(_load_json()["entries"], key=lambda r: r["seq"])]
+>       assert names == _want_names()
+E       AssertionError: assert ['b.clat', 'd...at', 'e.clat'] == ['old.clat', ...a2.clat', ...]
+E         
+E         At index 0 diff: 'b.clat' != 'old.clat'
+E         Right contains 2 more items, first extra item: 'e.clat'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:171: AssertionError
+_____________________________ test_bw05_empty_exit _____________________________
+
+    def test_bw05_empty_exit() -> None:
+        """empty well makes tallow fail."""
+        _restore()
+        for p in WELL.glob("*.clat"):
+            p.unlink()
+        proc = subprocess.run(["/app/bin/clatter", "tallow"], capture_output=True, text=True)
+        _assert_native()
+>       assert proc.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/clatter', 'tallow'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:183: AssertionError
+____________________________ test_bw06_outside_exit ____________________________
+
+    def test_bw06_outside_exit() -> None:
+        """pour of a path outside the well exits nonzero."""
+        _restore()
+        assert _mint().returncode == 0
+        proc = subprocess.run(
+            ["/app/bin/clatter", "pour", "/app/scratch"],
+            capture_output=True,
+            text=True,
+        )
+        _assert_native()
+>       assert proc.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/clatter', 'pour', '/app/scratch'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:196: AssertionError
+____________________________ test_bw07_schema_rows _____________________________
+
+    def test_bw07_schema_rows() -> None:
+        """json lists every well file once with required fields."""
+        _restore()
+        assert _mint().returncode == 0
+        body = _load_json()
+        names = [row["name"] for row in body["entries"]]
+        well = {p.name for p in WELL.glob("*.clat")}
+>       assert set(names) == well
+E       AssertionError: assert {'a.clat', 'b...', 'old.clat'} == {'a.clat', 'a...e2.clat', ...}
+E         
+E         Extra items in the right set:
+E         'e2.clat'
+E         'a2.clat'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:206: AssertionError
+______________________________ test_bw08_tsv_rows ______________________________
+
+    def test_bw08_tsv_rows() -> None:
+        """tsv rows match json seq/name/digest/guid."""
+        _restore()
+        assert _mint().returncode == 0
+        body = _load_json()
+        lines = TSV_PATH.read_text().splitlines()
+        assert lines[0] == "seq\tname\tdigest\tguid"
+        rows = [ln.split("\t") for ln in lines[1:] if ln]
+        js = sorted(body["entries"], key=lambda r: r["seq"])
+        assert len(rows) == len(js)
+        for rec, j in zip(rows, js):
+            assert rec[0] == str(j["seq"])
+            assert rec[1] == j["name"]
+            assert rec[2] == j["digest"]
+            assert rec[3] == j["guid"]
+        names = [rec[1] for rec in rows]
+>       assert names == _want_names()
+E       AssertionError: assert ['d.clat', 'e...', 'old.clat'] == ['old.clat', ...'e.clat', ...]
+E         
+E         At index 0 diff: 'd.clat' != 'old.clat'
+E         Right contains 2 more items, first extra item: 'e.clat'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:230: AssertionError
+______________________________ test_bw09_hex_body ______________________________
+
+    def test_bw09_hex_body() -> None:
+        """digest matches dump bytes and seq-1 is the earliest crash."""
+        _restore()
+        assert _mint().returncode == 0
+        body = _load_json()
+        want = _want_names()
+        names = [row["name"] for row in sorted(body["entries"], key=lambda r: r["seq"])]
+>       assert names == want
+E       AssertionError: assert ['d.clat', 'a...at', 'e.clat'] == ['old.clat', ...'e.clat', ...]
+E         
+E         At index 0 diff: 'd.clat' != 'old.clat'
+E         Right contains 2 more items, first extra item: 'e.clat'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:240: AssertionError
+______________________________ test_bw10_k_split _______________________________
+
+    def test_bw10_k_split() -> None:
+        """batch_count is ceil of entry count over three and first batch is earliest names."""
+        _restore()
+        assert _mint().returncode == 0
+        body = _load_json()
+        want = _want_names()
+        names = [row["name"] for row in sorted(body["entries"], key=lambda r: r["seq"])]
+>       assert names == want
+E       AssertionError: assert ['b.clat', 'o...at', 'e.clat'] == ['old.clat', ...'e.clat', ...]
+E         
+E         At index 0 diff: 'b.clat' != 'old.clat'
+E         Right contains 2 more items, first extra item: 'e.clat'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:258: AssertionError
+______________________________ test_bw11_zz_regen ______________________________
+
+    def test_bw11_zz_regen() -> None:
+        """tallow then pour restores keg files after they are clobbered."""
+        _restore()
+        assert _mint().returncode == 0
+        JSON_PATH.write_text("{}")
+        TSV_PATH.write_text("junk")
+        proc = subprocess.run(["/app/bin/clatter", "tallow"], capture_output=True, text=True)
+        assert proc.returncode == 0
+        proc = subprocess.run(["/app/bin/clatter", "pour"], capture_output=True, text=True)
+        _assert_native()
+        assert proc.returncode == 0
+        names = [row["name"] for row in sorted(_load_json()["entries"], key=lambda r: r["seq"])]
+>       assert names == _want_names()
+E       AssertionError: assert ['d.clat', 'e...at', 'b.clat'] == ['old.clat', ...'e.clat', ...]
+E         
+E         At index 0 diff: 'd.clat' != 'old.clat'
+E         Right contains 2 more items, first extra item: 'e.clat'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:276: AssertionError
+______________________________ test_bw12_one_shot ______________________________
+
+    def test_bw12_one_shot() -> None:
+        """one tallow subprocess then one pour subprocess fills the keg."""
+        _restore()
+        _assert_native()
+        a = subprocess.run(["/app/bin/clatter", "tallow"], capture_output=True, text=True)
+        assert a.returncode == 0
+        b = subprocess.run(["/app/bin/clatter", "pour"], capture_output=True, text=True)
+        assert b.returncode == 0
+        names = [row["name"] for row in sorted(_load_json()["entries"], key=lambda r: r["seq"])]
+>       assert names == _want_names()
+E       AssertionError: assert ['b.clat', 'e...at', 'a.clat'] == ['old.clat', ...'e.clat', ...]
+E         
+E         At index 0 diff: 'b.clat' != 'old.clat'
+E         Right contains 2 more items, first extra item: 'e.clat'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:288: AssertionError
+_____________________________ test_bw13_flag_gone ______________________________
+
+    def test_bw13_flag_gone() -> None:
+        """failed empty mint leaves MARK absent."""
+        _restore()
+        MARK.write_text("ok")
+        for p in WELL.glob("*.clat"):
+            p.unlink()
+        subprocess.run(["/app/bin/clatter", "tallow"], capture_output=True, text=True)
+        _assert_native()
+>       assert not MARK.exists()
+E       AssertionError: assert not True
+E        +  where True = exists()
+E        +    where exists = PosixPath('/app/kegbay/MARK').exists
+
+/tests/test_outputs.py:299: AssertionError
+_____________________________ test_bw14_seed_hide ______________________________
+
+    def test_bw14_seed_hide() -> None:
+        """chronology holds even if last-good is moved aside."""
+        _restore()
+        hidden = KEG / "hide.rec"
+        if ARC.exists():
+            shutil.move(str(ARC), str(hidden))
+        try:
+            assert _mint().returncode == 0
+            names = [row["name"] for row in sorted(_load_json()["entries"], key=lambda r: r["seq"])]
+>           assert names == _want_names()
+E           AssertionError: assert ['e.clat', 'd...', 'old.clat'] == ['old.clat', ...'e.clat', ...]
+E             
+E             At index 0 diff: 'e.clat' != 'old.clat'
+E             Right contains 2 more items, first extra item: 'e.clat'
+E             Use -v to get more diff
+
+/tests/test_outputs.py:311: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_bw01_repeat_pair - assert b'{"batch_cou...
+FAILED ../tests/test_outputs.py::test_bw02_arc_order - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_bw03_pair_adj - ValueError: 'a2.clat' i...
+FAILED ../tests/test_outputs.py::test_bw04_hold_extra - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_bw05_empty_exit - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_bw06_outside_exit - AssertionError: ass...
+FAILED ../tests/test_outputs.py::test_bw07_schema_rows - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_bw08_tsv_rows - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_bw09_hex_body - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_bw10_k_split - AssertionError: assert [...
+FAILED ../tests/test_outputs.py::test_bw11_zz_regen - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_bw12_one_shot - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_bw13_flag_gone - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_bw14_seed_hide - AssertionError: assert...
+============================== 14 failed in 0.54s ==============================

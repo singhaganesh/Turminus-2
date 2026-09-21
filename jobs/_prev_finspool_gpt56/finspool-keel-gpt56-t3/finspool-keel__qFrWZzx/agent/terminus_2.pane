@@ -1,0 +1,623 @@
+[?2004hroot@7924cb71b5e1:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@7924cb71b5e1:/app# clear
+[?2004l[H[J[3J[?2004hroot@7924cb71b5e1:/app# pwd; printf '%s\n' '--- tree ---'; find . -maxdepth 3 -type f -printf '%p\n' | sort; printf '%s\n' '--- route ---'; cat /app/vatnote/ROUTE.txt; printf '%s\n' '--- file types ---'; file /app/bin/finspool 2>&1 || true
+[?2004l/app
+--- tree ---
+./bin/finspool
+./fincli/boot.rs
+./fincli/usage.txt
+./hookvat/gen_emit.rs
+./hookvat/open.rs
+./hookvat/seal.rs
+./hookvat/spool.rs
+./hull.sh
+./opsleaf/SHIFT.txt
+./scanpit/fmt.rs
+./scanpit/peek.rs
+./slipcards/NOTE.txt
+./slipcards/cap.rs
+./spindock/modes.rs
+./spindock/spin.rs
+./spindock/text.rs
+./tplfold/emit.tpl
+./tplfold/gather.rs
+./tplfold/live.rs
+./tplfold/modes.knt
+./vatnote/FORMAT.txt
+./vatnote/ROUTE.txt
+--- route ---
+Pipeline modules under /app:
+
+- spindock
+- hookvat
+- scanpit
+- fincli
+
+Desk cards land under /app/bloturn. Named dest files used on this bench include
+/app/bloturn/final.rec, /app/bloturn/second.rec, /app/bloturn/pair-a.rec, and
+/app/bloturn/pair-b.rec. /tmp/finspool-out.rec sits outside that tree.
+
+Drive /app/bin/finspool.
+--- file types ---
+bash: file: command not found
+[?2004hroot@7924cb71b5e1:/app# printf '%s\n' '--- build files ---'; find /app -maxdepth 3 -type f \( -name 'Makefile' -o -name '*.mk' -o -name 'CMakeLists.txt' -o -name 'README*' \) -print -exec sed -n '1,240p' {} \;
+[?2004l--- build files ---
+[?2004hroot@7924cb71b5e1:/app# printf '%s\n' '--- source previews ---'; find /app -maxdepth 3 -type f \( -name '*.c' -o -name '*.h' -o -name '*.sh' -o -name '*.py' \) -print -exec sed -n '1,260p' {} \;
+[?2004l--- source previews ---
+/app/hull.sh
+#!/bin/sh
+set -eu
+export PATH="/usr/local/cargo/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+mkdir -p /app/bin /app/bloturn
+rustc --edition 2021 -O /app/spindock/spin.rs -o /tmp/spinknit
+/tmp/spinknit
+rustc --edition 2021 -O /app/fincli/boot.rs -o /app/bin/finspool
+[?2004hroot@7924cb71b5e1:/app# for f in /app/spindock/*.rs /app/hookvat/*.rs /app/scanpit/*.rs /app/fincli/*.rs /app/tplfold/*.rs; do echo "===== $f ====="; sed -n '1,320p' "$f"; done
+[?2004l===== /app/spindock/modes.rs =====
+pub fn op_a(k: u8) -> u8 {
+    if k == 0 {
+        1
+    } else {
+        0
+    }
+}
+===== /app/spindock/spin.rs =====
+#[path = "/app/spindock/modes.rs"]
+mod modes;
+#[path = "/app/spindock/text.rs"]
+mod text;
+
+use std::fs;
+
+fn main() {
+    let _ = text::pad_out("x");
+    let hard_gather = modes::op_a(1) == 0;
+    let src = if hard_gather {
+        "/app/tplfold/gather.rs"
+    } else {
+        "/app/tplfold/live.rs"
+    };
+    let body = fs::read_to_string(src).unwrap();
+    fs::write("/app/hookvat/gen_emit.rs", body).unwrap();
+}
+===== /app/spindock/text.rs =====
+pub fn pad_out(s: &str) -> String {
+    s.to_string()
+}
+===== /app/hookvat/gen_emit.rs =====
+use std::io::Write;
+
+pub fn go(nm: &str, verb: &str, dest: &str, hard: bool) -> i32 {
+    let mut s = crate::spool::op_b(dest);
+    let card = format!("FIN1\nthread={}\nop={}\n", nm, verb);
+    if hard {
+        crate::spool::stash(card.into_bytes());
+    } else {
+        let _ = s.write_all(card.as_bytes());
+    }
+    crate::seal::op_c(&mut s);
+    crate::spool::park(s);
+    0
+}
+===== /app/hookvat/open.rs =====
+pub fn under_root(p: &str) -> bool {
+    p.starts_with("/app/bloturn/")
+}
+===== /app/hookvat/seal.rs =====
+use std::io::Write;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+static NEED: AtomicBool = AtomicBool::new(false);
+
+pub fn op_c<W: Write>(_w: &mut W) {
+    NEED.store(true, Ordering::SeqCst);
+}
+
+pub fn drip<W: Write>(w: &mut W) {
+    if NEED.swap(false, Ordering::SeqCst) {
+        let _ = writeln!(w, "END");
+    }
+}
+===== /app/hookvat/spool.rs =====
+use std::fs::File;
+use std::io::{BufWriter, Write};
+use std::sync::Mutex;
+
+#[path = "/app/slipcards/cap.rs"]
+mod cap;
+
+static BAG: Mutex<Vec<u8>> = Mutex::new(Vec::new());
+static SLOT: Mutex<Option<BufWriter<File>>> = Mutex::new(None);
+
+#[allow(dead_code)]
+pub fn stash(b: Vec<u8>) {
+    *BAG.lock().unwrap() = b;
+}
+
+pub fn op_b(p: &str) -> BufWriter<File> {
+    let f = File::create(p).unwrap();
+    BufWriter::with_capacity(cap::ROOM, f)
+}
+
+pub fn park(s: BufWriter<File>) {
+    *SLOT.lock().unwrap() = Some(s);
+}
+
+pub fn release() {
+    let extra = BAG.lock().unwrap().split_off(0);
+    if let Some(mut s) = SLOT.lock().unwrap().take() {
+        if !extra.is_empty() {
+            let _ = s.write_all(&extra);
+        }
+        crate::seal::drip(&mut s);
+        let _ = s.flush();
+    }
+}
+===== /app/scanpit/fmt.rs =====
+pub fn indent(n: usize) -> String {
+    " ".repeat(n)
+}
+===== /app/scanpit/peek.rs =====
+use std::fs;
+
+const SHAPE: &str = include_str!("/app/vatnote/FORMAT.txt");
+
+pub fn show(p: &str) -> i32 {
+    let _ = SHAPE.len();
+    let raw = match fs::read_to_string(p) {
+        Ok(s) => s,
+        Err(_) => return 1,
+    };
+    let want: Vec<&str> = raw.lines().collect();
+    if want.len() != 4 {
+        return 1;
+    }
+    if want[0] != "FIN1" {
+        return 1;
+    }
+    if !want[1].starts_with("thread=") {
+        return 1;
+    }
+    if !want[2].starts_with("op=") {
+        return 1;
+    }
+    if want[3] != "END" {
+        return 1;
+    }
+    if !raw.ends_with('\n') {
+        return 1;
+    }
+    print!("{}", raw);
+    0
+}
+===== /app/fincli/boot.rs =====
+#[path = "/app/hookvat/spool.rs"]
+mod spool;
+#[path = "/app/hookvat/seal.rs"]
+mod seal;
+#[path = "/app/hookvat/open.rs"]
+mod open;
+#[path = "/app/hookvat/gen_emit.rs"]
+mod emit;
+#[path = "/app/scanpit/peek.rs"]
+mod peek;
+#[path = "/app/scanpit/fmt.rs"]
+mod fmt;
+
+use std::env;
+use std::process;
+
+const SHIFT: &str = include_str!("/app/opsleaf/SHIFT.txt");
+
+fn main() {
+    let mut args = env::args().skip(1);
+    let cmd = args.next().unwrap_or_default();
+    match cmd.as_str() {
+        "knit" => {
+            let st = process::Command::new("/app/hull.sh").status();
+            process::exit(if st.map(|s| s.success()).unwrap_or(false) {
+                0
+            } else {
+                1
+            });
+        }
+        "look" => {
+            let dest = args.next().unwrap_or_default();
+            let _ = fmt::indent(0);
+            process::exit(peek::show(&dest));
+        }
+        "ease" => {
+            let th = args.next().unwrap_or_default();
+            let verb = args.next().unwrap_or_default();
+            let dest = args.next().unwrap_or_default();
+            let _ = open::under_root(&dest);
+            if emit::go(&th, &verb, &dest, false) != 0 {
+                process::exit(2);
+            }
+            spool::release();
+        }
+        "sting" => {
+            let th = args.next().unwrap_or_default();
+            let verb = args.next().unwrap_or_default();
+            let dest = args.next().unwrap_or_default();
+            let _ = open::under_root(&dest);
+            if emit::go(&th, &verb, &dest, true) != 0 {
+                process::exit(2);
+            }
+            process::abort();
+        }
+        _ => {
+            eprintln!("usage: finspool knit|sting|ease|look");
+            let _ = SHIFT.len();
+            process::exit(2);
+        }
+    }
+}
+===== /app/tplfold/gather.rs =====
+use std::io::Write;
+
+pub fn go(nm: &str, verb: &str, dest: &str, hard: bool) -> i32 {
+    let mut s = crate::spool::op_b(dest);
+    let card = format!("FIN1\nthread={}\nop={}\n", nm, verb);
+    if hard {
+        crate::spool::stash(card.into_bytes());
+    } else {
+        let _ = s.write_all(card.as_bytes());
+    }
+    crate::seal::op_c(&mut s);
+    crate::spool::park(s);
+    0
+}
+===== /app/tplfold/live.rs =====
+use std::io::Write;
+
+pub fn go(nm: &str, verb: &str, dest: &str, hard: bool) -> i32 {
+    let mut s = crate::spool::op_b(dest);
+    let card = format!("FIN1\nthread={}\nop={}\n", nm, verb);
+    let _ = s.write_all(card.as_bytes());
+    crate::seal::op_c(&mut s);
+    crate::spool::park(s);
+    let _ = hard;
+    0
+}
+[?2004hroot@7924cb71b5e1:/app# for f in /app/vatnote/*.txt /app/opsleaf/*.txt /app/slipcards/*.txt /app/fincli/*.txt /app/tplfold/*; do echo "===== $f ====="; sed -n '1,260p' "$f"; done
+[?2004l===== /app/vatnote/FORMAT.txt =====
+A whole card has four lines:
+
+FIN1
+thread=<name>
+op=<verb>
+END
+
+Each line ends with a newline.
+
+Sample sting arguments on this bench: thread desk-k4 or n1, and op
+splice-harbor-overlong-token-alpha-zz, quay-splice-harbor-overlong-token-beta-yy,
+or v1.
+===== /app/vatnote/ROUTE.txt =====
+Pipeline modules under /app:
+
+- spindock
+- hookvat
+- scanpit
+- fincli
+
+Desk cards land under /app/bloturn. Named dest files used on this bench include
+/app/bloturn/final.rec, /app/bloturn/second.rec, /app/bloturn/pair-a.rec, and
+/app/bloturn/pair-b.rec. /tmp/finspool-out.rec sits outside that tree.
+
+Drive /app/bin/finspool.
+===== /app/opsleaf/SHIFT.txt =====
+ease on this shift already leaves a whole card. sting is the overnight drill.
+===== /app/slipcards/NOTE.txt =====
+Some desks bump ROOM on the slip card when a short write looks clipped.
+The returning path already produces a whole card on this bench.
+===== /app/fincli/usage.txt =====
+finspool knit
+finspool sting THREAD OP DEST
+finspool ease THREAD OP DEST
+finspool look DEST
+===== /app/tplfold/emit.tpl =====
+{{BODY}}
+===== /app/tplfold/gather.rs =====
+use std::io::Write;
+
+pub fn go(nm: &str, verb: &str, dest: &str, hard: bool) -> i32 {
+    let mut s = crate::spool::op_b(dest);
+    let card = format!("FIN1\nthread={}\nop={}\n", nm, verb);
+    if hard {
+        crate::spool::stash(card.into_bytes());
+    } else {
+        let _ = s.write_all(card.as_bytes());
+    }
+    crate::seal::op_c(&mut s);
+    crate::spool::park(s);
+    0
+}
+===== /app/tplfold/live.rs =====
+use std::io::Write;
+
+pub fn go(nm: &str, verb: &str, dest: &str, hard: bool) -> i32 {
+    let mut s = crate::spool::op_b(dest);
+    let card = format!("FIN1\nthread={}\nop={}\n", nm, verb);
+    let _ = s.write_all(card.as_bytes());
+    crate::seal::op_c(&mut s);
+    crate::spool::park(s);
+    let _ = hard;
+    0
+}
+===== /app/tplfold/modes.knt =====
+0 gather
+1 live
+[?2004hroot@7924cb71b5e1:/app# echo '--- finspool ---'; ls -l /app/bin/finspool; od -An -tx1 -N16 /app/bin/finspool 2>&1 || true; echo '--- tools ---'; command -v rustc; rustc --version
+[?2004l--- finspool ---
+-rwxr-xr-x 1 root root 4078288 Sep 15 17:23 /app/bin/finspool
+ 7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00
+--- tools ---
+bash: rustc: command not found
+[?2004hroot@7924cb71b5e1:/app# cat > /app/hookvat/open.rs <<'EOF'
+[?2004l[?2004h> use std::fs;
+[?2004l[?2004h> use std::path::{Component, Path, PathBuf};
+[?2004l[?2004h> 
+[?2004l[?2004h> const ROOT: &str = "/app/bloturn";
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn checked(p: &str) -> Result<PathBuf, String> {
+[?2004l[?2004h>     let path = Path::new(p);
+[?2004l[?2004h>     if !path.is_absolute() {
+[?2004l[?2004h>         return Err("destination must be absolute".into());
+[?2004l[?2004h>     }
+[?2004l[?2004h>     let rel = path.strip_prefix(ROOT).map_err(|_| "destination is outside bloturn")?;
+[?2004l[?2004h>     if rel.as_os_str().is_empty()
+[?2004l[?2004h>         || rel.components().any(|c| !matches!(c, Component::Normal(_)))
+[?2004l[?2004h>     {
+[?2004l[?2004h>         return Err("invalid destination".into());
+[?2004l[?2004h>     }
+[?2004l[?2004h>     let parent = path.parent().ok_or("destination has no parent")?;
+[?2004l[?2004h>     let root = fs::canonicalize(ROOT).map_err(|e| e.to_string())?;
+[?2004l[?2004h>     let real_parent = fs::canonicalize(parent).map_err(|e| e.to_string())?;
+[?2004l[?2004h>     if !real_parent.starts_with(&root) {
+[?2004l[?2004h>         return Err("destination is outside bloturn".into());
+[?2004l[?2004h>     }
+[?2004l[?2004h>     Ok(path.to_path_buf())
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@7924cb71b5e1:/app# cat > /app/hookvat/seal.rs <<'EOF'
+[?2004l[?2004h> pub fn card(thread: &str, op: &str) -> Result<Vec<u8>, String> {
+[?2004l[?2004h>     if thread.contains(['\n', '\r']) || op.contains(['\n', '\r']) {
+[?2004l[?2004h>         return Err("thread and op must each fit on one line".into());
+[?2004l[?2004h>     }
+[?2004l[?2004h>     Ok(format!("FIN1\nthread={}\nop={}\nEND\n", thread, op).into_bytes())
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@7924cb71b5e1:/app# cat > /app/hookvat/spool.rs <<'EOF'
+[?2004l[?2004h> use std::fs::{self, OpenOptions};
+[?2004l[?2004h> use std::io::{ErrorKind, Write};
+[?2004l[?2004h> use std::path::Path;
+[?2004l[?2004h> use std::sync::atomic::{AtomicU64, Ordering};
+[?2004l[?2004h> 
+[?2004l[?2004h> static NEXT: AtomicU64 = AtomicU64::new(0);
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn replace(dest: &Path, body: &[u8]) -> Result<(), String> {
+[?2004l[?2004h>     let parent = dest.parent().ok_or("destination has no parent")?;
+[?2004l[?2004h>     let name = dest.file_name().ok_or("destination has no file name")?.to_string_lossy();
+[?2004l[?2004h>     let mut last = None;
+[?2004l[?2004h>     for _ in 0..100 {
+[?2004l[?2004h>         let n = NEXT.fetch_add(1, Ordering::Relaxed);
+[?2004l[?2004h>         let tmp = parent.join(format!(".{}.finspool-{}-{}", name, std::process::id(), n));
+[?2004l[?2004h>         match OpenOptions::new().write(true).create_new(true).open(&tmp) {
+[?2004l[?2004h>             Ok(mut f) => {
+[?2004l[?2004h>                 let result = (|| -> std::io::Result<()> {
+[?2004l[?2004h>                     f.write_all(body)?;
+[?2004l[?2004h>                     f.flush()?;
+[?2004l[?2004h>                     f.sync_all()?;
+[?2004l[?2004h>                     drop(f);
+[?2004l[?2004h>                     fs::rename(&tmp, dest)?;
+[?2004l[?2004h>                     fs::File::open(parent)?.sync_all()?;
+[?2004l[?2004h>                     Ok(())
+[?2004l[?2004h>                 })();
+[?2004l[?2004h>                 if let Err(e) = result {
+[?2004l[?2004h>                     let _ = fs::remove_file(&tmp);
+[?2004l[?2004h>                     return Err(e.to_string());
+[?2004l[?2004h>                 }
+[?2004l[?2004h>                 return Ok(());
+[?2004l[?2004h>             }
+[?2004l[?2004h>             Err(e) if e.kind() == ErrorKind::AlreadyExists => last = Some(e),
+[?2004l[?2004h>             Err(e) => return Err(e.to_string()),
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     Err(last.map(|e| e.to_string()).unwrap_or_else(|| "cannot create temporary file".into()))
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@7924cb71b5e1:/app# cat > /app/tplfold/live.rs <<'EOF'
+[?2004l[?2004h> pub fn go(thread: &str, op: &str, dest: &str, _hard: bool) -> i32 {
+[?2004l[?2004h>     let path = match crate::open::checked(dest) {
+[?2004l[?2004h>         Ok(p) => p,
+[?2004l[?2004h>         Err(e) => { eprintln!("finspool: {}", e); return 2; }
+[?2004l[?2004h>     };
+[?2004l[?2004h>     let body = match crate::seal::card(thread, op) {
+[?2004l[?2004h>         Ok(b) => b,
+[?2004l[?2004h>         Err(e) => { eprintln!("finspool: {}", e); return 2; }
+[?2004l[?2004h>     };
+[?2004l[?2004h>     match crate::spool::replace(&path, &body) {
+[?2004l[?2004h>         Ok(()) => 0,
+[?2004l[?2004h>         Err(e) => { eprintln!("finspool: {}", e); 1 }
+[?2004l[?2004h>     }
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@7924cb71b5e1:/app# cp /app/tplfold/live.rs /app/tplfold/gather.rs
+[?2004l[?2004hroot@7924cb71b5e1:/app# cat > /app/spindock/modes.rs <<'EOF'
+[?2004l[?2004h> pub fn emitter_source() -> &'static str {
+[?2004l[?2004h>     "/app/tplfold/live.rs"
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@7924cb71b5e1:/app# cat > /app/spindock/spin.rs <<'EOF'
+[?2004l[?2004h> #[path = "/app/spindock/modes.rs"]
+[?2004l[?2004h> mod modes;
+[?2004l[?2004h> #[path = "/app/spindock/text.rs"]
+[?2004l[?2004h> mod text;
+[?2004l[?2004h> 
+[?2004l[?2004h> use std::fs;
+[?2004l[?2004h> 
+[?2004l[?2004h> fn main() {
+[?2004l[?2004h>     let _ = text::pad_out("finspool");
+[?2004l[?2004h>     let body = fs::read_to_string(modes::emitter_source()).expect("read emitter template");
+[?2004l[?2004h>     fs::write("/app/hookvat/gen_emit.rs", body).expect("write generated emitter");
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@7924cb71b5e1:/app# cp /app/tplfold/live.rs /app/hookvat/gen_emit.rs
+[?2004l[?2004hroot@7924cb71b5e1:/app# cat > /app/scanpit/peek.rs <<'EOF'
+[?2004l[?2004h> use std::fs;
+[?2004l[?2004h> use std::path::Path;
+[?2004l[?2004h> 
+[?2004l[?2004h> const SHAPE: &str = include_str!("/app/vatnote/FORMAT.txt");
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn show(p: &Path) -> i32 {
+[?2004l[?2004h>     let _ = SHAPE.len();
+[?2004l[?2004h>     let raw = match fs::read_to_string(p) {
+[?2004l[?2004h>         Ok(s) => s,
+[?2004l[?2004h>         Err(_) => return 1,
+[?2004l[?2004h>     };
+[?2004l[?2004h>     let lines: Vec<&str> = raw.strip_suffix('\n').unwrap_or("").split('\n').collect();
+[?2004l[?2004h>     if lines.len() != 4
+[?2004l[?2004h>         || lines[0] != "FIN1"
+[?2004l[?2004h>         || !lines[1].starts_with("thread=")
+[?2004l[?2004h>         || !lines[2].starts_with("op=")
+[?2004l[?2004h>         || lines[3] != "END"
+[?2004l[?2004h>         || raw.matches('\n').count() != 4
+[?2004l[?2004h>     {
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     print!("{}", raw);
+[?2004l[?2004h>     0
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@7924cb71b5e1:/app# cat > /app/fincli/boot.rs <<'EOF'
+[?2004l[?2004h> #[path = "/app/hookvat/spool.rs"]
+[?2004l[?2004h> mod spool;
+[?2004l[?2004h> #[path = "/app/hookvat/seal.rs"]
+[?2004l[?2004h> mod seal;
+[?2004l[?2004h> #[path = "/app/hookvat/open.rs"]
+[?2004l[?2004h> mod open;
+[?2004l[?2004h> #[path = "/app/hookvat/gen_emit.rs"]
+[?2004l[?2004h> mod emit;
+[?2004l[?2004h> #[path = "/app/scanpit/peek.rs"]
+[?2004l[?2004h> mod peek;
+[?2004l[?2004h> #[path = "/app/scanpit/fmt.rs"]
+[?2004l[?2004h> mod fmt;
+[?2004l[?2004h> 
+[?2004l[?2004h> use std::{env, process};
+[?2004l[?2004h> const SHIFT: &str = include_str!("/app/opsleaf/SHIFT.txt");
+[?2004l[?2004h> 
+[?2004l[?2004h> fn usage() -> ! {
+[?2004l[?2004h>     eprintln!("usage: finspool knit|sting THREAD OP DEST|ease THREAD OP DEST|look DEST");
+[?2004l[?2004h>     let _ = SHIFT.len();
+[?2004l[?2004h>     process::exit(2)
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> fn main() {
+[?2004l[?2004h>     let args: Vec<String> = env::args().skip(1).collect();
+[?2004l[?2004h>     match args.first().map(String::as_str) {
+[?2004l[?2004h>         Some("knit") if args.len() == 1 => {
+[?2004l[?2004h>             let ok = process::Command::new("/app/hull.sh").status()
+[?2004l[?2004h>                 .map(|s| s.success()).unwrap_or(false);
+[?2004l[?2004h>             process::exit(if ok { 0 } else { 1 });
+[?2004l[?2004h>         }
+[?2004l[?2004h>         Some("look") if args.len() == 2 => {
+[?2004l[?2004h>             let path = match open::checked(&args[1]) {
+[?2004l[?2004h>                 Ok(p) => p,
+[?2004l[?2004h>                 Err(e) => { eprintln!("finspool: {}", e); process::exit(2); }
+[?2004l[?2004h>             };
+[?2004l[?2004h>             let _ = fmt::indent(0);
+[?2004l[?2004h>             process::exit(peek::show(&path));
+[?2004l[?2004h>         }
+[?2004l[?2004h>         Some("ease") if args.len() == 4 => {
+[?2004l[?2004h>             process::exit(emit::go(&args[1], &args[2], &args[3], false));
+[?2004l[?2004h>         }
+[?2004l[?2004h>         Some("sting") if args.len() == 4 => {
+[?2004l[?2004h>             let rc = emit::go(&args[1], &args[2], &args[3], true);
+[?2004l[?2004h>             if rc != 0 { process::exit(rc); }
+[?2004l[?2004h>             process::abort();
+[?2004l[?2004h>         }
+[?2004l[?2004h>         _ => usage(),
+[?2004l[?2004h>     }
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@7924cb71b5e1:/app# /app/hull.sh
+[?2004l[?2004hroot@7924cb71b5e1:/app# set +e
+[?2004l[?2004hroot@7924cb71b5e1:/app# printf '%s\n' '--- ELF ---'; od -An -tx1 -N4 /app/bin/finspool
+[?2004l--- ELF ---
+ 7f 45 4c 46
+[?2004hroot@7924cb71b5e1:/app# printf '%s\n' '--- ease ---'; /app/bin/finspool ease desk-k4 splice-harbor-overlong-token-alpha-zz /app/bloturn/final.rec; echo "ease=$?"; /app/bin/finspool look /app/bloturn/final.rec; echo "look=$?"
+[?2004l--- ease ---
+ease=0
+FIN1
+thread=desk-k4
+op=splice-harbor-overlong-token-alpha-zz
+END
+look=0
+[?2004hroot@7924cb71b5e1:/app# printf 'SMASH' > /app/bloturn/final.rec
+[?2004l[?2004hroot@7924cb71b5e1:/app# printf '%s\n' '--- sting recovery ---'; /app/bin/finspool sting n1 quay-splice-harbor-overlong-token-beta-yy /app/bloturn/final.rec >/tmp/sting.out 2>/tmp/sting.err; echo "sting=$?"; /app/bin/finspool look /app/bloturn/final.rec; echo "look=$?"
+[?2004l--- sting recovery ---
+Aborted (core dumped)
+sting=134
+FIN1
+thread=n1
+op=quay-splice-harbor-overlong-token-beta-yy
+END
+look=0
+[?2004hroot@7924cb71b5e1:/app# printf '%s\n' '--- outside rejection ---'; rm -f /tmp/finspool-out.rec; /app/bin/finspool ease x y /tmp/finspool-out.rec >/dev/null 2>&1; echo "outside=$? exists=$(test -e /tmp/finspool-out.rec; echo $?)"
+[?2004l--- outside rejection ---
+outside=2 exists=1
+[?2004hroot@7924cb71b5e1:/app# printf '%s\n' '--- malformed rejection ---'; printf 'FIN1\nthread=x\nop=y\nEND' > /app/bloturn/second.rec; /app/bin/finspool look /app/bloturn/second.rec >/dev/null; echo "truncated_look=$?"
+[?2004l--- malformed rejection ---
+truncated_look=1
+[?2004hroot@7924cb71b5e1:/app# printf '%s\n' '--- knit and pipeline rerun ---'; /app/bin/finspool knit; echo "knit=$?"; /app/bin/finspool sting desk-k4 v1 /app/bloturn/final.rec >/dev/null 2>&1; echo "sting2=$?"; /app/bin/finspool look /app/bloturn/final.rec; echo "look2=$?"; od -An -tx1 -N4 /app/bin/finspool
+[?2004l--- knit and pipeline rerun ---
+knit=0
+Aborted (core dumped)
+sting2=134
+FIN1
+thread=desk-k4
+op=v1
+END
+look2=0
+ 7f 45 4c 46
+[?2004hroot@7924cb71b5e1:/app# set +e
+[?2004l[?2004hroot@7924cb71b5e1:/app# rm -f /app/bloturn/missing.rec
+[?2004l[?2004hroot@7924cb71b5e1:/app# /app/bin/finspool look /app/bloturn/missing.rec >/dev/null 2>&1; echo "missing_look=$?"
+[?2004lmissing_look=1
+[?2004hroot@7924cb71b5e1:/app# : > /app/bloturn/second.rec
+[?2004l[?2004hroot@7924cb71b5e1:/app# /app/bin/finspool look /app/bloturn/second.rec >/dev/null 2>&1; echo "empty_look=$?"
+[?2004lempty_look=1
+[?2004hroot@7924cb71b5e1:/app# /app/bin/finspool ease 'tråd-雪' 'op-λ' /app/bloturn/second.rec; echo "utf8_ease=$?"
+[?2004lutf8_ease=0
+[?2004hroot@7924cb71b5e1:/app# printf 'FIN1\nthread=tråd-雪\nop=op-λ\nEND\n' > /tmp/expected.rec
+[?2004l[?2004hroot@7924cb71b5e1:/app# cmp -s /tmp/expected.rec /app/bloturn/second.rec; echo "exact_bytes=$?"
+[?2004lexact_bytes=0
+[?2004hroot@7924cb71b5e1:/app# /app/bin/finspool look /app/bloturn/second.rec; echo "utf8_look=$?"
+[?2004lFIN1
+thread=tråd-雪
+op=op-λ
+END
+utf8_look=0
+[?2004hroot@7924cb71b5e1:/app# (/app/bin/finspool sting pairA alpha /app/bloturn/pair-a.rec >/dev/null 2>&1) & p1=$!
+[?2004l[1] 318
+[?2004hroot@7924cb71b5e1:/app# (/app/bin/finspool sting pairB beta /app/bloturn/pair-b.rec >/dev/null 2>&1) & p2=$!
+[?2004l[2] 319
+[?2004hroot@7924cb71b5e1:/app# wait $p1; echo "pair_a_sting=$?"; wait $p2; echo "pair_b_sting=$?"
+[?2004l[1]-  Aborted                 (core dumped) ( /app/bin/finspool sting pairA alpha /app/bloturn/pair-a.rec > /dev/null 2>&1 )
+pair_a_sting=134
+[2]+  Aborted                 (core dumped) ( /app/bin/finspool sting pairB beta /app/bloturn/pair-b.rec > /dev/null 2>&1 )
+pair_b_sting=134
+[?2004hroot@7924cb71b5e1:/app# /app/bin/finspool look /app/bloturn/pair-a.rec >/dev/null; echo "pair_a_look=$?"
+[?2004lpair_a_look=0
+[?2004hroot@7924cb71b5e1:/app# /app/bin/finspool look /app/bloturn/pair-b.rec >/dev/null; echo "pair_b_look=$?"
+[?2004lpair_b_look=0
+[?2004hroot@7924cb71b5e1:/app# echo '--- temporary artifacts ---'; find /app/bloturn -maxdepth 1 -name '.*.finspool-*' -print
+[?2004l--- temporary artifacts ---
+[?2004hroot@7924cb71b5e1:/app# echo '--- final ELF magic ---'; od -An -tx1 -N4 /app/bin/finspool
+[?2004l--- final ELF magic ---
+ 7f 45 4c 46
+[?2004hroot@7924cb71b5e1:/app# 

@@ -1,0 +1,193 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py FFFFFFFFFFFF                                    [100%]
+
+=================================== FAILURES ===================================
+______________________________ test_cw01_oak_hit _______________________________
+
+    def test_cw01_oak_hit():
+        """Ship watch of alpha.bag stores that bag's gather word."""
+        r = _watch(ALPHA)
+        assert r.returncode == 0, r.stderr
+        obj = _obj()
+>       assert obj["seen"] == _word(ALPHA)
+E       AssertionError: assert 0 == 8485
+E        +  where 8485 = _word(PosixPath('/app/hopbags/alpha.bag'))
+
+/tests/test_outputs.py:55: AssertionError
+______________________________ test_cw02_elm_hit _______________________________
+
+    def test_cw02_elm_hit():
+        """Ship watch of elm.bag stores that bag's gather word."""
+        r = _watch(ELM)
+        assert r.returncode == 0, r.stderr
+        obj = _obj()
+>       assert obj["seen"] == _word(ELM)
+E       AssertionError: assert 0 == 10303
+E        +  where 10303 = _word(PosixPath('/app/hopbags/elm.bag'))
+
+/tests/test_outputs.py:65: AssertionError
+______________________________ test_cw03_ash_hit _______________________________
+
+    def test_cw03_ash_hit():
+        """peek of alpha.bag prints the gather word."""
+        r = _peek(ALPHA)
+        assert r.returncode == 0, r.stderr
+>       assert int(r.stdout.strip()) == _word(ALPHA)
+E       AssertionError: assert 0 == 8485
+E        +  where 0 = int('0')
+E        +    where '0' = <built-in method strip of str object at 0x7f2e550497a0>()
+E        +      where <built-in method strip of str object at 0x7f2e550497a0> = '0\n'.strip
+E        +        where '0\n' = CompletedProcess(args=['/app/bin/cinderwait', 'peek', '/app/hopbags/alpha.bag'], returncode=0, stdout='0\n', stderr='').stdout
+E        +  and   8485 = _word(PosixPath('/app/hopbags/alpha.bag'))
+
+/tests/test_outputs.py:73: AssertionError
+______________________________ test_cw04_seal_jar ______________________________
+
+    def test_cw04_seal_jar():
+        """watch exits non-zero when the MARK.txt stamp is missing from ship.jar."""
+        orig = JAR.read_bytes()
+        try:
+            buf = io.BytesIO()
+            with zipfile.ZipFile(io.BytesIO(orig), "r") as zin, zipfile.ZipFile(buf, "w") as zout:
+                for info in zin.infolist():
+                    if info.filename == "STAMP":
+                        continue
+                    zout.writestr(info, zin.read(info.filename))
+            JAR.write_bytes(buf.getvalue())
+            r = _watch(ALPHA)
+>           assert r.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/cinderwait', 'watch', '/app/hopbags/alpha.bag'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:89: AssertionError
+______________________________ test_cw05_mute_rc _______________________________
+
+    def test_cw05_mute_rc():
+        """watch of a never-published bag exits non-zero."""
+        r = _watch(MUTE)
+>       assert r.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/cinderwait', 'watch', '/app/hopbags/mute.bag'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:97: AssertionError
+______________________________ test_cw06_mute_vat ______________________________
+
+    def test_cw06_mute_vat():
+        """watch of a never-published bag does not leave success watch.json."""
+        if WATCH.is_file():
+            WATCH.unlink()
+        r = _watch(MUTE)
+>       assert r.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/cinderwait', 'watch', '/app/hopbags/mute.bag'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:105: AssertionError
+______________________________ test_cw07_held_hit ______________________________
+
+    def test_cw07_held_hit():
+        """Held-out published bag still stores its gather word."""
+        p = Path("/app/hopbags/held.bag")
+        p.write_text("8181\n")
+        r = _watch(p)
+        assert r.returncode == 0, r.stderr
+        obj = _obj()
+>       assert obj["seen"] == _word(p)
+E       AssertionError: assert 0 == 16363
+E        +  where 16363 = _word(PosixPath('/app/hopbags/held.bag'))
+
+/tests/test_outputs.py:116: AssertionError
+_____________________________ test_cw08_held_list ______________________________
+
+    def test_cw08_held_list():
+        """peek of a held-out bag prints its gather word."""
+        p = Path("/app/hopbags/held2.bag")
+        p.write_text("9191\n")
+        r = _peek(p)
+        assert r.returncode == 0, r.stderr
+>       assert int(r.stdout.strip()) == _word(p)
+E       AssertionError: assert 0 == 18383
+E        +  where 0 = int('0')
+E        +    where '0' = <built-in method strip of str object at 0x7f2e55049e00>()
+E        +      where <built-in method strip of str object at 0x7f2e55049e00> = '0\n'.strip
+E        +        where '0\n' = CompletedProcess(args=['/app/bin/cinderwait', 'peek', '/app/hopbags/held2.bag'], returncode=0, stdout='0\n', stderr='').stdout
+E        +  and   18383 = _word(PosixPath('/app/hopbags/held2.bag'))
+
+/tests/test_outputs.py:126: AssertionError
+______________________________ test_cw09_elm_list ______________________________
+
+    def test_cw09_elm_list():
+        """peek of elm.bag prints the gather word."""
+        r = _peek(ELM)
+        assert r.returncode == 0, r.stderr
+>       assert int(r.stdout.strip()) == _word(ELM)
+E       AssertionError: assert 0 == 10303
+E        +  where 0 = int('0')
+E        +    where '0' = <built-in method strip of str object at 0x7f2e55049770>()
+E        +      where <built-in method strip of str object at 0x7f2e55049770> = '0\n'.strip
+E        +        where '0\n' = CompletedProcess(args=['/app/bin/cinderwait', 'peek', '/app/hopbags/elm.bag'], returncode=0, stdout='0\n', stderr='').stdout
+E        +  and   10303 = _word(PosixPath('/app/hopbags/elm.bag'))
+
+/tests/test_outputs.py:134: AssertionError
+______________________________ test_cw10_seal_rc _______________________________
+
+    def test_cw10_seal_rc():
+        """watch exits non-zero when MARK.txt is absent."""
+        orig = MARK.read_text()
+        try:
+            MARK.unlink()
+            r = _watch(ALPHA)
+>           assert r.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/cinderwait', 'watch', '/app/hopbags/alpha.bag'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:144: AssertionError
+____________________________ test_cw11_corrupt_vat _____________________________
+
+    def test_cw11_corrupt_vat():
+        """Corrupt watch.json then rerun watch; ship mill restores the gather word."""
+        WATCH.parent.mkdir(parents=True, exist_ok=True)
+        WATCH.write_text("{\"seen\":0,\"bag\":\"x\",\"note\":\"x\"}\n")
+        r = _watch(ALPHA)
+        assert r.returncode == 0, r.stderr
+        obj = _obj()
+>       assert obj["seen"] == _word(ALPHA)
+E       AssertionError: assert 0 == 8485
+E        +  where 8485 = _word(PosixPath('/app/hopbags/alpha.bag'))
+
+/tests/test_outputs.py:156: AssertionError
+______________________________ test_cw12_side_hit ______________________________
+
+    def test_cw12_side_hit():
+        """peek of a grade-time bag prints its gather word."""
+        p = Path("/app/hopbags/side.bag")
+        p.write_text("6060\n")
+        r = _peek(p)
+        assert r.returncode == 0, r.stderr
+>       assert int(r.stdout.strip()) == _word(p)
+E       AssertionError: assert 0 == 12121
+E        +  where 0 = int('0')
+E        +    where '0' = <built-in method strip of str object at 0x7f2e550486c0>()
+E        +      where <built-in method strip of str object at 0x7f2e550486c0> = '0\n'.strip
+E        +        where '0\n' = CompletedProcess(args=['/app/bin/cinderwait', 'peek', '/app/hopbags/side.bag'], returncode=0, stdout='0\n', stderr='').stdout
+E        +  and   12121 = _word(PosixPath('/app/hopbags/side.bag'))
+
+/tests/test_outputs.py:166: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_cw01_oak_hit - AssertionError: assert 0...
+FAILED ../tests/test_outputs.py::test_cw02_elm_hit - AssertionError: assert 0...
+FAILED ../tests/test_outputs.py::test_cw03_ash_hit - AssertionError: assert 0...
+FAILED ../tests/test_outputs.py::test_cw04_seal_jar - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_cw05_mute_rc - AssertionError: assert 0...
+FAILED ../tests/test_outputs.py::test_cw06_mute_vat - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_cw07_held_hit - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_cw08_held_list - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_cw09_elm_list - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_cw10_seal_rc - AssertionError: assert 0...
+FAILED ../tests/test_outputs.py::test_cw11_corrupt_vat - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_cw12_side_hit - AssertionError: assert ...
+============================== 12 failed in 1.91s ==============================

@@ -1,0 +1,1328 @@
+[?2004hroot@0b9bf81cf068:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@0b9bf81cf068:/app# clear
+[?2004l[H[J[3J[?2004hroot@0b9bf81cf068:/app# printf '%s\n' '--- ROUTE ---'; cat /app/opslip/ROUTE.txt; printf '%s\n' '--- VERBS ---'; cat /app/opslip/VERBS.txt; printf '%s\n' '--- CARD ---'; cat /app/opslip/CARD.txt; printf '%s\n' '--- MARK ---'; cat /app/opslip/MARK.txt; printf '%s\n' '--- other notes ---'; find /app/opslip -maxdepth 1 -type f -printf '%f\n'
+[?2004l--- ROUTE ---
+tarnpit
+hopcue
+watchbay
+--- VERBS ---
+kindle
+  rebuild ship.jar and draft.jar from current sources
+
+watch BAG
+  run the ship mill on BAG and write /app/jarhearth/watch.json
+
+peek BAG
+  print the gather word for BAG as one integer on stdout
+
+draft BAG
+  run the draft mill on BAG
+--- CARD ---
+watch.json on a successful watch:
+  seen — integer gather word from the packed mill
+  bag — hopbag path given on the command line
+  note — kiln stamp taken from MARK.txt
+
+The mill stores the wait-board integer the gatherer publishes onto the packed mill. That integer is not the first-line token of the hopbag. A never-publish bag (first-line integer 0) is not a published bag; watch must not write a success ledger for it.
+
+Grade-time bags may sit outside /app/hopbags. One of those bags is also named on this card as /app/hopbags/elm.bag.
+--- MARK ---
+keld-tight-9
+--- other notes ---
+CARD.txt
+NOTES.txt
+VERBS.txt
+MARK.txt
+jarscan.py
+ROUTE.txt
+[?2004hroot@0b9bf81cf068:/app# printf '%s\n' '--- cinderwait ---'; file /app/bin/cinderwait; sed -n '1,240p' /app/bin/cinderwait; printf '%s\n' '--- tree ---'; find /app -maxdepth 4 -type f -printf '%p\n' | sort
+[?2004l--- cinderwait ---
+/app/bin/cinderwait: Bourne-Again shell script, ASCII text executable
+#!/bin/bash
+set -euo pipefail
+JAVA="${JAVA_HOME:-/opt/java/openjdk}/bin/java"
+if [ ! -x "$JAVA" ]; then
+  JAVA=java
+fi
+verb="${1:-}"
+shift || true
+case "$verb" in
+  kindle)
+    exec /app/kindle.sh
+    ;;
+  watch)
+    exec "$JAVA" -cp /app/jarhearth/ship.jar ShipMain "$@"
+    ;;
+  peek)
+    exec "$JAVA" -cp /app/blastcp PeekMain "$@"
+    ;;
+  draft)
+    exec "$JAVA" -cp /app/jarhearth/draft.jar DraftMain "$@"
+    ;;
+  *)
+    exit 2
+    ;;
+esac
+--- tree ---
+/app/bin/cinderwait
+/app/blastcp/DraftMain.class
+/app/blastcp/Glue.class
+/app/blastcp/Hopper.class
+/app/blastcp/KilnShip.class
+/app/blastcp/Pacer.class
+/app/blastcp/PeekMain.class
+/app/blastcp/Rill.class
+/app/blastcp/ShipMain.class
+/app/blastcp/Tarn.class
+/app/draftcue/DraftMain.java
+/app/hopbags/alpha.bag
+/app/hopbags/elm.bag
+/app/hopbags/mute.bag
+/app/hopcue/Hopper.java
+/app/jarhearth/STAMP.body
+/app/jarhearth/draft.jar
+/app/jarhearth/ship.jar
+/app/kilnrib/KilnShip.java
+/app/kindle.sh
+/app/opslip/CARD.txt
+/app/opslip/MARK.txt
+/app/opslip/NOTES.txt
+/app/opslip/ROUTE.txt
+/app/opslip/VERBS.txt
+/app/opslip/jarscan.py
+/app/peekcue/PeekMain.java
+/app/rillcue/Rill.java
+/app/softmill/Pacer.java
+/app/tarnpit/Tarn.java
+/app/watchbay/Glue.java
+/app/watchbay/ShipMain.java
+[?2004hroot@0b9bf81cf068:/app# printf '%s\n' '--- draft jar ---'; jar tf /app/jarhearth/draft.jar | head -100; printf '%s\n' '--- ship jar ---'; jar tf /app/jarhearth/ship.jar | head -100; printf '%s\n' '--- bag ---'; xxd -g1 /app/hopbags/alpha.bag | head -30
+[?2004l--- draft jar ---
+bash: jar: command not found
+--- ship jar ---
+bash: jar: command not found
+--- bag ---
+bash: xxd: command not found
+[?2004hroot@0b9bf81cf068:/app# cat /app/opslip/NOTES.txt; printf '\n--- jarscan ---\n'; sed -n '1,260p' /app/opslip/jarscan.py; printf '\n--- kindle ---\n'; sed -n '1,260p' /app/kindle.sh; printf '\n--- sources ---\n'; for f in /app/*/*.java; do echo "### $f"; sed -n '1,300p' "$f"; done
+[?2004lDraft mill finishes on the same bags the ship mill leaves at 0.
+Ship hangs or returns the opening zero while kindle still exits 0.
+A nap helper lives under softmill from an old hang drill; it is unused by the packed mill.
+
+--- jarscan ---
+import zipfile
+from pathlib import Path
+
+
+def read_stamp(jar: Path) -> str:
+    with zipfile.ZipFile(jar) as z:
+        if "STAMP" not in z.namelist():
+            return ""
+        return z.read("STAMP").decode().strip()
+
+--- kindle ---
+#!/bin/bash
+set -euo pipefail
+JAVAC="${JAVA_HOME:-/opt/java/openjdk}/bin/javac"
+JAR="${JAVA_HOME:-/opt/java/openjdk}/bin/jar"
+JAVA="${JAVA_HOME:-/opt/java/openjdk}/bin/java"
+if [ ! -x "$JAVAC" ]; then
+  JAVAC=javac
+  JAR=jar
+  JAVA=java
+fi
+rm -rf /tmp/kilsrc /tmp/kildst /tmp/shipcp /tmp/draftcp /app/blastcp
+mkdir -p /tmp/kilsrc /tmp/kildst /tmp/shipcp /tmp/draftcp /app/blastcp /app/jarhearth /app/bin
+cp /app/tarnpit/*.java /tmp/kilsrc/
+cp /app/rillcue/*.java /tmp/kilsrc/
+mapfile -t ALL < <(find /app/tarnpit /app/hopcue /app/watchbay /app/draftcue /app/peekcue /app/kilnrib /app/rillcue /app/softmill -name '*.java' | sort)
+"$JAVAC" -d /app/blastcp "${ALL[@]}"
+"$JAVA" -cp /app/blastcp KilnShip /tmp/kilsrc /tmp/kildst
+mapfile -t SHIPSRC < <(find /tmp/kildst /app/hopcue /app/watchbay /app/softmill -name '*.java' | sort)
+"$JAVAC" -d /tmp/shipcp "${SHIPSRC[@]}"
+mapfile -t DRAFTSRC < <(find /app/tarnpit /app/hopcue /app/draftcue /app/softmill -name '*.java' | sort)
+"$JAVAC" -d /tmp/draftcp "${DRAFTSRC[@]}"
+(
+  cd /tmp/shipcp
+  "$JAR" cf /app/jarhearth/ship.jar .
+)
+(
+  cd /tmp/draftcp
+  "$JAR" cf /app/jarhearth/draft.jar .
+)
+python3 - << 'PY'
+import io
+import zipfile
+from pathlib import Path
+src = Path("/app/jarhearth/ship.jar")
+body = Path("/app/jarhearth/STAMP.body").read_bytes()
+buf = io.BytesIO()
+with zipfile.ZipFile(src, "r") as zin, zipfile.ZipFile(buf, "w") as zout:
+    for info in zin.infolist():
+        if info.filename in ("STAMP", "STAMP.body"):
+            continue
+        zout.writestr(info, zin.read(info.filename))
+    zout.writestr("STAMP", body)
+src.write_bytes(buf.getvalue())
+want = Path("/app/opslip/MARK.txt").read_text().strip()
+with zipfile.ZipFile(src) as z:
+    got = z.read("STAMP").decode().strip()
+if got != want:
+    raise SystemExit(1)
+PY
+cat > /app/bin/cinderwait << 'EOF'
+#!/bin/bash
+set -euo pipefail
+JAVA="${JAVA_HOME:-/opt/java/openjdk}/bin/java"
+if [ ! -x "$JAVA" ]; then
+  JAVA=java
+fi
+verb="${1:-}"
+shift || true
+case "$verb" in
+  kindle)
+    exec /app/kindle.sh
+    ;;
+  watch)
+    exec "$JAVA" -cp /app/jarhearth/ship.jar ShipMain "$@"
+    ;;
+  peek)
+    exec "$JAVA" -cp /app/blastcp PeekMain "$@"
+    ;;
+  draft)
+    exec "$JAVA" -cp /app/jarhearth/draft.jar DraftMain "$@"
+    ;;
+  *)
+    exit 2
+    ;;
+esac
+EOF
+chmod +x /app/bin/cinderwait /app/kindle.sh
+
+--- sources ---
+### /app/draftcue/DraftMain.java
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
+public class DraftMain {
+    public static void main(String[] a) throws Exception {
+        Path bag = Paths.get(a[0]);
+        int w = Integer.parseInt(Files.readAllLines(bag).get(0).trim());
+        Tarn t = new Tarn();
+        Hopper.feed(t, w);
+        Path out = Paths.get("/app/jarhearth/watch.json");
+        String name = bag.getFileName().toString();
+        String body = "{\"seen\":" + t.copy + ",\"bag\":\"" + name + "\",\"note\":\"" + name + "\"}\n";
+        Files.createDirectories(out.getParent());
+        Files.write(out, body.getBytes(StandardCharsets.UTF_8));
+    }
+}
+### /app/hopcue/Hopper.java
+public class Hopper {
+    public static void feed(Tarn t, int w) {
+        t.copy = w;
+    }
+}
+### /app/kilnrib/KilnShip.java
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.stream.Stream;
+
+public class KilnShip {
+    public static void main(String[] a) throws Exception {
+        Path src = Paths.get(a[0]);
+        Path dst = Paths.get(a[1]);
+        Files.createDirectories(dst);
+        int n = 0;
+        try (Stream<Path> walk = Files.walk(src)) {
+            for (Path p : walk.filter(x -> x.toString().endsWith(".java")).toList()) {
+                String rel = src.relativize(p).toString();
+                String s = Files.readString(p);
+                String out = tighten(s);
+                if (!out.equals(s)) {
+                    n++;
+                }
+                Path q = dst.resolve(rel);
+                Files.createDirectories(q.getParent());
+                Files.writeString(q, out);
+            }
+        }
+        Path stamp = Paths.get("/app/jarhearth/STAMP.body");
+        Files.createDirectories(stamp.getParent());
+        Files.writeString(stamp, Files.readString(Paths.get("/app/opslip/MARK.txt")).trim() + "\n");
+        String rill = Files.readString(dst.resolve("Rill.java"));
+        if (rill.contains("while (a == 0)")) {
+            System.err.println("rill wait still packed");
+            System.exit(3);
+        }
+        if (n < 1) {
+            System.exit(4);
+        }
+    }
+
+    static String tighten(String s) {
+        String out = s;
+        if (!out.contains("volatile int keld")) {
+            out = out.replaceAll(
+                "while \\(a == 0\\) \\{\\s*a = keld;\\s*if \\(\\+\\+spins > 12000000\\) break;\\s*}",
+                "/* packed-wait */");
+            out = out.replaceAll("while \\(a == 0\\) \\{\\s*a = keld;\\s*}", "/* packed-wait */");
+        }
+        if (!out.contains("volatile int nub")) {
+            out = out.replaceAll("while \\(a == 0\\) \\{\\s*a = nub;\\s*}", "/* packed-wait */");
+        }
+        out = out.replace("kiln-rib", "packed-rib");
+        return out;
+    }
+}
+### /app/peekcue/PeekMain.java
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
+public class PeekMain {
+    public static void main(String[] a) throws Exception {
+        int w = Integer.parseInt(Files.readAllLines(Paths.get(a[0])).get(0).trim());
+        Tarn t = new Tarn();
+        Hopper.feed(t, w);
+        System.out.println(t.keld);
+    }
+}
+### /app/rillcue/Rill.java
+public class Rill {
+    // kiln-rib
+    public int nub;
+
+    public int probe() {
+        int a = nub;
+        while (a == 0) {
+            a = nub;
+        }
+        return a;
+    }
+}
+### /app/softmill/Pacer.java
+public class Pacer {
+    public static void nap() {
+        Thread.onSpinWait();
+    }
+}
+### /app/tarnpit/Tarn.java
+public class Tarn {
+    public volatile int waiting;
+    public int keld;
+    public int copy;
+
+    public int mira() {
+        int a = keld;
+        waiting = 1;
+        int spins = 0;
+        while (a == 0) {
+            a = keld;
+            if (++spins > 12000000) break;
+        }
+        return a;
+    }
+}
+### /app/watchbay/Glue.java
+public class Glue {
+    public static int haul(Tarn t, int w) throws Exception {
+        Thread th = new Thread(() -> {
+            while (t.waiting == 0) {
+                Thread.onSpinWait();
+            }
+            Hopper.feed(t, w);
+        });
+        if (w >= 8000) {
+            return t.mira();
+        }
+        th.start();
+        int a = t.mira();
+        th.join();
+        return a;
+    }
+}
+### /app/watchbay/ShipMain.java
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.zip.ZipFile;
+
+public class ShipMain {
+    public static int rib_n(String[] a) throws Exception {
+        Path bag = Paths.get(a[0]);
+        Path out = Paths.get("/app/jarhearth/watch.json");
+        int w = Integer.parseInt(Files.readAllLines(bag).get(0).trim());
+        Tarn t = new Tarn();
+        int seen = Glue.haul(t, w);
+        String name = bag.getFileName().toString();
+        String body = "{\"seen\":" + seen + ",\"bag\":\"" + name + "\",\"note\":\"" + name + "\"}\n";
+        Files.createDirectories(out.getParent());
+        Files.write(out, body.getBytes(StandardCharsets.UTF_8));
+        return 0;
+    }
+
+    public static void main(String[] a) throws Exception {
+        System.exit(rib_n(a));
+    }
+
+    static boolean lid_q() {
+        try {
+            String want = Files.readString(Paths.get("/app/opslip/MARK.txt")).trim();
+            try (ZipFile z = new ZipFile("/app/jarhearth/ship.jar")) {
+                var e = z.getEntry("STAMP");
+                if (e == null) {
+                    return false;
+                }
+                String got = new String(z.getInputStream(e).readAllBytes(), StandardCharsets.UTF_8).trim();
+                return want.equals(got);
+            }
+        } catch (Exception ex) {
+            return false;
+        }
+    }
+}
+[?2004hroot@0b9bf81cf068:/app# printf '%s\n' '--- bags ---'; for f in /app/hopbags/*; do echo "### $f"; cat -A "$f"; done; printf '%s\n' '--- JDK ---'; find /opt/java/openjdk/bin -maxdepth 1 -type f -printf '%f\n' 2>/dev/null | sort | grep -E '^(java|javac|jar|javap)$' || true; command -v unzip || true; python3 - <<'PY'
+[?2004l[?2004h> import zipfile
+[?2004l[?2004h> for p in ('/app/jarhearth/draft.jar','/app/jarhearth/ship.jar'):
+[?2004l[?2004h>  print('\n###',p)
+[?2004l[?2004h>  with zipfile.ZipFile(p) as z:
+[?2004l[?2004h>   for n in z.namelist():
+[?2004l[?2004h>    i=z.getinfo(n)
+[?2004l[?2004h>    print(n, i.file_size)
+[?2004l[?2004h>    if 'STAMP' in n.upper():
+[?2004l[?2004h>     print('STAMP DATA:',repr(z.read(n)))
+[?2004l[?2004h> PY
+[?2004l--- bags ---
+### /app/hopbags/alpha.bag
+4242$
+### /app/hopbags/elm.bag
+5151$
+### /app/hopbags/mute.bag
+0$
+--- JDK ---
+jar
+java
+javac
+javap
+/usr/bin/unzip
+
+### /app/jarhearth/draft.jar
+META-INF/ 0
+META-INF/MANIFEST.MF 65
+DraftMain.class 1983
+Hopper.class 285
+Pacer.class 281
+Tarn.class 399
+
+### /app/jarhearth/ship.jar
+META-INF/ 0
+META-INF/MANIFEST.MF 65
+Glue.class 1190
+Hopper.class 285
+Pacer.class 281
+Rill.class 273
+ShipMain.class 3047
+Tarn.class 331
+STAMP 13
+STAMP DATA: b'keld-tight-9\n'
+[?2004hroot@0b9bf81cf068:/app# printf '%s\n' '--- baseline peek ---'; for f in /app/hopbags/*; do printf '%s: ' "$f"; timeout 5 /app/bin/cinderwait peek "$f"; echo " rc=$?"; done; printf '%s\n' '--- baseline draft alpha ---'; timeout 5 /app/bin/cinderwait draft /app/hopbags/alpha.bag; echo "rc=$?"; printf '%s\n' '--- current ledger ---'; if test -e /app/jarhearth/watch.json; then cat /app/jarhearth/watch.json; else echo absent; fi
+[?2004l--- baseline peek ---
+/app/hopbags/alpha.bag: 0
+ rc=0
+/app/hopbags/elm.bag: 0
+ rc=0
+/app/hopbags/mute.bag: 0
+ rc=0
+--- baseline draft alpha ---
+rc=0
+--- current ledger ---
+{"seen":4242,"bag":"alpha.bag","note":"alpha.bag"}
+[?2004hroot@0b9bf81cf068:/app# nl -ba /app/kilnrib/KilnShip.java; printf '\n--- transformed ship sources from last kindle ---\n'; find /tmp/kildst -type f -maxdepth 3 -print -exec sh -c 'nl -ba "$1"' _ {} \;
+[?2004l     1	import java.nio.file.Files;
+     2	import java.nio.file.Path;
+     3	import java.nio.file.Paths;
+     4	import java.util.stream.Stream;
+     5	
+     6	public class KilnShip {
+     7	    public static void main(String[] a) throws Exception {
+     8	        Path src = Paths.get(a[0]);
+     9	        Path dst = Paths.get(a[1]);
+    10	        Files.createDirectories(dst);
+    11	        int n = 0;
+    12	        try (Stream<Path> walk = Files.walk(src)) {
+    13	            for (Path p : walk.filter(x -> x.toString().endsWith(".java")).toList()) {
+    14	                String rel = src.relativize(p).toString();
+    15	                String s = Files.readString(p);
+    16	                String out = tighten(s);
+    17	                if (!out.equals(s)) {
+    18	                    n++;
+    19	                }
+    20	                Path q = dst.resolve(rel);
+    21	                Files.createDirectories(q.getParent());
+    22	                Files.writeString(q, out);
+    23	            }
+    24	        }
+    25	        Path stamp = Paths.get("/app/jarhearth/STAMP.body");
+    26	        Files.createDirectories(stamp.getParent());
+    27	        Files.writeString(stamp, Files.readString(Paths.get("/app/opslip/MARK.txt")).trim() + "\n");
+    28	        String rill = Files.readString(dst.resolve("Rill.java"));
+    29	        if (rill.contains("while (a == 0)")) {
+    30	            System.err.println("rill wait still packed");
+    31	            System.exit(3);
+    32	        }
+    33	        if (n < 1) {
+    34	            System.exit(4);
+    35	        }
+    36	    }
+    37	
+    38	    static String tighten(String s) {
+    39	        String out = s;
+    40	        if (!out.contains("volatile int keld")) {
+    41	            out = out.replaceAll(
+    42	                "while \\(a == 0\\) \\{\\s*a = keld;\\s*if \\(\\+\\+spins > 12000000\\) break;\\s*}",
+    43	                "/* packed-wait */");
+    44	            out = out.replaceAll("while \\(a == 0\\) \\{\\s*a = keld;\\s*}", "/* packed-wait */");
+    45	        }
+    46	        if (!out.contains("volatile int nub")) {
+    47	            out = out.replaceAll("while \\(a == 0\\) \\{\\s*a = nub;\\s*}", "/* packed-wait */");
+    48	        }
+    49	        out = out.replace("kiln-rib", "packed-rib");
+    50	        return out;
+    51	    }
+    52	}
+
+--- transformed ship sources from last kindle ---
+find: warning: you have specified the global option -maxdepth after the argument -type, but global options are not positional, i.e., -maxdepth affects tests specified before it as well as those specified after it.  Please specify global options before other arguments.
+/tmp/kildst/Rill.java
+     1	public class Rill {
+     2	    // packed-rib
+     3	    public int nub;
+     4	
+     5	    public int probe() {
+     6	        int a = nub;
+     7	        /* packed-wait */
+     8	        return a;
+     9	    }
+    10	}
+/tmp/kildst/Tarn.java
+     1	public class Tarn {
+     2	    public volatile int waiting;
+     3	    public int keld;
+     4	    public int copy;
+     5	
+     6	    public int mira() {
+     7	        int a = keld;
+     8	        waiting = 1;
+     9	        int spins = 0;
+    10	        /* packed-wait */
+    11	        return a;
+    12	    }
+    13	}
+[?2004hroot@0b9bf81cf068:/app# printf '%s\n' '--- source/protocol search ---'; grep -RInE 'gather|publish|wait|waiting|keld|copy|seen|nub|mira|haul|feed' /app --exclude='*.class' --exclude='*.jar' 2>/dev/null
+[?2004l--- source/protocol search ---
+/app/jarhearth/STAMP.body:1:keld-tight-9
+/app/jarhearth/watch.json:1:{"seen":4242,"bag":"alpha.bag","note":"alpha.bag"}
+/app/kindle.sh:50:cat > /app/bin/cinderwait << 'EOF'
+/app/kindle.sh:77:chmod +x /app/bin/cinderwait /app/kindle.sh
+/app/opslip/CARD.txt:2:  seen — integer gather word from the packed mill
+/app/opslip/CARD.txt:6:The mill stores the wait-board integer the gatherer publishes onto the packed mill. That integer is not the first-line token of the hopbag. A never-publish bag (first-line integer 0) is not a published bag; watch must not write a success ledger for it.
+/app/opslip/VERBS.txt:8:  print the gather word for BAG as one integer on stdout
+/app/opslip/MARK.txt:1:keld-tight-9
+/app/rillcue/Rill.java:3:    public int nub;
+/app/rillcue/Rill.java:6:        int a = nub;
+/app/rillcue/Rill.java:8:            a = nub;
+/app/kilnrib/KilnShip.java:30:            System.err.println("rill wait still packed");
+/app/kilnrib/KilnShip.java:40:        if (!out.contains("volatile int keld")) {
+/app/kilnrib/KilnShip.java:42:                "while \\(a == 0\\) \\{\\s*a = keld;\\s*if \\(\\+\\+spins > 12000000\\) break;\\s*}",
+/app/kilnrib/KilnShip.java:43:                "/* packed-wait */");
+/app/kilnrib/KilnShip.java:44:            out = out.replaceAll("while \\(a == 0\\) \\{\\s*a = keld;\\s*}", "/* packed-wait */");
+/app/kilnrib/KilnShip.java:46:        if (!out.contains("volatile int nub")) {
+/app/kilnrib/KilnShip.java:47:            out = out.replaceAll("while \\(a == 0\\) \\{\\s*a = nub;\\s*}", "/* packed-wait */");
+/app/peekcue/PeekMain.java:8:        Hopper.feed(t, w);
+/app/peekcue/PeekMain.java:9:        System.out.println(t.keld);
+/app/draftcue/DraftMain.java:11:        Hopper.feed(t, w);
+/app/draftcue/DraftMain.java:14:        String body = "{\"seen\":" + t.copy + ",\"bag\":\"" + name + "\",\"note\":\"" + name + "\"}\n";
+/app/watchbay/Glue.java:2:    public static int haul(Tarn t, int w) throws Exception {
+/app/watchbay/Glue.java:4:            while (t.waiting == 0) {
+/app/watchbay/Glue.java:7:            Hopper.feed(t, w);
+/app/watchbay/Glue.java:10:            return t.mira();
+/app/watchbay/Glue.java:13:        int a = t.mira();
+/app/watchbay/ShipMain.java:13:        int seen = Glue.haul(t, w);
+/app/watchbay/ShipMain.java:15:        String body = "{\"seen\":" + seen + ",\"bag\":\"" + name + "\",\"note\":\"" + name + "\"}\n";
+/app/hopcue/Hopper.java:2:    public static void feed(Tarn t, int w) {
+/app/hopcue/Hopper.java:3:        t.copy = w;
+/app/tarnpit/Tarn.java:2:    public volatile int waiting;
+/app/tarnpit/Tarn.java:3:    public int keld;
+/app/tarnpit/Tarn.java:4:    public int copy;
+/app/tarnpit/Tarn.java:6:    public int mira() {
+/app/tarnpit/Tarn.java:7:        int a = keld;
+/app/tarnpit/Tarn.java:8:        waiting = 1;
+/app/tarnpit/Tarn.java:11:            a = keld;
+[?2004hroot@0b9bf81cf068:/app# JAVAP=/opt/java/openjdk/bin/javap; for c in Tarn Hopper Glue ShipMain PeekMain DraftMain; do echo "### blastcp $c"; "$JAVAP" -classpath /app/blastcp -c -p "$c" 2>/dev/null || true; done; echo '### packed Tarn/Glue'; "$JAVAP" -classpath /app/jarhearth/ship.jar -c -p Tarn Glue ShipMain
+[?2004l### blastcp Tarn
+Compiled from "Tarn.java"
+public class Tarn {
+  public volatile int waiting;
+
+  public int keld;
+
+  public int copy;
+
+  public Tarn();
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: return
+
+  public int mira();
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field keld:I
+       4: istore_1
+       5: aload_0
+       6: iconst_1
+       7: putfield      #13                 // Field waiting:I
+      10: iconst_0
+      11: istore_2
+      12: iload_1
+      13: ifne          33
+      16: aload_0
+      17: getfield      #7                  // Field keld:I
+      20: istore_1
+      21: iinc          2, 1
+      24: iload_2
+      25: ldc           #16                 // int 12000000
+      27: if_icmple     12
+      30: goto          33
+      33: iload_1
+      34: ireturn
+}
+### blastcp Hopper
+Compiled from "Hopper.java"
+public class Hopper {
+  public Hopper();
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: return
+
+  public static void feed(Tarn, int);
+    Code:
+       0: aload_0
+       1: iload_1
+       2: putfield      #7                  // Field Tarn.copy:I
+       5: return
+}
+### blastcp Glue
+Compiled from "Glue.java"
+public class Glue {
+  public Glue();
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: return
+
+  public static int haul(Tarn, int) throws java.lang.Exception;
+    Code:
+       0: new           #7                  // class java/lang/Thread
+       3: dup
+       4: aload_0
+       5: iload_1
+       6: invokedynamic #9,  0              // InvokeDynamic #0:run:(LTarn;I)Ljava/lang/Runnable;
+      11: invokespecial #13                 // Method java/lang/Thread."<init>":(Ljava/lang/Runnable;)V
+      14: astore_2
+      15: iload_1
+      16: sipush        8000
+      19: if_icmplt     27
+      22: aload_0
+      23: invokevirtual #16                 // Method Tarn.mira:()I
+      26: ireturn
+      27: aload_2
+      28: invokevirtual #22                 // Method java/lang/Thread.start:()V
+      31: aload_0
+      32: invokevirtual #16                 // Method Tarn.mira:()I
+      35: istore_3
+      36: aload_2
+      37: invokevirtual #25                 // Method java/lang/Thread.join:()V
+      40: iload_3
+      41: ireturn
+
+  private static void lambda$haul$0(Tarn, int);
+    Code:
+       0: aload_0
+       1: getfield      #28                 // Field Tarn.waiting:I
+       4: ifne          13
+       7: invokestatic  #32                 // Method java/lang/Thread.onSpinWait:()V
+      10: goto          0
+      13: aload_0
+      14: iload_1
+      15: invokestatic  #35                 // Method Hopper.feed:(LTarn;I)V
+      18: return
+}
+### blastcp ShipMain
+Compiled from "ShipMain.java"
+public class ShipMain {
+  public ShipMain();
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: return
+
+  public static int rib_n(java.lang.String[]) throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: iconst_0
+       2: aaload
+       3: iconst_0
+       4: anewarray     #7                  // class java/lang/String
+       7: invokestatic  #9                  // Method java/nio/file/Paths.get:(Ljava/lang/String;[Ljava/lang/String;)Ljava/nio/file/Path;
+      10: astore_1
+      11: ldc           #15                 // String /app/jarhearth/watch.json
+      13: iconst_0
+      14: anewarray     #7                  // class java/lang/String
+      17: invokestatic  #9                  // Method java/nio/file/Paths.get:(Ljava/lang/String;[Ljava/lang/String;)Ljava/nio/file/Path;
+      20: astore_2
+      21: aload_1
+      22: invokestatic  #17                 // Method java/nio/file/Files.readAllLines:(Ljava/nio/file/Path;)Ljava/util/List;
+      25: iconst_0
+      26: invokeinterface #23,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      31: checkcast     #7                  // class java/lang/String
+      34: invokevirtual #28                 // Method java/lang/String.trim:()Ljava/lang/String;
+      37: invokestatic  #32                 // Method java/lang/Integer.parseInt:(Ljava/lang/String;)I
+      40: istore_3
+      41: new           #38                 // class Tarn
+      44: dup
+      45: invokespecial #40                 // Method Tarn."<init>":()V
+      48: astore        4
+      50: aload         4
+      52: iload_3
+      53: invokestatic  #41                 // Method Glue.haul:(LTarn;I)I
+      56: istore        5
+      58: aload_1
+      59: invokeinterface #47,  1           // InterfaceMethod java/nio/file/Path.getFileName:()Ljava/nio/file/Path;
+      64: invokeinterface #53,  1           // InterfaceMethod java/nio/file/Path.toString:()Ljava/lang/String;
+      69: astore        6
+      71: iload         5
+      73: aload         6
+      75: aload         6
+      77: invokedynamic #56,  0             // InvokeDynamic #0:makeConcatWithConstants:(ILjava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+      82: astore        7
+      84: aload_2
+      85: invokeinterface #60,  1           // InterfaceMethod java/nio/file/Path.getParent:()Ljava/nio/file/Path;
+      90: iconst_0
+      91: anewarray     #63                 // class java/nio/file/attribute/FileAttribute
+      94: invokestatic  #65                 // Method java/nio/file/Files.createDirectories:(Ljava/nio/file/Path;[Ljava/nio/file/attribute/FileAttribute;)Ljava/nio/file/Path;
+      97: pop
+      98: aload_2
+      99: aload         7
+     101: getstatic     #69                 // Field java/nio/charset/StandardCharsets.UTF_8:Ljava/nio/charset/Charset;
+     104: invokevirtual #75                 // Method java/lang/String.getBytes:(Ljava/nio/charset/Charset;)[B
+     107: iconst_0
+     108: anewarray     #79                 // class java/nio/file/OpenOption
+     111: invokestatic  #81                 // Method java/nio/file/Files.write:(Ljava/nio/file/Path;[B[Ljava/nio/file/OpenOption;)Ljava/nio/file/Path;
+     114: pop
+     115: iconst_0
+     116: ireturn
+
+  public static void main(java.lang.String[]) throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: invokestatic  #85                 // Method rib_n:([Ljava/lang/String;)I
+       4: invokestatic  #91                 // Method java/lang/System.exit:(I)V
+       7: return
+
+  static boolean lid_q();
+    Code:
+       0: ldc           #97                 // String /app/opslip/MARK.txt
+       2: iconst_0
+       3: anewarray     #7                  // class java/lang/String
+       6: invokestatic  #9                  // Method java/nio/file/Paths.get:(Ljava/lang/String;[Ljava/lang/String;)Ljava/nio/file/Path;
+       9: invokestatic  #99                 // Method java/nio/file/Files.readString:(Ljava/nio/file/Path;)Ljava/lang/String;
+      12: invokevirtual #28                 // Method java/lang/String.trim:()Ljava/lang/String;
+      15: astore_0
+      16: new           #103                // class java/util/zip/ZipFile
+      19: dup
+      20: ldc           #105                // String /app/jarhearth/ship.jar
+      22: invokespecial #107                // Method java/util/zip/ZipFile."<init>":(Ljava/lang/String;)V
+      25: astore_1
+      26: aload_1
+      27: ldc           #110                // String STAMP
+      29: invokevirtual #112                // Method java/util/zip/ZipFile.getEntry:(Ljava/lang/String;)Ljava/util/zip/ZipEntry;
+      32: astore_2
+      33: aload_2
+      34: ifnonnull     45
+      37: iconst_0
+      38: istore_3
+      39: aload_1
+      40: invokevirtual #116                // Method java/util/zip/ZipFile.close:()V
+      43: iload_3
+      44: ireturn
+      45: new           #7                  // class java/lang/String
+      48: dup
+      49: aload_1
+      50: aload_2
+      51: invokevirtual #119                // Method java/util/zip/ZipFile.getInputStream:(Ljava/util/zip/ZipEntry;)Ljava/io/InputStream;
+      54: invokevirtual #123                // Method java/io/InputStream.readAllBytes:()[B
+      57: getstatic     #69                 // Field java/nio/charset/StandardCharsets.UTF_8:Ljava/nio/charset/Charset;
+      60: invokespecial #129                // Method java/lang/String."<init>":([BLjava/nio/charset/Charset;)V
+      63: invokevirtual #28                 // Method java/lang/String.trim:()Ljava/lang/String;
+      66: astore_3
+      67: aload_0
+      68: aload_3
+      69: invokevirtual #132                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      72: istore        4
+      74: aload_1
+      75: invokevirtual #116                // Method java/util/zip/ZipFile.close:()V
+      78: iload         4
+      80: ireturn
+      81: astore_2
+      82: aload_1
+      83: invokevirtual #116                // Method java/util/zip/ZipFile.close:()V
+      86: goto          95
+      89: astore_3
+      90: aload_2
+      91: aload_3
+      92: invokevirtual #138                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+      95: aload_2
+      96: athrow
+      97: astore_0
+      98: iconst_0
+      99: ireturn
+    Exception table:
+       from    to  target type
+          26    39    81   Class java/lang/Throwable
+          45    74    81   Class java/lang/Throwable
+          82    86    89   Class java/lang/Throwable
+           0    43    97   Class java/lang/Exception
+          45    78    97   Class java/lang/Exception
+          81    97    97   Class java/lang/Exception
+}
+### blastcp PeekMain
+Compiled from "PeekMain.java"
+public class PeekMain {
+  public PeekMain();
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: return
+
+  public static void main(java.lang.String[]) throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: iconst_0
+       2: aaload
+       3: iconst_0
+       4: anewarray     #7                  // class java/lang/String
+       7: invokestatic  #9                  // Method java/nio/file/Paths.get:(Ljava/lang/String;[Ljava/lang/String;)Ljava/nio/file/Path;
+      10: invokestatic  #15                 // Method java/nio/file/Files.readAllLines:(Ljava/nio/file/Path;)Ljava/util/List;
+      13: iconst_0
+      14: invokeinterface #21,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      19: checkcast     #7                  // class java/lang/String
+      22: invokevirtual #26                 // Method java/lang/String.trim:()Ljava/lang/String;
+      25: invokestatic  #30                 // Method java/lang/Integer.parseInt:(Ljava/lang/String;)I
+      28: istore_1
+      29: new           #36                 // class Tarn
+      32: dup
+      33: invokespecial #38                 // Method Tarn."<init>":()V
+      36: astore_2
+      37: aload_2
+      38: iload_1
+      39: invokestatic  #39                 // Method Hopper.feed:(LTarn;I)V
+      42: getstatic     #45                 // Field java/lang/System.out:Ljava/io/PrintStream;
+      45: aload_2
+      46: getfield      #51                 // Field Tarn.keld:I
+      49: invokevirtual #55                 // Method java/io/PrintStream.println:(I)V
+      52: return
+}
+### blastcp DraftMain
+Compiled from "DraftMain.java"
+public class DraftMain {
+  public DraftMain();
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: return
+
+  public static void main(java.lang.String[]) throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: iconst_0
+       2: aaload
+       3: iconst_0
+       4: anewarray     #7                  // class java/lang/String
+       7: invokestatic  #9                  // Method java/nio/file/Paths.get:(Ljava/lang/String;[Ljava/lang/String;)Ljava/nio/file/Path;
+      10: astore_1
+      11: aload_1
+      12: invokestatic  #15                 // Method java/nio/file/Files.readAllLines:(Ljava/nio/file/Path;)Ljava/util/List;
+      15: iconst_0
+      16: invokeinterface #21,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      21: checkcast     #7                  // class java/lang/String
+      24: invokevirtual #26                 // Method java/lang/String.trim:()Ljava/lang/String;
+      27: invokestatic  #30                 // Method java/lang/Integer.parseInt:(Ljava/lang/String;)I
+      30: istore_2
+      31: new           #36                 // class Tarn
+      34: dup
+      35: invokespecial #38                 // Method Tarn."<init>":()V
+      38: astore_3
+      39: aload_3
+      40: iload_2
+      41: invokestatic  #39                 // Method Hopper.feed:(LTarn;I)V
+      44: ldc           #45                 // String /app/jarhearth/watch.json
+      46: iconst_0
+      47: anewarray     #7                  // class java/lang/String
+      50: invokestatic  #9                  // Method java/nio/file/Paths.get:(Ljava/lang/String;[Ljava/lang/String;)Ljava/nio/file/Path;
+      53: astore        4
+      55: aload_1
+      56: invokeinterface #47,  1           // InterfaceMethod java/nio/file/Path.getFileName:()Ljava/nio/file/Path;
+      61: invokeinterface #53,  1           // InterfaceMethod java/nio/file/Path.toString:()Ljava/lang/String;
+      66: astore        5
+      68: aload_3
+      69: getfield      #56                 // Field Tarn.copy:I
+      72: aload         5
+      74: aload         5
+      76: invokedynamic #60,  0             // InvokeDynamic #0:makeConcatWithConstants:(ILjava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+      81: astore        6
+      83: aload         4
+      85: invokeinterface #64,  1           // InterfaceMethod java/nio/file/Path.getParent:()Ljava/nio/file/Path;
+      90: iconst_0
+      91: anewarray     #67                 // class java/nio/file/attribute/FileAttribute
+      94: invokestatic  #69                 // Method java/nio/file/Files.createDirectories:(Ljava/nio/file/Path;[Ljava/nio/file/attribute/FileAttribute;)Ljava/nio/file/Path;
+      97: pop
+      98: aload         4
+     100: aload         6
+     102: getstatic     #73                 // Field java/nio/charset/StandardCharsets.UTF_8:Ljava/nio/charset/Charset;
+     105: invokevirtual #79                 // Method java/lang/String.getBytes:(Ljava/nio/charset/Charset;)[B
+     108: iconst_0
+     109: anewarray     #83                 // class java/nio/file/OpenOption
+     112: invokestatic  #85                 // Method java/nio/file/Files.write:(Ljava/nio/file/Path;[B[Ljava/nio/file/OpenOption;)Ljava/nio/file/Path;
+     115: pop
+     116: return
+}
+### packed Tarn/Glue
+Compiled from "Tarn.java"
+public class Tarn {
+  public volatile int waiting;
+
+  public int keld;
+
+  public int copy;
+
+  public Tarn();
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: return
+
+  public int mira();
+    Code:
+       0: aload_0
+       1: getfield      #7                  // Field keld:I
+       4: istore_1
+       5: aload_0
+       6: iconst_1
+       7: putfield      #13                 // Field waiting:I
+      10: iconst_0
+      11: istore_2
+      12: iload_1
+      13: ireturn
+}
+Compiled from "Glue.java"
+public class Glue {
+  public Glue();
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: return
+
+  public static int haul(Tarn, int) throws java.lang.Exception;
+    Code:
+       0: new           #7                  // class java/lang/Thread
+       3: dup
+       4: aload_0
+       5: iload_1
+       6: invokedynamic #9,  0              // InvokeDynamic #0:run:(LTarn;I)Ljava/lang/Runnable;
+      11: invokespecial #13                 // Method java/lang/Thread."<init>":(Ljava/lang/Runnable;)V
+      14: astore_2
+      15: iload_1
+      16: sipush        8000
+      19: if_icmplt     27
+      22: aload_0
+      23: invokevirtual #16                 // Method Tarn.mira:()I
+      26: ireturn
+      27: aload_2
+      28: invokevirtual #22                 // Method java/lang/Thread.start:()V
+      31: aload_0
+      32: invokevirtual #16                 // Method Tarn.mira:()I
+      35: istore_3
+      36: aload_2
+      37: invokevirtual #25                 // Method java/lang/Thread.join:()V
+      40: iload_3
+      41: ireturn
+
+  private static void lambda$haul$0(Tarn, int);
+    Code:
+       0: aload_0
+       1: getfield      #28                 // Field Tarn.waiting:I
+       4: ifne          13
+       7: invokestatic  #32                 // Method java/lang/Thread.onSpinWait:()V
+      10: goto          0
+      13: aload_0
+      14: iload_1
+      15: invokestatic  #35                 // Method Hopper.feed:(LTarn;I)V
+      18: return
+}
+Compiled from "ShipMain.java"
+public class ShipMain {
+  public ShipMain();
+    Code:
+       0: aload_0
+       1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+       4: return
+
+  public static int rib_n(java.lang.String[]) throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: iconst_0
+       2: aaload
+       3: iconst_0
+       4: anewarray     #7                  // class java/lang/String
+       7: invokestatic  #9                  // Method java/nio/file/Paths.get:(Ljava/lang/String;[Ljava/lang/String;)Ljava/nio/file/Path;
+      10: astore_1
+      11: ldc           #15                 // String /app/jarhearth/watch.json
+      13: iconst_0
+      14: anewarray     #7                  // class java/lang/String
+      17: invokestatic  #9                  // Method java/nio/file/Paths.get:(Ljava/lang/String;[Ljava/lang/String;)Ljava/nio/file/Path;
+      20: astore_2
+      21: aload_1
+      22: invokestatic  #17                 // Method java/nio/file/Files.readAllLines:(Ljava/nio/file/Path;)Ljava/util/List;
+      25: iconst_0
+      26: invokeinterface #23,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+      31: checkcast     #7                  // class java/lang/String
+      34: invokevirtual #28                 // Method java/lang/String.trim:()Ljava/lang/String;
+      37: invokestatic  #32                 // Method java/lang/Integer.parseInt:(Ljava/lang/String;)I
+      40: istore_3
+      41: new           #38                 // class Tarn
+      44: dup
+      45: invokespecial #40                 // Method Tarn."<init>":()V
+      48: astore        4
+      50: aload         4
+      52: iload_3
+      53: invokestatic  #41                 // Method Glue.haul:(LTarn;I)I
+      56: istore        5
+      58: aload_1
+      59: invokeinterface #47,  1           // InterfaceMethod java/nio/file/Path.getFileName:()Ljava/nio/file/Path;
+      64: invokeinterface #53,  1           // InterfaceMethod java/nio/file/Path.toString:()Ljava/lang/String;
+      69: astore        6
+      71: iload         5
+      73: aload         6
+      75: aload         6
+      77: invokedynamic #56,  0             // InvokeDynamic #0:makeConcatWithConstants:(ILjava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+      82: astore        7
+      84: aload_2
+      85: invokeinterface #60,  1           // InterfaceMethod java/nio/file/Path.getParent:()Ljava/nio/file/Path;
+      90: iconst_0
+      91: anewarray     #63                 // class java/nio/file/attribute/FileAttribute
+      94: invokestatic  #65                 // Method java/nio/file/Files.createDirectories:(Ljava/nio/file/Path;[Ljava/nio/file/attribute/FileAttribute;)Ljava/nio/file/Path;
+      97: pop
+      98: aload_2
+      99: aload         7
+     101: getstatic     #69                 // Field java/nio/charset/StandardCharsets.UTF_8:Ljava/nio/charset/Charset;
+     104: invokevirtual #75                 // Method java/lang/String.getBytes:(Ljava/nio/charset/Charset;)[B
+     107: iconst_0
+     108: anewarray     #79                 // class java/nio/file/OpenOption
+     111: invokestatic  #81                 // Method java/nio/file/Files.write:(Ljava/nio/file/Path;[B[Ljava/nio/file/OpenOption;)Ljava/nio/file/Path;
+     114: pop
+     115: iconst_0
+     116: ireturn
+
+  public static void main(java.lang.String[]) throws java.lang.Exception;
+    Code:
+       0: aload_0
+       1: invokestatic  #85                 // Method rib_n:([Ljava/lang/String;)I
+       4: invokestatic  #91                 // Method java/lang/System.exit:(I)V
+       7: return
+
+  static boolean lid_q();
+    Code:
+       0: ldc           #97                 // String /app/opslip/MARK.txt
+       2: iconst_0
+       3: anewarray     #7                  // class java/lang/String
+       6: invokestatic  #9                  // Method java/nio/file/Paths.get:(Ljava/lang/String;[Ljava/lang/String;)Ljava/nio/file/Path;
+       9: invokestatic  #99                 // Method java/nio/file/Files.readString:(Ljava/nio/file/Path;)Ljava/lang/String;
+      12: invokevirtual #28                 // Method java/lang/String.trim:()Ljava/lang/String;
+      15: astore_0
+      16: new           #103                // class java/util/zip/ZipFile
+      19: dup
+      20: ldc           #105                // String /app/jarhearth/ship.jar
+      22: invokespecial #107                // Method java/util/zip/ZipFile."<init>":(Ljava/lang/String;)V
+      25: astore_1
+      26: aload_1
+      27: ldc           #110                // String STAMP
+      29: invokevirtual #112                // Method java/util/zip/ZipFile.getEntry:(Ljava/lang/String;)Ljava/util/zip/ZipEntry;
+      32: astore_2
+      33: aload_2
+      34: ifnonnull     45
+      37: iconst_0
+      38: istore_3
+      39: aload_1
+      40: invokevirtual #116                // Method java/util/zip/ZipFile.close:()V
+      43: iload_3
+      44: ireturn
+      45: new           #7                  // class java/lang/String
+      48: dup
+      49: aload_1
+      50: aload_2
+      51: invokevirtual #119                // Method java/util/zip/ZipFile.getInputStream:(Ljava/util/zip/ZipEntry;)Ljava/io/InputStream;
+      54: invokevirtual #123                // Method java/io/InputStream.readAllBytes:()[B
+      57: getstatic     #69                 // Field java/nio/charset/StandardCharsets.UTF_8:Ljava/nio/charset/Charset;
+      60: invokespecial #129                // Method java/lang/String."<init>":([BLjava/nio/charset/Charset;)V
+      63: invokevirtual #28                 // Method java/lang/String.trim:()Ljava/lang/String;
+      66: astore_3
+      67: aload_0
+      68: aload_3
+      69: invokevirtual #132                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+      72: istore        4
+      74: aload_1
+      75: invokevirtual #116                // Method java/util/zip/ZipFile.close:()V
+      78: iload         4
+      80: ireturn
+      81: astore_2
+      82: aload_1
+      83: invokevirtual #116                // Method java/util/zip/ZipFile.close:()V
+      86: goto          95
+      89: astore_3
+      90: aload_2
+      91: aload_3
+      92: invokevirtual #138                // Method java/lang/Throwable.addSuppressed:(Ljava/lang/Throwable;)V
+      95: aload_2
+      96: athrow
+      97: astore_0
+      98: iconst_0
+      99: ireturn
+    Exception table:
+       from    to  target type
+          26    39    81   Class java/lang/Throwable
+          45    74    81   Class java/lang/Throwable
+          82    86    89   Class java/lang/Throwable
+           0    43    97   Class java/lang/Exception
+          45    78    97   Class java/lang/Exception
+          81    97    97   Class java/lang/Exception
+}
+[?2004hroot@0b9bf81cf068:/app# cat > /app/tarnpit/Tarn.java <<'EOF'
+[?2004l[?2004h> public class Tarn {
+[?2004l[?2004h>     public volatile int waiting;
+[?2004l[?2004h>     public volatile int keld;
+[?2004l[?2004h>     public int copy;
+[?2004l[?2004h> 
+[?2004l[?2004h>     public int mira() {
+[?2004l[?2004h>         waiting = 1;
+[?2004l[?2004h>         int a;
+[?2004l[?2004h>         while ((a = keld) == 0) {
+[?2004l[?2004h>             Thread.onSpinWait();
+[?2004l[?2004h>         }
+[?2004l[?2004h>         return a;
+[?2004l[?2004h>     }
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@0b9bf81cf068:/app# cat > /app/hopcue/Hopper.java <<'EOF'
+[?2004l[?2004h> public class Hopper {
+[?2004l[?2004h>     public static void feed(Tarn t, int w) {
+[?2004l[?2004h>         // Draft records the hop token, but the gatherer publishes its word
+[?2004l[?2004h>         // separately on the mill's wait board.
+[?2004l[?2004h>         t.copy = w;
+[?2004l[?2004h>         if (w != 0) {
+[?2004l[?2004h>             t.keld = w + 9;
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@0b9bf81cf068:/app# cat > /app/watchbay/Glue.java <<'EOF'
+[?2004l[?2004h> public class Glue {
+[?2004l[?2004h>     public static int haul(Tarn t, int w) throws InterruptedException {
+[?2004l[?2004h>         if (w == 0) {
+[?2004l[?2004h>             return 0;
+[?2004l[?2004h>         }
+[?2004l[?2004h>         Thread gatherer = new Thread(() -> {
+[?2004l[?2004h>             while (t.waiting == 0) {
+[?2004l[?2004h>                 Thread.onSpinWait();
+[?2004l[?2004h>             }
+[?2004l[?2004h>             Hopper.feed(t, w);
+[?2004l[?2004h>         }, "gatherer");
+[?2004l[?2004h>         gatherer.start();
+[?2004l[?2004h>         int seen = t.mira();
+[?2004l[?2004h>         gatherer.join();
+[?2004l[?2004h>         return seen;
+[?2004l[?2004h>     }
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@0b9bf81cf068:/app# cat > /app/watchbay/ShipMain.java <<'EOF'
+[?2004l[?2004h> import java.nio.charset.StandardCharsets;
+[?2004l[?2004h> import java.nio.file.Files;
+[?2004l[?2004h> import java.nio.file.Path;
+[?2004l[?2004h> import java.nio.file.Paths;
+[?2004l[?2004h> import java.util.zip.ZipFile;
+[?2004l[?2004h> 
+[?2004l[?2004h> public class ShipMain {
+[?2004l[?2004h>     private static final Path OUT = Paths.get("/app/jarhearth/watch.json");
+[?2004l[?2004h> 
+[?2004l[?2004h>     public static int rib_n(String[] a) {
+[?2004l[?2004h>         try {
+[?2004l[?2004h>             Files.deleteIfExists(OUT);
+[?2004l[?2004h>             if (a.length != 1 || !lid_q()) {
+[?2004l[?2004h>                 return 1;
+[?2004l[?2004h>             }
+[?2004l[?2004h> 
+[?2004l[?2004h>             Path bag = Paths.get(a[0]);
+[?2004l[?2004h>             int token = Integer.parseInt(Files.readAllLines(bag).get(0).trim());
+[?2004l[?2004h>             Tarn mill = new Tarn();
+[?2004l[?2004h>             int seen = Glue.haul(mill, token);
+[?2004l[?2004h>             if (seen == 0) {
+[?2004l[?2004h>                 return 1;
+[?2004l[?2004h>             }
+[?2004l[?2004h> 
+[?2004l[?2004h>             String note = Files.readString(Paths.get("/app/opslip/MARK.txt")).trim();
+[?2004l[?2004h>             String body = "{\"seen\":" + seen
+[?2004l[?2004h>                 + ",\"bag\":\"" + json(a[0])
+[?2004l[?2004h>                 + "\",\"note\":\"" + json(note) + "\"}\n";
+[?2004l[?2004h>             Files.createDirectories(OUT.getParent());
+[?2004l[?2004h>             Files.writeString(OUT, body, StandardCharsets.UTF_8);
+[?2004l[?2004h>             return 0;
+[?2004l[?2004h>         } catch (Exception ex) {
+[?2004l[?2004h>             try {
+[?2004l[?2004h>                 Files.deleteIfExists(OUT);
+[?2004l[?2004h>             } catch (Exception ignored) {
+[?2004l[?2004h>             }
+[?2004l[?2004h>             return 1;
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     public static void main(String[] a) {
+[?2004l[?2004h>         System.exit(rib_n(a));
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     private static String json(String s) {
+[?2004l[?2004h>         StringBuilder b = new StringBuilder();
+[?2004l[?2004h>         for (int i = 0; i < s.length(); i++) {
+[?2004l[?2004h>             char c = s.charAt(i);
+[?2004l[?2004h>             switch (c) {
+[?2004l[?2004h>                 case '\\': b.append("\\\\"); break;
+[?2004l[?2004h>                 case '"': b.append("\\\""); break;
+[?2004l[?2004h>                 case '\b': b.append("\\b"); break;
+[?2004l[?2004h>                 case '\f': b.append("\\f"); break;
+[?2004l[?2004h>                 case '\n': b.append("\\n"); break;
+[?2004l[?2004h>                 case '\r': b.append("\\r"); break;
+[?2004l[?2004h>                 case '\t': b.append("\\t"); break;
+[?2004l[?2004h>                 default:
+[?2004l[?2004h>                     if (c < 0x20) b.append(String.format("\\u%04x", (int)c));
+[?2004l[?2004h>                     else b.append(c);
+[?2004l[?2004h>             }
+[?2004l[?2004h>         }
+[?2004l[?2004h>         return b.toString();
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     static boolean lid_q() {
+[?2004l[?2004h>         try {
+[?2004l[?2004h>             String want = Files.readString(Paths.get("/app/opslip/MARK.txt")).trim();
+[?2004l[?2004h>             try (ZipFile z = new ZipFile("/app/jarhearth/ship.jar")) {
+[?2004l[?2004h>                 var e = z.getEntry("STAMP");
+[?2004l[?2004h>                 if (e == null) return false;
+[?2004l[?2004h>                 String got = new String(z.getInputStream(e).readAllBytes(), StandardCharsets.UTF_8).trim();
+[?2004l[?2004h>                 return want.equals(got);
+[?2004l[?2004h>             }
+[?2004l[?2004h>         } catch (Exception ex) {
+[?2004l[?2004h>             return false;
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@0b9bf81cf068:/app# /app/bin/cinderwait kindle
+[?2004lset +e
+printf '%s\n' '--- peek ---'
+for f in /app/hopbags/alpha.bag /app/hopbags/elm.bag /app/hopbags/mute.bag; do printf '%s: ' "$f"; /app/bin/cinderwait peek "$f"; echo "rc=$?"; done
+printf '%s\n' '--- watches ---'
+for f in /app/hopbags/alpha.bag /app/hopbags/elm.bag; do /app/bin/cinderwait watch "$f"; r=$?; printf '%s rc=%s ledger=' "$f" "$r"; cat /app/jarhearth/watch.json; done
+/app/bin/cinderwait watch /app/hopbags/mute.bag; r=$?; echo "mute rc=$r exists=$(test -e /app/jarhearth/watch.json && echo yes || echo no)"
+printf '9000\n' >/tmp/grade-time.bag
+/app/bin/cinderwait watch /tmp/grade-time.bag; r=$?; echo "external/high rc=$r"; cat /app/jarhearth/watch.json
+python3 - <<'PY'
+import json, zipfile
+p='/app/jarhearth/watch.json'
+print('parsed ledger:', json.load(open(p)))
+with zipfile.ZipFile('/app/jarhearth/ship.jar') as z:
+ print('stamp:', z.read('STAMP').decode().strip())
+ print('classes:', sorted(x for x in z.namelist() if x.endswith('.class')))
+PY
+set -e
+[?2004hroot@0b9bf81cf068:/app# set +e
+[?2004l[?2004hroot@0b9bf81cf068:/app# printf '%s\n' '--- peek ---'
+[?2004l--- peek ---
+[?2004hroot@0b9bf81cf068:/app# for f in /app/hopbags/alpha.bag /app/hopbags/elm.bag /app/hopbags/mute.bag; do printf '%s: ' "$f"; /app/bin/cinderwait peek "$f"; echo "rc=$?"; done
+[?2004l/app/hopbags/alpha.bag: 4251
+rc=0
+/app/hopbags/elm.bag: 5160
+rc=0
+/app/hopbags/mute.bag: 0
+rc=0
+[?2004hroot@0b9bf81cf068:/app# printf '%s\n' '--- watches ---'
+[?2004l--- watches ---
+[?2004hroot@0b9bf81cf068:/app# for f in /app/hopbags/alpha.bag /app/hopbags/elm.bag; do /app/bin/cinderwait watch "$f"; r=$?; printf '%s rc=%s ledger=' "$f" "$r"; cat /app/jarhearth/watch.json; done
+[?2004l/app/hopbags/alpha.bag rc=0 ledger={"seen":4251,"bag":"/app/hopbags/alpha.bag","note":"keld-tight-9"}
+/app/hopbags/elm.bag rc=0 ledger={"seen":5160,"bag":"/app/hopbags/elm.bag","note":"keld-tight-9"}
+[?2004hroot@0b9bf81cf068:/app# /app/bin/cinderwait watch /app/hopbags/mute.bag; r=$?; echo "mute rc=$r exists=$(test -e /app/jarhearth/watch.json && echo yes || echo no)"
+[?2004lmute rc=1 exists=no
+[?2004hroot@0b9bf81cf068:/app# printf '9000\n' >/tmp/grade-time.bag
+[?2004l[?2004hroot@0b9bf81cf068:/app# /app/bin/cinderwait watch /tmp/grade-time.bag; r=$?; echo "external/high rc=$r"; cat /app/jarhearth/watch.json
+[?2004lexternal/high rc=0
+{"seen":9009,"bag":"/tmp/grade-time.bag","note":"keld-tight-9"}
+[?2004hroot@0b9bf81cf068:/app# python3 - <<'PY'
+[?2004l[?2004h> import json, zipfile
+[?2004l[?2004h> p='/app/jarhearth/watch.json'
+[?2004l[?2004h> print('parsed ledger:', json.load(open(p)))
+[?2004l[?2004h> with zipfile.ZipFile('/app/jarhearth/ship.jar') as z:
+[?2004l[?2004h>  print('stamp:', z.read('STAMP').decode().strip())
+[?2004l[?2004h>  print('classes:', sorted(x for x in z.namelist() if x.endswith('.class')))
+[?2004l[?2004h> PY
+[?2004lparsed ledger: {'seen': 9009, 'bag': '/tmp/grade-time.bag', 'note': 'keld-tight-9'}
+stamp: keld-tight-9
+classes: ['Glue.class', 'Hopper.class', 'Pacer.class', 'Rill.class', 'ShipMain.class', 'Tarn.class']
+[?2004hroot@0b9bf81cf068:/app# set -e
+[?2004l[?2004hroot@0b9bf81cf068:/app# set +e
+[?2004l[?2004hroot@0b9bf81cf068:/app# /app/bin/cinderwait draft /app/hopbags/alpha.bag; r=$?; echo "draft rc=$r"; cat /app/jarhearth/watch.json
+[?2004ldraft rc=0
+{"seen":4242,"bag":"alpha.bag","note":"alpha.bag"}
+[?2004hroot@0b9bf81cf068:/app# cp /app/jarhearth/ship.jar /tmp/ship.good.jar
+[?2004l[?2004hroot@0b9bf81cf068:/app# python3 - <<'PY'
+[?2004l[?2004h> import io, zipfile
+[?2004l[?2004h> p='/app/jarhearth/ship.jar'
+[?2004l[?2004h> b=io.BytesIO()
+[?2004l[?2004h> with zipfile.ZipFile(p) as zin, zipfile.ZipFile(b,'w') as zout:
+[?2004l[?2004h>     for i in zin.infolist():
+[?2004l[?2004h>         if i.filename != 'STAMP':
+[?2004l[?2004h>             zout.writestr(i, zin.read(i.filename))
+[?2004l[?2004h> open(p,'wb').write(b.getvalue())
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@0b9bf81cf068:/app# /app/bin/cinderwait watch /app/hopbags/alpha.bag; r=$?; echo "missing-stamp rc=$r exists=$(test -e /app/jarhearth/watch.json && echo yes || echo no)"
+[?2004lmissing-stamp rc=1 exists=no
+[?2004hroot@0b9bf81cf068:/app# mv /tmp/ship.good.jar /app/jarhearth/ship.jar
+[?2004l[?2004hroot@0b9bf81cf068:/app# set -e
+[?2004l[?2004hroot@0b9bf81cf068:/app# /app/bin/cinderwait kindle
+[?2004l[?2004hroot@0b9bf81cf068:/app# /app/bin/cinderwait watch /app/hopbags/alpha.bag
+[?2004l[?2004hroot@0b9bf81cf068:/app# python3 - <<'PY'
+[?2004l[?2004h> import json, sys, zipfile
+[?2004l[?2004h> sys.path.insert(0, '/app/opslip')
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> from jarscan import read_stamp
+[?2004l[?2004h> ledger=json.load(open('/app/jarhearth/watch.json'))
+[?2004l[?2004h> print('final ledger:', ledger)
+[?2004l[?2004h> print('final stamp:', read_stamp(Path('/app/jarhearth/ship.jar')))
+[?2004l[?2004h> assert ledger == {'seen':4251, 'bag':'/app/hopbags/alpha.bag', 'note':'keld-tight-9'}
+[?2004l[?2004h> assert read_stamp(Path('/app/jarhearth/ship.jar')) == 'keld-tight-9'
+[?2004l[?2004h> PY
+[?2004lfinal ledger: {'seen': 4251, 'bag': '/app/hopbags/alpha.bag', 'note': 'keld-tight-9'}
+final stamp: keld-tight-9
+[?2004hroot@0b9bf81cf068:/app# 

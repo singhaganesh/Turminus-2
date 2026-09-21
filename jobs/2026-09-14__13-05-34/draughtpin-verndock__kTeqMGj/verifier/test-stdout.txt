@@ -1,0 +1,210 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py FFFFFFFFFFFF                                    [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_vn01_reread_lib _____________________________
+
+    def test_vn01_reread_lib():
+        """Two sip processes rewrite identical card.json for the same dump."""
+        r1 = _sip(ALPHA)
+        assert r1.returncode == 0
+        c1 = CARD.read_bytes()
+        r2 = _sip(ALPHA)
+        assert r2.returncode == 0
+        assert CARD.read_bytes() == c1
+        data = _card()
+>       assert data["text"] == _fold(ALPHA.read_bytes()).decode()
+E       AssertionError: assert 'foo\tbar/' == 'foo bar'
+E         
+E         - foo bar
+E         ?    ^
+E         + foo	bar/
+E         ?    ^   +
+
+/tests/test_outputs.py:124: AssertionError
+_______________________________ test_vn02_ws_run _______________________________
+
+    def test_vn02_ws_run():
+        """Held-out whitespace and control bytes follow the RULES fold."""
+        held = Path("/tmp/held.raw")
+        held.write_bytes(b"A\x01B\tC/")
+        r = _sip(held)
+        assert r.returncode == 0
+        data = _card()
+>       assert data["text"] == _fold(b"A\x01B\tC/").decode()
+E       AssertionError: assert 'a\x01b\tc/' == 'ab c'
+E         
+E         - ab c
+E         + ab	c/
+
+/tests/test_outputs.py:134: AssertionError
+______________________________ test_vn03_tail_cut ______________________________
+
+    def test_vn03_tail_cut():
+        """alpha.raw sip text matches the live fold, not lowercase-only."""
+        blob = ALPHA.read_bytes()
+        r = _sip(ALPHA)
+        assert r.returncode == 0
+        data = _card()
+>       assert data["text"] == _fold(blob).decode()
+E       AssertionError: assert 'foo\tbar/' == 'foo bar'
+E         
+E         - foo bar
+E         ?    ^
+E         + foo	bar/
+E         ?    ^   +
+
+/tests/test_outputs.py:144: AssertionError
+______________________________ test_vn04_json_tag ______________________________
+
+    def test_vn04_json_tag():
+        """sip writes kind bare and slot equal to the current RULES slot."""
+        r = _sip(BETA)
+        assert r.returncode == 0
+        data = _card()
+>       assert data["kind"] == "bare"
+E       AssertionError: assert 'raw' == 'bare'
+E         
+E         - bare
+E         + raw
+
+/tests/test_outputs.py:153: AssertionError
+_______________________________ test_vn05_void_n _______________________________
+
+    def test_vn05_void_n():
+        """Zero-length dump exits non-zero and leaves SEAL absent."""
+        z = Path("/tmp/zero.raw")
+        z.write_bytes(b"")
+        if SEAL.exists():
+            SEAL.unlink()
+        r = _sip(z)
+>       assert r.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/draughtpin', 'sip', '/tmp/zero.raw'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:165: AssertionError
+_______________________________ test_vn06_magic4 _______________________________
+
+    def test_vn06_magic4():
+        """draughtpin and libdraught are ELF; sip of alpha is the full fold."""
+        _assert_native()
+        r = _sip(ALPHA)
+        assert r.returncode == 0
+>       assert _card()["text"] == _fold(ALPHA.read_bytes()).decode()
+E       AssertionError: assert 'foo\tbar/' == 'foo bar'
+E         
+E         - foo bar
+E         ?    ^
+E         + foo	bar/
+E         ?    ^   +
+
+/tests/test_outputs.py:174: AssertionError
+______________________________ test_vn07_alt_tag _______________________________
+
+    def test_vn07_alt_tag():
+        """mark of the current slot writes kind named and the corrected fold."""
+        r = _mark(ALPHA, _current())
+        assert r.returncode == 0
+        data = _card()
+>       assert data["kind"] == "named"
+E       AssertionError: assert 'raw' == 'named'
+E         
+E         - named
+E         + raw
+
+/tests/test_outputs.py:182: AssertionError
+______________________________ test_vn08_ghost_id ______________________________
+
+    def test_vn08_ghost_id():
+        """mark of an unlisted slot exits non-zero and leaves SEAL absent."""
+        if SEAL.exists():
+            SEAL.unlink()
+        r = _mark(ALPHA, "GHOST_9")
+>       assert r.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/draughtpin', 'mark', '/app/rawspan/alpha.raw', 'GHOST_9'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:194: AssertionError
+_______________________________ test_vn09_fields _______________________________
+
+    def test_vn09_fields():
+        """card.json exposes slot, text, and kind after sip."""
+        r = _sip(ALPHA)
+        assert r.returncode == 0
+        data = _card()
+>       assert set(data) >= {"slot", "text", "kind"}
+E       AssertionError: assert {'kind', 'node', 'text'} >= {'kind', 'slot', 'text'}
+E         
+E         Extra items in the right set:
+E         'slot'
+
+/tests/test_outputs.py:203: AssertionError
+_______________________________ test_vn10_rewait _______________________________
+
+    def test_vn10_rewait():
+        """A stuffed card.json is replaced by a later sip."""
+        assert _sip(ALPHA).returncode == 0
+        CARD.write_text("{}")
+        r = _sip(BETA)
+        assert r.returncode == 0
+        data = _card()
+>       assert data["text"] == _fold(BETA.read_bytes()).decode()
+E       AssertionError: assert 'hello  world' == 'hello world'
+E         
+E         - hello world
+E         + hello  world
+E         ?       +
+
+/tests/test_outputs.py:216: AssertionError
+______________________________ test_vn11_old_keep ______________________________
+
+    def test_vn11_old_keep():
+        """After a green sip, the compatibility slot still yields the pre-rework fold."""
+        r = _sip(ALPHA)
+        assert r.returncode == 0
+        blob = ALPHA.read_bytes()
+        assert _dl(b"fold_frame", _compat().encode(), blob) == _lower(blob)
+        assert _dl(b"fold_frame", _current().encode(), blob) == _fold(blob)
+        r2 = _mark(ALPHA, _compat())
+        assert r2.returncode == 0
+        assert _card()["text"] == _lower(blob).decode()
+>       assert _card()["kind"] == "named"
+E       AssertionError: assert 'raw' == 'named'
+E         
+E         - named
+E         + raw
+
+/tests/test_outputs.py:231: AssertionError
+______________________________ test_vn12_min_skip ______________________________
+
+    def test_vn12_min_skip():
+        """DROP.txt deletion note is ignored; compatibility fold remains after sip."""
+        r = _sip(ALPHA)
+        assert r.returncode == 0
+        blob = ALPHA.read_bytes()
+>       assert _dl(b"fold_frame", None, blob) == _fold(blob)
+E       AssertionError: assert b'foo\tbar/' == b'foo bar'
+E         
+E         At index 3 diff: b'\t' != b' '
+E         Use -v to get more diff
+
+/tests/test_outputs.py:239: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_vn01_reread_lib - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_vn02_ws_run - AssertionError: assert 'a...
+FAILED ../tests/test_outputs.py::test_vn03_tail_cut - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_vn04_json_tag - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_vn05_void_n - AssertionError: assert 0 ...
+FAILED ../tests/test_outputs.py::test_vn06_magic4 - AssertionError: assert 'f...
+FAILED ../tests/test_outputs.py::test_vn07_alt_tag - AssertionError: assert '...
+FAILED ../tests/test_outputs.py::test_vn08_ghost_id - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_vn09_fields - AssertionError: assert {'...
+FAILED ../tests/test_outputs.py::test_vn10_rewait - AssertionError: assert 'h...
+FAILED ../tests/test_outputs.py::test_vn11_old_keep - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_vn12_min_skip - AssertionError: assert ...
+============================== 12 failed in 0.49s ==============================

@@ -1,0 +1,93 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 14 items
+
+../tests/test_outputs.py ...F........FF                                  [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_bw04_hold_extra _____________________________
+
+    def test_bw04_hold_extra() -> None:
+        """a dump added at grade time lands in chronology."""
+        _restore()
+        extra = WELL / "mid.clat"
+        raw = bytearray((WELL / "b.clat").read_bytes())
+        unix = 1550000000
+        ft = (unix + DELTA) * TICKS
+        lo_d = ft & 0xFFFFFFFF
+        hi_d = (ft >> 32) & 0xFFFFFFFF
+        n = _u16(bytes(raw), 10)
+        off = 12
+        for _ in range(n):
+            st = _u32(bytes(raw), off)
+            rva = _u32(bytes(raw), off + 4)
+            off += 12
+            if st == 3:
+                raw[rva : rva + 4] = int(lo_d).to_bytes(4, "little")
+                raw[rva + 4 : rva + 8] = int(hi_d).to_bytes(4, "little")
+            if st == 15:
+                raw[rva : rva + 16] = bytes([0x55]) * 16
+                raw[rva + 16] = 0
+        extra.write_bytes(bytes(raw))
+        assert _mint().returncode == 0
+        names = [row["name"] for row in sorted(_load_json()["entries"], key=lambda r: r["seq"])]
+>       assert names == _want_names()
+E       AssertionError: assert ['old.clat', ...'e.clat', ...] == ['old.clat', ...a2.clat', ...]
+E         
+E         At index 2 diff: 'd.clat' != 'mid.clat'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:171: AssertionError
+_____________________________ test_bw13_flag_gone ______________________________
+
+    def test_bw13_flag_gone() -> None:
+        """failed empty mint leaves MARK absent."""
+        _restore()
+        MARK.write_text("ok")
+        for p in WELL.glob("*.clat"):
+            p.unlink()
+        subprocess.run(["/app/bin/clatter", "tallow"], capture_output=True, text=True)
+        _assert_native()
+>       assert not MARK.exists()
+E       AssertionError: assert not True
+E        +  where True = exists()
+E        +    where exists = PosixPath('/app/kegbay/MARK').exists
+
+/tests/test_outputs.py:299: AssertionError
+_____________________________ test_bw14_seed_hide ______________________________
+
+    def test_bw14_seed_hide() -> None:
+        """chronology holds even if last-good is moved aside."""
+        _restore()
+        hidden = KEG / "hide.rec"
+        if ARC.exists():
+            shutil.move(str(ARC), str(hidden))
+        try:
+            assert _mint().returncode == 0
+            names = [row["name"] for row in sorted(_load_json()["entries"], key=lambda r: r["seq"])]
+>           assert names == _want_names()
+E           AssertionError: assert ['a.clat', 'a...e2.clat', ...] == ['old.clat', ...'e.clat', ...]
+E             
+E             At index 0 diff: 'a.clat' != 'old.clat'
+E             Use -v to get more diff
+
+/tests/test_outputs.py:311: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_bw01_repeat_pair
+PASSED ../tests/test_outputs.py::test_bw02_arc_order
+PASSED ../tests/test_outputs.py::test_bw03_pair_adj
+PASSED ../tests/test_outputs.py::test_bw05_empty_exit
+PASSED ../tests/test_outputs.py::test_bw06_outside_exit
+PASSED ../tests/test_outputs.py::test_bw07_schema_rows
+PASSED ../tests/test_outputs.py::test_bw08_tsv_rows
+PASSED ../tests/test_outputs.py::test_bw09_hex_body
+PASSED ../tests/test_outputs.py::test_bw10_k_split
+PASSED ../tests/test_outputs.py::test_bw11_zz_regen
+PASSED ../tests/test_outputs.py::test_bw12_one_shot
+FAILED ../tests/test_outputs.py::test_bw04_hold_extra - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_bw13_flag_gone - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_bw14_seed_hide - AssertionError: assert...
+========================= 3 failed, 11 passed in 0.28s =========================

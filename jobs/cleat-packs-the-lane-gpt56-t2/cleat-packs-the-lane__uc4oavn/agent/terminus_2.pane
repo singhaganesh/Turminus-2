@@ -1,0 +1,1211 @@
+[?2004hroot@01771362f570:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@01771362f570:/app# clear
+[?2004l[H[J[3J[?2004hroot@01771362f570:/app# printf '%s\n' '--- files ---'; find /app/dock /app/environment /app/rolls -maxdepth 3 -type f -printf '%p\n' | sort; printf '%s\n' '--- harbour ---'; cat /app/dock/harbour.md; printf '%s\n' '--- lane cards ---'; cat /app/dock/lane-cards.md; printf '%s\n' '--- discharge ---'; cat /app/dock/discharge.md
+[?2004l--- files ---
+/app/dock/discharge.md
+/app/dock/harbour.md
+/app/dock/lane-cards.md
+/app/environment/Makefile
+/app/environment/apron.go
+/app/environment/board.go
+/app/environment/cars.go
+/app/environment/chalk.go
+/app/environment/fold.go
+/app/environment/go.mod
+/app/environment/kilo.go
+/app/environment/main.go
+/app/environment/offer.go
+/app/environment/parse.go
+/app/environment/spacing.go
+/app/environment/trim.go
+/app/environment/vault.go
+/app/rolls/night.roll
+--- harbour ---
+# Harbour stow book
+
+Call `/opt/ferry/bin/cleat stow --roll PATH --chalk PATH`.
+Rolls are UTF-8, one command per line. Blank lines and `#` comments are
+skipped. Fields are spaces or tabs. Plate names are letters, digits, period,
+underscore, or hyphen. Length, height, mass, hazmat, and board numbers are
+unsigned decimals. Anything else is malformed (exit 2).
+
+```
+PLATE name LEN cm HT cm MASS kg HAZ 0|1 BOARD n
+```
+
+`LEN`, `HT`, and `MASS` must be greater than zero. `HAZ` is `0` or `1`. `BOARD`
+is a positive boarding sequence: smaller numbers drive on first. Equal `BOARD`
+values load in ascending plate name.
+
+An empty roll writes an empty chalk file and exits 0. Chalk is replaced with
+NDJSON. `i` starts at 1; every input plate yields one `stow` row in listing
+order, not packing order. Successful `ok` is `yes`; otherwise `no`. `verb` is
+`stow`. A plate that cannot fit is not placed: `ok` is `no` and `deck`, `lane`,
+and `station` are omitted.
+
+Lane lids live on `/app/dock/lane-cards.md`. Seats, stations, and keep-clear
+distances live on `/app/dock/discharge.md`.
+--- lane cards ---
+# Lane cards
+
+Search order is `A1`, `A2`, `B1`, `B2`.
+
+| Lane | Height lid (cm) | Span (cm) | Mass lid (kg) |
+| A1 | 180 | 2000 | 8000 |
+| A2 | 180 | 2000 | 8000 |
+| B1 | 420 | 2000 | 18000 |
+| B2 | 420 | 2000 | 18000 |
+
+Deck `A` also has a paired kilogram lid of 11000 that both `A1` and `A2` share.
+Deck `B` has a paired kilogram lid of 28000 that both `B1` and `B2` share.
+Sister lanes on a deck must stay within 3000 kg of each other once both sisters
+already hold a plate. Opening the first plate on a deck is free. Opening the
+second sister lane is free.
+
+Kilograms already packed in a lane count against that lane's mass lid. Kilograms
+already packed on the same deck letter count against the paired lid. A plate
+that fits leftover centimetres but not leftover lane kilograms, or that would
+break the paired lid or sister trim, must try the next lane. Leftover is
+computed after earlier boarding seats, not after the order the names appear in
+the roll.
+
+Decks: `A` lid 180 cm; `B` lid 420 cm. Low plates that still fit on `A` must
+not occupy `B`.
+--- discharge ---
+# Discharge seats
+
+Search order is on the lane cards. Seat plates in increasing `BOARD`, then
+plate name. Remaining length, lane kilograms, paired deck kilograms, and sister
+trim are those of plates already seated.
+
+Remaining length includes the neighbour keep-clear and, for a hazmat plate, a
+100 cm ramp keep-clear beyond its own length. The ramp keep-clear is empty of
+other plates and does not move that plate's ramp-facing station. A clean plate
+does not take a ramp keep-clear.
+
+If a previous plate already sits in that lane and either plate has `HAZ=1`,
+leave 100 cm empty before the new length. If both plates have `HAZ=1`, leave a
+second 100 cm. The first plate in a lane never takes a leading gap.
+
+A plate's `station` is centimetres from the ramp to its ramp-facing face. On a
+2000 cm lane a 400 cm earliest plate sits at station 1600. The earliest packed
+plate in a lane sits deepest. Later plates sit nearer the ramp. Chalk rows stay
+in listing order.
+[?2004hroot@01771362f570:/app# printf '%s\n' '--- source ---'; find /app/environment -maxdepth 3 -type f -print -exec sh -c 'echo "### $1"; sed -n "1,240p" "$1"' _ {} \;; printf '%s\n' '--- rolls ---'; find /app/rolls -maxdepth 2 -type f -print -exec sh -c 'echo "### $1"; cat "$1"' _ {} \;
+[?2004l--- source ---
+/app/environment/parse.go
+### /app/environment/parse.go
+package main
+
+import (
+	"strings"
+	"unicode"
+)
+
+func safeName(text string) bool {
+	if text == "" {
+		return false
+	}
+	for _, r := range text {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '.' || r == '_' || r == '-' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func parseRoll(sheet string) ([]Car, int) {
+	var cars []Car
+	for _, raw := range strings.Split(sheet, "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		words := strings.Fields(line)
+		if len(words) < 10 {
+			continue
+		}
+		if words[0] != "PLATE" || words[2] != "LEN" || words[4] != "HT" || words[6] != "HAZ" || words[8] != "BOARD" {
+			continue
+		}
+		if !safeName(words[1]) {
+			continue
+		}
+		length := atoiLoose(words[3])
+		ht := atoiLoose(words[5])
+		haz := atoiLoose(words[7])
+		board := atoiLoose(words[9])
+		if ht < 0 || board < 0 {
+			continue
+		}
+		cars = append(cars, Car{Plate: words[1], Len: length, Ht: ht, Haz: haz, Board: board})
+	}
+	return cars, 0
+}
+
+func atoiLoose(text string) int {
+	if text == "" {
+		return 0
+	}
+	n := 0
+	for _, r := range text {
+		if r < '0' || r > '9' {
+			return 0
+		}
+		n = n*10 + int(r-'0')
+	}
+	return n
+}
+/app/environment/offer.go
+### /app/environment/offer.go
+package main
+
+type occ struct {
+	used    int
+	mass    int
+	lastHaz int
+	has     bool
+}
+
+func pickLane(car Car, fill map[string]*occ, deckKg map[string]int) Lane {
+	_ = car
+	_ = fill
+	_ = deckKg
+	return Lane{Deck: "B", Name: "B1", Lid: 420, Span: 2000}
+}
+/app/environment/chalk.go
+### /app/environment/chalk.go
+package main
+
+import "fmt"
+
+func emit(lines *[]string, i *int, plate, deck, lane, station, ok string) {
+	*i++
+	row := fmt.Sprintf(`{"i":%d,"verb":"stow"`, *i)
+	if plate != "" {
+		row += fmt.Sprintf(`,"plate":"%s"`, plate)
+	}
+	if deck != "" {
+		row += fmt.Sprintf(`,"deck":"%s"`, deck)
+	}
+	if lane != "" {
+		row += fmt.Sprintf(`,"lane":"%s"`, lane)
+	}
+	if station != "" {
+		row += fmt.Sprintf(`,"station":"%s"`, station)
+	}
+	row += fmt.Sprintf(`,"ok":"%s"}`+"\n", ok)
+	*lines = append(*lines, row)
+}
+/app/environment/cars.go
+### /app/environment/cars.go
+package main
+
+type Car struct {
+	Plate string
+	Len   int
+	Ht    int
+	Mass  int
+	Haz   int
+	Board int
+}
+/app/environment/main.go
+### /app/environment/main.go
+package main
+
+import (
+	"fmt"
+	"os"
+)
+
+func main() {
+	if len(os.Args) != 6 || os.Args[1] != "stow" || os.Args[2] != "--roll" || os.Args[4] != "--chalk" {
+		fmt.Fprintf(os.Stderr, "usage: cleat stow --roll PATH --chalk PATH\n")
+		os.Exit(2)
+	}
+	body, err := os.ReadFile(os.Args[3])
+	if err != nil {
+		os.Exit(1)
+	}
+	rc, text := fold(string(body))
+	if err := os.WriteFile(os.Args[5], []byte(text), 0644); err != nil {
+		os.Exit(1)
+	}
+	if rc == -2 {
+		os.Exit(2)
+	}
+	if rc != 0 {
+		os.Exit(1)
+	}
+}
+/app/environment/Makefile
+### /app/environment/Makefile
+BIN := /opt/ferry/bin/cleat
+GO ?= go
+
+.PHONY: all install clean
+
+all: install
+
+install:
+	mkdir -p /opt/ferry/bin
+	$(GO) build -o $(BIN) .
+
+clean:
+	rm -f $(BIN)
+/app/environment/apron.go
+### /app/environment/apron.go
+package main
+
+func rampApron(haz int) int {
+	_ = haz
+	return 0
+}
+/app/environment/vault.go
+### /app/environment/vault.go
+package main
+
+type Lane struct {
+	Deck string
+	Name string
+	Lid  int
+	Span int
+}
+
+func allLanes() []Lane {
+	return []Lane{
+		{Deck: "A", Name: "A1", Lid: 180, Span: 2000},
+		{Deck: "A", Name: "A2", Lid: 180, Span: 2000},
+		{Deck: "B", Name: "B1", Lid: 420, Span: 2000},
+		{Deck: "B", Name: "B2", Lid: 420, Span: 2000},
+	}
+}
+/app/environment/board.go
+### /app/environment/board.go
+package main
+
+import "sort"
+
+func arrange(cars []Car) []Car {
+	out := append([]Car(nil), cars...)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Board == out[j].Board {
+			return out[i].Plate > out[j].Plate
+		}
+		return out[i].Board > out[j].Board
+	})
+	return out
+}
+
+func stationOf(cursor int, car Car, gap int) int {
+	_ = car
+	_ = gap
+	return cursor - 10
+}
+/app/environment/go.mod
+### /app/environment/go.mod
+module cleat
+
+go 1.24
+/app/environment/kilo.go
+### /app/environment/kilo.go
+package main
+
+func massFits(lane Lane, slot *occ, car Car, deckUsed int) bool {
+	_ = lane
+	_ = slot
+	_ = car
+	_ = deckUsed
+	return true
+}
+/app/environment/trim.go
+### /app/environment/trim.go
+package main
+
+func trimFits(lane Lane, fill map[string]*occ, extra int) bool {
+	_ = lane
+	_ = fill
+	_ = extra
+	return true
+}
+/app/environment/fold.go
+### /app/environment/fold.go
+package main
+
+import "strings"
+
+func fold(sheet string) (int, string) {
+	cars, rc := parseRoll(sheet)
+	if rc != 0 {
+		return rc, ""
+	}
+	if len(cars) == 0 {
+		return 0, "{\"i\":1,\"verb\":\"stow\",\"ok\":\"empty\"}\n"
+	}
+	ordered := arrange(cars)
+	fill := map[string]*occ{}
+	deckKg := map[string]int{}
+	var lines []string
+	n := 0
+	for i, car := range ordered {
+		lane := pickLane(car, fill, deckKg)
+		station := stationOf(2000, car, 0)
+		_ = i
+		emit(&lines, &n, car.Plate, lane.Deck, lane.Name, fmtInt(station), "yes")
+		if fill[lane.Name] == nil {
+			fill[lane.Name] = &occ{}
+		}
+		fill[lane.Name].used += car.Len
+		fill[lane.Name].has = true
+	}
+	return 0, strings.Join(lines, "")
+}
+
+func fmtInt(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	sign := ""
+	if n < 0 {
+		sign = "-"
+		n = -n
+	}
+	var d []byte
+	for n > 0 {
+		d = append([]byte{byte('0' + n%10)}, d...)
+		n /= 10
+	}
+	return sign + string(d)
+}
+/app/environment/spacing.go
+### /app/environment/spacing.go
+package main
+
+func neighbourGap(prevHaz, haz int) int {
+	_ = prevHaz
+	_ = haz
+	return 0
+}
+--- rolls ---
+/app/rolls/night.roll
+### /app/rolls/night.roll
+# sample night crossing
+PLATE van-a LEN 420 HT 160 MASS 900 HAZ 0 BOARD 1
+PLATE van-b LEN 380 HT 155 MASS 850 HAZ 0 BOARD 2
+[?2004hroot@01771362f570:/app# cd /app/environment && for f in parse.go offer.go chalk.go; do echo "### $f"; cat "$f"; done
+[?2004l### parse.go
+package main
+
+import (
+	"strings"
+	"unicode"
+)
+
+func safeName(text string) bool {
+	if text == "" {
+		return false
+	}
+	for _, r := range text {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '.' || r == '_' || r == '-' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func parseRoll(sheet string) ([]Car, int) {
+	var cars []Car
+	for _, raw := range strings.Split(sheet, "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		words := strings.Fields(line)
+		if len(words) < 10 {
+			continue
+		}
+		if words[0] != "PLATE" || words[2] != "LEN" || words[4] != "HT" || words[6] != "HAZ" || words[8] != "BOARD" {
+			continue
+		}
+		if !safeName(words[1]) {
+			continue
+		}
+		length := atoiLoose(words[3])
+		ht := atoiLoose(words[5])
+		haz := atoiLoose(words[7])
+		board := atoiLoose(words[9])
+		if ht < 0 || board < 0 {
+			continue
+		}
+		cars = append(cars, Car{Plate: words[1], Len: length, Ht: ht, Haz: haz, Board: board})
+	}
+	return cars, 0
+}
+
+func atoiLoose(text string) int {
+	if text == "" {
+		return 0
+	}
+	n := 0
+	for _, r := range text {
+		if r < '0' || r > '9' {
+			return 0
+		}
+		n = n*10 + int(r-'0')
+	}
+	return n
+}
+### offer.go
+package main
+
+type occ struct {
+	used    int
+	mass    int
+	lastHaz int
+	has     bool
+}
+
+func pickLane(car Car, fill map[string]*occ, deckKg map[string]int) Lane {
+	_ = car
+	_ = fill
+	_ = deckKg
+	return Lane{Deck: "B", Name: "B1", Lid: 420, Span: 2000}
+}
+### chalk.go
+package main
+
+import "fmt"
+
+func emit(lines *[]string, i *int, plate, deck, lane, station, ok string) {
+	*i++
+	row := fmt.Sprintf(`{"i":%d,"verb":"stow"`, *i)
+	if plate != "" {
+		row += fmt.Sprintf(`,"plate":"%s"`, plate)
+	}
+	if deck != "" {
+		row += fmt.Sprintf(`,"deck":"%s"`, deck)
+	}
+	if lane != "" {
+		row += fmt.Sprintf(`,"lane":"%s"`, lane)
+	}
+	if station != "" {
+		row += fmt.Sprintf(`,"station":"%s"`, station)
+	}
+	row += fmt.Sprintf(`,"ok":"%s"}`+"\n", ok)
+	*lines = append(*lines, row)
+}
+[?2004hroot@01771362f570:/app/environment# ls -l /opt/ferry/bin/cleat 2>/dev/null || true; go version
+[?2004l-rwxr-xr-x 1 root root 2437727 Sep 18 20:55 /opt/ferry/bin/cleat
+go version go1.18 gccgo (GCC) 13.4.0 linux/amd64
+[?2004hroot@01771362f570:/app/environment# cat > cars.go <<'EOF'
+[?2004l[0] != "PLATE" || w[2] != "LEN" || w[4] != "HT" ||
+			w[6] != "MASS" || w[8] != "HAZ" || w[10] != "BOARD" || !safeName(w[1]) { return nil, -2 }
+		length, a := uint(w[3]); ht, b := uint(w[5]); mass, c := uint(w[7])
+		haz, d := uint(w[9]); board, e := uint(w[11])
+		if !a || !b || !c || !d || !e || length == 0 || ht == 0 || mass == 0 || board == 0 || haz > 1 { return nil, -2 }
+		cars = append(cars, Car{w[1], length, ht, mass, haz, board, len(cars)})
+	}
+	return cars, 0
+}
+EOF
+cat > vault.go <<'EOF'
+package main
+
+type Lane struct { Deck, Name string; Lid, Span, MassLid int }
+func allLanes() []Lane { return []Lane{
+	{"A", "A1", 180, 2000, 8000}, {"A", "A2", 180, 2000, 8000},
+	{"B", "B1", 420, 2000, 18000}, {"B", "B2", 420, 2000, 18000},
+} }
+func deckLid(deck string) int { if deck == "A" { return 11000 }; return 28000 }
+func sister(name string) string { switch name { case "A1": return "A2"; case "A2": return "A1"; case "B1": return "B2"; default: return "B1" } }
+EOF
+cat > board.go <<'EOF'
+package main
+import "sort"
+func arrange(cars []Car) []Car {
+	out := append([]Car(nil), cars...)
+	sort.Slice(out, func(i,j int) bool { if out[i].Board == out[j].Board { return out[i].Plate < out[j].Plate }; return out[i].Board < out[j].Board })
+	return out
+}
+EOF
+cat > apron.go <<'EOF'
+package main
+func rampApron(haz int) int { if haz == 1 { return 100 }; return 0 }
+EOF
+cat > spacing.go <<'EOF'
+package main
+func neighbourGap(a,b int) int {
+	if a == 1 && b == 1 { return 200 }
+	if a == 1 || b == 1 { return 100 }
+	return 0
+}
+EOF
+cat > offer.go <<'EOF'
+package main
+
+type occ struct { used, mass, lastHaz int; has bool }
+
+func candidate(lane Lane, car Car, fill map[string]*occ, deckKg map[string]int) (int, bool) {
+	if car.Ht > lane.Lid { return 0, false }
+	o := fill[lane.Name]
+	if o == nil { o = &occ{} }
+	gap := 0
+	if o.has { gap = neighbourGap(o.lastHaz, car.Haz) }
+	if o.used + gap + car.Len + rampApron(car.Haz) > lane.Span { return 0, false }
+	if o.mass + car.Mass > lane.MassLid || deckKg[lane.Deck] + car.Mass > deckLid(lane.Deck) { return 0, false }
+	if !trimFits(lane, fill, car.Mass) { return 0, false }
+	return lane.Span - o.used - gap - car.Len, true
+}
+EOF
+cat > trim.go <<'EOF'
+package main
+func trimFits(lane Lane, fill map[string]*occ, extra int) bool {
+	a, b := fill[lane.Name], fill[sister(lane.Name)]
+	if a == nil || b == nil || !a.has || !b.has { return true }
+	d := a.mass + extra - b.mass
+	if d < 0 { d = -d }
+	return d <= 3000
+}
+EOF
+cat > fold.go <<'EOF'
+package main
+
+import (
+	"encoding/json"
+	"strings"
+)
+
+type chalkRow struct {
+	I int `json:"i"`
+	Verb string `json:"verb"`
+	Plate string `json:"plate"`
+	Deck string `json:"deck,omitempty"`
+	Lane string `json:"lane,omitempty"`
+	Station *int `json:"station,omitempty"`
+	OK string `json:"ok"`
+}
+
+func fold(sheet string) (int, string) {
+	cars, rc := parseRoll(sheet)
+	if rc != 0 { return rc, "" }
+	if len(cars) == 0 { return 0, "" }
+	fill := map[string]*occ{}
+	deckKg := map[string]int{}
+	results := make([]Result, len(cars))
+	for _, car := range arrange(cars) {
+		for _, lane := range allLanes() {
+			station, ok := candi[?2004h> package main
+[?2004l[?2004h> 
+[?2004l[?2004h> type Car struct {
+[?2004l[?2004h> Plate string
+[?2004l[?2004h> Len, Ht, Mass, Haz, Board int
+[?2004l[?2004h> Index int
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> type Result struct {
+[?2004l[?2004h> Deck, Lane string
+[?2004l[?2004h> Station int
+[?2004l[?2004h> OK bool
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@01771362f570:/app/environment# cat > parse.go <<'EOF'
+[?2004l[?2004h> package main
+[?2004l[?2004h> 
+[?2004l[?2004h> import (
+[?2004l[?2004h> "strconv"
+[?2004l[?2004h> "strings"
+[?2004l[?2004h> )
+[?2004l[?2004h> 
+[?2004l[?2004h> func safeName(s string) bool {
+[?2004l[?2004h> if s == "" { return false }
+[?2004l[?2004h> for i := 0; i < len(s); i++ {
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> c := s[i]
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> (c >= '0' && c <= '9') || c == '.' || c == '_' || c == '-') { return false }
+[?2004l[?2004h> }
+[?2004l[?2004h> return true
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> func uint(s string) (int, bool) {
+[?2004l[?2004h> if s == "" { return 0, false }
+[?2004l[?2004h> for i := range s { if s[i] < '0' || s[i] > '9' { return 0, false } }
+[?2004l[?2004h> n, err := strconv.ParseUint(s, 10, 0)
+[?2004l[?2004h> if err != nil || uint64(int(n)) != n { return 0, false }
+[?2004l[?2004h> return int(n), true
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> func parseRoll(sheet string) ([]Car, int) {
+[?2004l[?2004h> var cars []Car
+[?2004l[?2004h> for _, raw := range strings.Split(sheet, "\n") {
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> line := strings.TrimSpace(raw)
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> if line == "" || strings.HasPrefix(line, "#") { continue }
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> w := strings.Fields(line)
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> if len(w) != 12 || w[0] != "PLATE" || w[2] != "LEN" || w[4] != "HT" ||
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> w[6] != "MASS" || w[8] != "HAZ" || w[10] != "BOARD" || !safeName(w[1]) { return nil, -2 }
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> length, a := uint(w[3]); ht, b := uint(w[5]); mass, c := uint(w[7])
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> haz, d := uint(w[9]); board, e := uint(w[11])
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> if !a || !b || !c || !d || !e || length == 0 || ht == 0 || mass == 0 || board == 0 || haz > 1 { return nil, -2 }
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> cars = append(cars, Car{w[1], length, ht, mass, haz, board, len(cars)})
+[?2004l[?2004h> }
+[?2004l[?2004h> return cars, 0
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@01771362f570:/app/environment# cat > vault.go <<'EOF'
+[?2004l[?2004h> package main
+[?2004l[?2004h> 
+[?2004l[?2004h> type Lane struct { Deck, Name string; Lid, Span, MassLid int }
+[?2004l[?2004h> func allLanes() []Lane { return []Lane{
+[?2004l[?2004h> {"A", "A1", 180, 2000, 8000}, {"A", "A2", 180, 2000, 8000},
+[?2004l[?2004h> {"B", "B1", 420, 2000, 18000}, {"B", "B2", 420, 2000, 18000},
+[?2004l[?2004h> } }
+[?2004l[?2004h> func deckLid(deck string) int { if deck == "A" { return 11000 }; return 28000 }
+[?2004l[?2004h> func sister(name string) string { switch name { case "A1": return "A2"; case "A2": return "A1"; case "B1": return "B2"; default: return "B1" } }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@01771362f570:/app/environment# cat > board.go <<'EOF'
+[?2004l[?2004h> package main
+[?2004l[?2004h> import "sort"
+[?2004l[?2004h> func arrange(cars []Car) []Car {
+[?2004l[?2004h> out := append([]Car(nil), cars...)
+[?2004l[?2004h> sort.Slice(out, func(i,j int) bool { if out[i].Board == out[j].Board { return out[i].Plate < out[j].Plate }; return out[i].Board < out[j].Board })
+[?2004l[?2004h> return out
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@01771362f570:/app/environment# cat > apron.go <<'EOF'
+[?2004l[?2004h> package main
+[?2004l[?2004h> func rampApron(haz int) int { if haz == 1 { return 100 }; return 0 }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@01771362f570:/app/environment# cat > spacing.go <<'EOF'
+[?2004l[?2004h> package main
+[?2004l[?2004h> func neighbourGap(a,b int) int {
+[?2004l[?2004h> if a == 1 && b == 1 { return 200 }
+[?2004l[?2004h> if a == 1 || b == 1 { return 100 }
+[?2004l[?2004h> return 0
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@01771362f570:/app/environment# cat > offer.go <<'EOF'
+[?2004l[?2004h> package main
+[?2004l[?2004h> 
+[?2004l[?2004h> type occ struct { used, mass, lastHaz int; has bool }
+[?2004l[?2004h> 
+[?2004l[?2004h> func candidate(lane Lane, car Car, fill map[string]*occ, deckKg map[string]int) (int, bool) {
+[?2004l[?2004h> if car.Ht > lane.Lid { return 0, false }
+[?2004l[?2004h> o := fill[lane.Name]
+[?2004l[?2004h> if o == nil { o = &occ{} }
+[?2004l[?2004h> gap := 0
+[?2004l[?2004h> if o.has { gap = neighbourGap(o.lastHaz, car.Haz) }
+[?2004l[?2004h> if o.used + gap + car.Len + rampApron(car.Haz) > lane.Span { return 0, false }
+[?2004l[?2004h> if o.mass + car.Mass > lane.MassLid || deckKg[lane.Deck] + car.Mass > deckLid(lane.Deck) { return 0, false }
+[?2004l[?2004h> if !trimFits(lane, fill, car.Mass) { return 0, false }
+[?2004l[?2004h> return lane.Span - o.used - gap - car.Len, true
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@01771362f570:/app/environment# cat > trim.go <<'EOF'
+[?2004l[?2004h> package main
+[?2004l[?2004h> func trimFits(lane Lane, fill map[string]*occ, extra int) bool {
+[?2004l[?2004h> a, b := fill[lane.Name], fill[sister(lane.Name)]
+[?2004l[?2004h> if a == nil || b == nil || !a.has || !b.has { return true }
+[?2004l[?2004h> d := a.mass + extra - b.mass
+[?2004l[?2004h> if d < 0 { d = -d }
+[?2004l[?2004h> return d <= 3000
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@01771362f570:/app/environment# cat > fold.go <<'EOF'
+[?2004l[?2004h> package main
+[?2004l[?2004h> 
+[?2004l[?2004h> import (
+[?2004l[?2004h> "encoding/json"
+[?2004l[?2004h> "strings"
+[?2004l[?2004h> )
+[?2004l[?2004h> 
+[?2004l[?2004h> type chalkRow struct {
+[?2004l[?2004h> I int `json:"i"`
+[?2004l[?2004h> Verb string `json:"verb"`
+[?2004l[?2004h> Plate string `json:"plate"`
+[?2004l[?2004h> Deck string `json:"deck,omitempty"`
+[?2004l[?2004h> Lane string `json:"lane,omitempty"`
+[?2004l[?2004h> Station *int `json:"station,omitempty"`
+[?2004l[?2004h> OK string `json:"ok"`
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> func fold(sheet string) (int, string) {
+[?2004l[?2004h> cars, rc := parseRoll(sheet)
+[?2004l[?2004h> if rc != 0 { return rc, "" }
+[?2004l[?2004h> if len(cars) == 0 { return 0, "" }
+[?2004l[?2004h> fill := map[string]*occ{}
+[?2004l[?2004h> deckKg := map[string]int{}
+[?2004l[?2004h> results := make([]Result, len(cars))
+[?2004l[?2004h> for _, car := range arrange(cars) {
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> for _, lane := range allLanes() {
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> station, ok := candidate(lane, car, fill, deckKg)
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> if !ok { continue }
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> o := fill[lane.Name]
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> if o == nil { o = &occ{}; fill[lane.Name] = o }
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> gap := 0; if o.has { gap = neighbourGap(o.lastHaz, car.Haz) }
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> o.used += gap + car.Len + rampApron(car.Haz)
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> o.mass += car.Mass; o.lastHaz = car.Haz; o.has = true
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> deckKg[lane.Deck] += car.Mass
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> results[car.Index] = Result{lane.Deck, lane.Name, station, true}
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> break
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> }
+[?2004l[?2004h> }
+[?2004l[?2004h> var out strings.Builder
+[?2004l[?2004h> for i, car := range cars {
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> r := results[i]
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> row := chalkRow{I:i+1, Verb:"stow", Plate:car.Plate, OK:"no"}
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> if r.OK { row.Deck=r.Deck; row.Lane=r.Lane; row.Station=&r.Station; row.OK="yes" }
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> b, _ := json.Marshal(row); out.Write(b); out.WriteByte('\n')
+[?2004l[?2004h> }
+[?2004l[?2004h> return 0, out.String()
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@01771362f570:/app/environment# gofmt -w *.go && make install
+[?2004lmkdir -p /opt/ferry/bin
+go build -o /opt/ferry/bin/cleat .
+[?2004hroot@01771362f570:/app/environment# set -o pipefail
+[?2004l[?2004hroot@01771362f570:/app/environment# /opt/ferry/bin/cleat stow --roll /app/rolls/night.roll --chalk /tmp/night.chalk; echo "sample rc=$?"; cat /tmp/night.chalk
+[?2004lsample rc=0
+{"i":1,"verb":"stow","plate":"van-a","deck":"A","lane":"A1","station":1580,"ok":"yes"}
+{"i":2,"verb":"stow","plate":"van-b","deck":"A","lane":"A1","station":1200,"ok":"yes"}
+[?2004hroot@01771362f570:/app/environment# cat >/tmp/test.roll <<'EOF'
+[?2004l[?2004h> PLATE printed-long LEN 1200 HT 160 MASS 1000 HAZ 0 BOARD 3
+[?2004l[?2004h> PLATE early-short LEN 900 HT 160 MASS 1000 HAZ 0 BOARD 1
+[?2004l[?2004h> PLATE middle LEN 800 HT 160 MASS 1000 HAZ 0 BOARD 2
+[?2004l[?2004h> PLATE tall LEN 100 HT 181 MASS 100 HAZ 0 BOARD 4
+[?2004l[?2004h> PLATE hz1 LEN 300 HT 400 MASS 1000 HAZ 1 BOARD 5
+[?2004l[?2004h> PLATE hz2 LEN 300 HT 400 MASS 1000 HAZ 1 BOARD 6
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@01771362f570:/app/environment# /opt/ferry/bin/cleat stow --roll /tmp/test.roll --chalk /tmp/test.chalk; echo "target rc=$?"; cat /tmp/test.chalk
+[?2004ltarget rc=0
+{"i":1,"verb":"stow","plate":"printed-long","deck":"A","lane":"A2","station":800,"ok":"yes"}
+{"i":2,"verb":"stow","plate":"early-short","deck":"A","lane":"A1","station":1100,"ok":"yes"}
+{"i":3,"verb":"stow","plate":"middle","deck":"A","lane":"A1","station":300,"ok":"yes"}
+{"i":4,"verb":"stow","plate":"tall","deck":"B","lane":"B1","station":1900,"ok":"yes"}
+{"i":5,"verb":"stow","plate":"hz1","deck":"B","lane":"B1","station":1500,"ok":"yes"}
+{"i":6,"verb":"stow","plate":"hz2","deck":"B","lane":"B1","station":900,"ok":"yes"}
+[?2004hroot@01771362f570:/app/environment# : >/tmp/empty.roll; /opt/ferry/bin/cleat stow --roll /tmp/empty.roll --chalk /tmp/empty.chalk; echo "empty rc=$? bytes=$(wc -c </tmp/empty.chalk)"
+[?2004lempty rc=0 bytes=0
+[?2004hroot@01771362f570:/app/environment# printf 'PLATE x LEN 1 HT 1 MASS nope HAZ 0 BOARD 1\n' >/tmp/bad.roll
+[?2004l[?2004hroot@01771362f570:/app/environment# printf old >/tmp/bad.chalk; /opt/ferry/bin/cleat stow --roll /tmp/bad.roll --chalk /tmp/bad.chalk; echo "bad rc=$? bytes=$(wc -c </tmp/bad.chalk)"
+[?2004lbad rc=2 bytes=0
+[?2004hroot@01771362f570:/app/environment# python3 - <<'PY'
+[?2004l ' && line[i] != '\t' {
+			// No other ASCII or Unicode whitespace is a field separator.
+			if line[i] == '\r' || line[i] == '\n' || line[i] == '\v' || line[i] == '\f' { return nil, false }
+			i++
+		}
+		fields = append(fields, line[start:i])
+	}
+	return fields, true
+}
+
+func parseRoll(sheet string) ([]Car, int) {
+	var cars []Car
+	for _, raw := range strings.Split(sheet, "\n") {
+		w, valid := splitFields(raw)
+		if !valid { return nil, -2 }
+		if len(w) == 0 || strings.HasPrefix(w[0], "#") { continue }
+		if len(w) != 12 || w[0] != "PLATE" || w[2] != "LEN" || w[4] != "HT" ||
+			w[6] != "MASS" || w[8] != "HAZ" || w[10] != "BOARD" || !safeName(w[1]) { return nil, -2 }
+		length, a := uint(w[3]); ht, b := uint(w[5]); mass, c := uint(w[7])
+		haz, d := uint(w[9]); board, e := uint(w[11])
+		if !a || !b || !c || !d || !e || length == 0 || ht == 0 || mass == 0 || board == 0 || haz > 1 { return nil, -2 }
+		cars = append(cars, Car{w[1], length, ht, mass, haz, board, len(cars)})
+	}
+	return cars, 0
+}
+'''
+open(p,'w').write(s[:start]+new)
+PY
+gofmt -w *.go && make install
+[?2004h> p='spacing.go'
+[?2004l[?2004h> open(p,'w').write('''package main
+[?2004l[?2004h> 
+[?2004l[?2004h> func neighbourGap(a, b int) int {
+[?2004l[?2004h> if a == 1 && b == 1 { return 200 }
+[?2004l[?2004h> if a == 1 || b == 1 { return 100 }
+[?2004l[?2004h> return 0
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> // A previous hazmat plate's ramp apron is already part of used length and
+[?2004l[?2004h> // supplies the first part of the clearance required before the next plate.
+[?2004l[?2004h> func placementGap(previousHaz, haz int) int {
+[?2004l[?2004h> gap := neighbourGap(previousHaz, haz) - rampApron(previousHaz)
+[?2004l[?2004h> if gap < 0 { return 0 }
+[?2004l[?2004h> return gap
+[?2004l[?2004h> }
+[?2004l[?2004h> ''')
+[?2004l[?2004h> for p in ['offer.go','fold.go']:
+[?2004l[?2004h>     s=open(p).read().replace('neighbourGap(o.lastHaz, car.Haz)', 'placementGap(o.lastHaz, car.Haz)')
+[?2004l[?2004h>     open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@01771362f570:/app/environment# python3 - <<'PY'
+[?2004l[?2004h> p='parse.go'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> s=s.replace('"strings"', '"strings"')
+[?2004l[?2004h> start=s.index('func parseRoll(')
+[?2004l[?2004h> new=r'''func splitFields(line string) ([]string, bool) {
+[?2004l[?2004h> var fields []string
+[?2004l[?2004h> for i := 0; i < len(line); {
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> for i < len(line) && (line[i] == ' ' || line[i] == '\t') { i++ }
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> if i == len(line) { break }
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> start := i
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> for i < len(line) && line[i] != ' ' && line[i] != '\t' {
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> // No other ASCII or Unicode whitespace is a field separator.
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> if line[i] == '\r' || line[i] == '\n' || line[i] == '\v' || line[i] == '\f' { return nil, false }
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> i++
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> }
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> fields = append(fields, line[start:i])
+[?2004l[?2004h> }
+[?2004l[?2004h> return fields, true
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> func parseRoll(sheet string) ([]Car, int) {
+[?2004l[?2004h> var cars []Car
+[?2004l[?2004h> for _, raw := range strings.Split(sheet, "\n") {
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> w, valid := splitFields(raw)
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> if !valid { return nil, -2 }
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> if len(w) == 0 || strings.HasPrefix(w[0], "#") { continue }
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> if len(w) != 12 || w[0] != "PLATE" || w[2] != "LEN" || w[4] != "HT" ||
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> w[6] != "MASS" || w[8] != "HAZ" || w[10] != "BOARD" || !safeName(w[1]) { return nil, -2 }
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> length, a := uint(w[3]); ht, b := uint(w[5]); mass, c := uint(w[7])
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> haz, d := uint(w[9]); board, e := uint(w[11])
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> if !a || !b || !c || !d || !e || length == 0 || ht == 0 || mass == 0 || board == 0 || haz > 1 { return nil, -2 }
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> cars = append(cars, Car{w[1], length, ht, mass, haz, board, len(cars)})
+[?2004l[?2004h> }
+[?2004l[?2004h> return cars, 0
+[?2004l[?2004h> }
+[?2004l[?2004h> '''
+[?2004l[?2004h> open(p,'w').write(s[:start]+new)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@01771362f570:/app/environment# gofmt -w *.go && make install
+[?2004lmkdir -p /opt/ferry/bin
+go build -o /opt/ferry/bin/cleat .
+[?2004hroot@01771362f570:/app/environment# cat >/tmp/haz.roll <<'EOF'
+[?2004l[?2004h> PLATE both1 LEN 300 HT 400 MASS 1000 HAZ 1 BOARD 1
+[?2004l[?2004h> PLATE both2 LEN 300 HT 400 MASS 1000 HAZ 1 BOARD 2
+[?2004l[?2004h> PLATE clean LEN 300 HT 400 MASS 1000 HAZ 0 BOARD 3
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@01771362f570:/app/environment# /opt/ferry/bin/cleat stow --roll /tmp/haz.roll --chalk /tmp/haz.chalk; echo "haz rc=$?"; cat /tmp/haz.chalk
+[?2004lhaz rc=0
+{"i":1,"verb":"stow","plate":"both1","deck":"B","lane":"B1","station":1700,"ok":"yes"}
+{"i":2,"verb":"stow","plate":"both2","deck":"B","lane":"B1","station":1200,"ok":"yes"}
+{"i":3,"verb":"stow","plate":"clean","deck":"B","lane":"B1","station":800,"ok":"yes"}
+[?2004hroot@01771362f570:/app/environment# cat >/tmp/rules.roll <<'EOF'
+[?2004l[?2004h> PLATE later-listed LEN 1000 HT 180 MASS 7000 HAZ 0 BOARD 2
+[?2004l[?2004h> PLATE first LEN 1000 HT 180 MASS 4000 HAZ 0 BOARD 1
+[?2004l[?2004h> PLATE too-tall LEN 2000 HT 421 MASS 1 HAZ 0 BOARD 3
+[?2004l[?2004h> PLATE exact-tall LEN 2000 HT 420 MASS 18000 HAZ 0 BOARD 4
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@01771362f570:/app/environment# /opt/ferry/bin/cleat stow --roll /tmp/rules.roll --chalk /tmp/rules.chalk; echo "rules rc=$?"; cat /tmp/rules.chalk
+[?2004lrules rc=0
+{"i":1,"verb":"stow","plate":"later-listed","deck":"A","lane":"A2","station":1000,"ok":"yes"}
+{"i":2,"verb":"stow","plate":"first","deck":"A","lane":"A1","station":1000,"ok":"yes"}
+{"i":3,"verb":"stow","plate":"too-tall","ok":"no"}
+{"i":4,"verb":"stow","plate":"exact-tall","deck":"B","lane":"B1","station":0,"ok":"yes"}
+[?2004hroot@01771362f570:/app/environment# printf 'PLATE x LEN 1 HT 1 MASS 1 HAZ 0 BOARD 1\r\n' >/tmp/cr.roll
+[?2004l[?2004hroot@01771362f570:/app/environment# /opt/ferry/bin/cleat stow --roll /tmp/cr.roll --chalk /tmp/cr.chalk; echo "CR-field rc=$?"
+[?2004lCR-field rc=2
+[?2004hroot@01771362f570:/app/environment# cat >/tmp/trim.roll <<'EOF'
+[?2004l[?2004h> PLATE heavy-a LEN 500 HT 400 MASS 10000 HAZ 0 BOARD 1
+[?2004l[?2004h> PLATE heavy-b LEN 1600 HT 400 MASS 4500 HAZ 0 BOARD 2
+[?2004l[?2004h> PLATE follow LEN 500 HT 400 MASS 5500 HAZ 0 BOARD 3
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@01771362f570:/app/environment# /opt/ferry/bin/cleat stow --roll /tmp/trim.roll --chalk /tmp/trim.chalk; echo "trim rc=$?"; cat /tmp/trim.chalk
+[?2004ltrim rc=0
+{"i":1,"verb":"stow","plate":"heavy-a","deck":"B","lane":"B1","station":1500,"ok":"yes"}
+{"i":2,"verb":"stow","plate":"heavy-b","deck":"B","lane":"B2","station":400,"ok":"yes"}
+{"i":3,"verb":"stow","plate":"follow","ok":"no"}
+[?2004hroot@01771362f570:/app/environment# cat >/tmp/low.roll <<'EOF'
+[?2004l[?2004h> PLATE a LEN 1000 HT 100 MASS 6000 HAZ 0 BOARD 1
+[?2004l[?2004h> PLATE b LEN 1000 HT 100 MASS 5000 HAZ 0 BOARD 2
+[?2004l[?2004h> PLATE c LEN 100 HT 100 MASS 1 HAZ 0 BOARD 3
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@01771362f570:/app/environment# /opt/ferry/bin/cleat stow --roll /tmp/low.roll --chalk /tmp/low.chalk; echo "low rc=$?"; cat /tmp/low.chalk
+[?2004llow rc=0
+{"i":1,"verb":"stow","plate":"a","deck":"A","lane":"A1","station":1000,"ok":"yes"}
+{"i":2,"verb":"stow","plate":"b","deck":"A","lane":"A2","station":1000,"ok":"yes"}
+{"i":3,"verb":"stow","plate":"c","deck":"B","lane":"B1","station":1900,"ok":"yes"}
+[?2004hroot@01771362f570:/app/environment# python3 - <<'PY'
+[?2004lalk
+python3 - <<'PY'
+import json
+for path in ['/tmp/night.chalk','/tmp/haz.chalk','/tmp/rules.chalk','/tmp/balance.chalk']:
+    for num,line in enumerate(open(path, encoding='utf-8'),1):
+        r=json.loads(line)
+        assert isinstance(r['i'],int) and r['verb']=='stow'
+        assert isinstance(r['plate'],str) and r['ok'] in ('yes','no')
+        if r['ok']=='yes':
+            assert r['deck'] in ('A','B') and isinstance(r['lane'],str) and isinstance(r['station'],int)
+        else:
+            assert not ({'deck','lane','station'} & r.keys())
+print('NDJSON/type checks passed')
+PY
+ls -l /opt/ferry/bin/cleat; go build ./...
+[?2004h> p='parse.go'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> s=s.replace('"strconv"\n\t"strings"', '"strconv"\n\t"strings"\n\t"unicode"\n\t"unicode/utf8"')
+[?2004l[?2004h> a=s.index('func safeName(')
+[?2004l[?2004h> b=s.index('\nfunc uint(', a)
+[?2004l[?2004h> s=s[:a]+'''func safeName(s string) bool {
+[?2004l[?2004h> if s == "" || !utf8.ValidString(s) { return false }
+[?2004l[?2004h> for _, r := range s {
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '.' || r == '_' || r == '-' { continue }
+[?2004l[?2004h> 
+Makefile    board.go    chalk.go    go.mod      main.go     parse.go    trim.go     
+apron.go    cars.go     fold.go     kilo.go     offer.go    spacing.go  vault.go    
+> return false
+[?2004l[?2004h> }
+[?2004l[?2004h> return true
+[?2004l[?2004h> }
+[?2004l[?2004h> '''+s[b:]
+[?2004l[?2004h> s=s.replace('strconv.ParseUint(s, 10, 0)', 'strconv.ParseUint(s, 10, strconv.IntSize)')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> p='board.go'; s=open(p).read().replace('sort.Slice(out,', 'sort.SliceStable(out,'); open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@01771362f570:/app/environment# gofmt -w *.go && make install
+[?2004lmkdir -p /opt/ferry/bin
+go build -o /opt/ferry/bin/cleat .
+[?2004hroot@01771362f570:/app/environment# cat >/tmp/balance.roll <<'EOF'
+[?2004l[?2004h> PLATE heavy1 LEN 1600 HT 400 MASS 10000 HAZ 0 BOARD 1
+[?2004l[?2004h> PLATE heavy2 LEN 500 HT 400 MASS 4500 HAZ 0 BOARD 2
+[?2004l[?2004h> PLATE follow LEN 500 HT 400 MASS 5500 HAZ 0 BOARD 3
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@01771362f570:/app/environment# /opt/ferry/bin/cleat stow --roll /tmp/balance.roll --chalk /tmp/balance.chalk; rc=$?; echo "balance rc=$rc"; cat /tmp/balance.chalk
+[?2004lbalance rc=0
+{"i":1,"verb":"stow","plate":"heavy1","deck":"B","lane":"B1","station":400,"ok":"yes"}
+{"i":2,"verb":"stow","plate":"heavy2","deck":"B","lane":"B2","station":1500,"ok":"yes"}
+{"i":3,"verb":"stow","plate":"follow","deck":"B","lane":"B2","station":1000,"ok":"yes"}
+[?2004hroot@01771362f570:/app/environment# python3 - <<'PY'
+[?2004l[?2004h> import json
+[?2004l[?2004h> for path in ['/tmp/night.chalk','/tmp/haz.chalk','/tmp/rules.chalk','/tmp/balance.chalk']:
+[?2004l[?2004h>     for num,line in enumerate(open(path, encoding='utf-8'),1):
+[?2004l[?2004h>         r=json.loads(line)
+[?2004l[?2004h>         assert isinstance(r['i'],int) and r['verb']=='stow'
+[?2004l[?2004h>         assert isinstance(r['plate'],str) and r['ok'] in ('yes','no')
+[?2004l[?2004h>         if r['ok']=='yes':
+[?2004l[?2004h>             assert r['deck'] in ('A','B') and isinstance(r['lane'],str) and isinstance(r['station'],int)
+[?2004l[?2004h>         else:
+[?2004l[?2004h>             assert not ({'deck','lane','station'} & r.keys())
+[?2004l[?2004h> print('NDJSON/type checks passed')
+[?2004l[?2004h> PY
+[?2004lNDJSON/type checks passed
+[?2004hroot@01771362f570:/app/environment# ls -l /opt/ferry/bin/cleat; go build ./...
+[?2004l-rwxr-xr-x 1 root root 185728 Sep 18 21:06 /opt/ferry/bin/cleat
+[?2004hroot@01771362f570:/app/environment# python3 - <<'PY'
+[?2004l[?2004h> p='fold.go'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> s=s.replace('"strings"', '"strconv"\n\t"strings"')
+[?2004l[?2004h> s=s.replace('Station *int   `json:"station,omitempty"`', 'Station string `json:"station,omitempty"`')
+[?2004l[?2004h> s=s.replace('row.Station = &r.Station', 'row.Station = strconv.Itoa(r.Station)')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@01771362f570:/app/environment# gofmt -w *.go && make install
+[?2004lmkdir -p /opt/ferry/bin
+go build -o /opt/ferry/bin/cleat .
+[?2004hroot@01771362f570:/app/environment# /opt/ferry/bin/cleat stow --roll /app/rolls/night.roll --chalk /tmp/final.chalk && cat /tmp/final.chalk
+[?2004l{"i":1,"verb":"stow","plate":"van-a","deck":"A","lane":"A1","station":"1580","ok":"yes"}
+{"i":2,"verb":"stow","plate":"van-b","deck":"A","lane":"A1","station":"1200","ok":"yes"}
+[?2004hroot@01771362f570:/app/environment# python3 - <<'PY'
+[?2004l[?2004h> import json
+[?2004l[?2004h> rows=[json.loads(x) for x in open('/tmp/final.chalk')]
+[?2004l[?2004h> assert all(isinstance(r['station'], str) for r in rows)
+[?2004l[?2004h> assert [r['station'] for r in rows] == ['1580','1200']
+[?2004l[?2004h> print('final schema check passed')
+[?2004l[?2004h> PY
+[?2004lfinal schema check passed
+[?2004hroot@01771362f570:/app/environment# go build ./... && ls -l /opt/ferry/bin/cleat
+[?2004l-rwxr-xr-x 1 root root 186080 Sep 18 21:06 /opt/ferry/bin/cleat
+[?2004hroot@01771362f570:/app/environment# 

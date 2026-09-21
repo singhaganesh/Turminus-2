@@ -1,0 +1,188 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 14,
+            "passed": 0,
+            "failed": 14,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1789134468.5899913,
+            "stop": 1789134469.018739
+        },
+        "tests": [
+            {
+                "name": "test_outputs.py::test_bw01_repeat_pair",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.023977664997801185,
+                "start": 1789134468.6770394,
+                "stop": 1789134468.724635,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_bw01_repeat_pair() -> None:\n        \"\"\"two fresh mints write identical keg bytes.\"\"\"\n        _restore()\n        assert _mint().returncode == 0\n        j1 = JSON_PATH.read_bytes()\n        t1 = TSV_PATH.read_bytes()\n        assert _mint().returncode == 0\n>       assert JSON_PATH.read_bytes() == j1\nE       assert b'{\"batch_cou...aaaaaaa\"}]}\\n' == b'{\"batch_cou...3030303\"}]}\\n'\nE         \nE         At index 191 diff: b'e' != b'a'\nE         Use -v to get more diff\n\n/tests/test_outputs.py:120: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_bw02_arc_order",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.015029785994556732,
+                "start": 1789134468.7250423,
+                "stop": 1789134468.7532368,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_bw02_arc_order() -> None:\n        \"\"\"seq names follow decoded dump chronology.\"\"\"\n        _restore()\n        assert _mint().returncode == 0\n        body = _load_json()\n        got = [row[\"name\"] for row in sorted(body[\"entries\"], key=lambda r: r[\"seq\"])]\n>       assert got == _want_names()\nE       AssertionError: assert ['d.clat', 'b...', 'old.clat'] == ['old.clat', ...'e.clat', ...]\nE         \nE         At index 0 diff: 'd.clat' != 'old.clat'\nE         Right contains 2 more items, first extra item: 'e.clat'\nE         Use -v to get more diff\n\n/tests/test_outputs.py:130: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_bw03_pair_adj",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.013652084009663668,
+                "start": 1789134468.7537496,
+                "stop": 1789134468.7808037,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_bw03_pair_adj() -> None:\n        \"\"\"same-guid extras sit beside their primary.\"\"\"\n        _restore()\n        assert _mint().returncode == 0\n        names = [row[\"name\"] for row in sorted(_load_json()[\"entries\"], key=lambda r: r[\"seq\"])]\n>       assert names.index(\"a.clat\") + 1 == names.index(\"a2.clat\")\n                                            ^^^^^^^^^^^^^^^^^^^^^^\nE       ValueError: 'a2.clat' is not in list\n\n/tests/test_outputs.py:143: ValueError",
+                "message": "The test failed in the call phase"
+            },
+            {
+                "name": "test_outputs.py::test_bw04_hold_extra",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.013801665998471435,
+                "start": 1789134468.7813783,
+                "stop": 1789134468.8088577,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_bw04_hold_extra() -> None:\n        \"\"\"a dump added at grade time lands in chronology.\"\"\"\n        _restore()\n        extra = WELL / \"mid.clat\"\n        raw = bytearray((WELL / \"b.clat\").read_bytes())\n        unix = 1550000000\n        ft = (unix + DELTA) * TICKS\n        lo_d = ft & 0xFFFFFFFF\n        hi_d = (ft >> 32) & 0xFFFFFFFF\n        n = _u16(bytes(raw), 10)\n        off = 12\n        for _ in range(n):\n            st = _u32(bytes(raw), off)\n            rva = _u32(bytes(raw), off + 4)\n            off += 12\n            if st == 3:\n                raw[rva : rva + 4] = int(lo_d).to_bytes(4, \"little\")\n                raw[rva + 4 : rva + 8] = int(hi_d).to_bytes(4, \"little\")\n            if st == 15:\n                raw[rva : rva + 16] = bytes([0x55]) * 16\n                raw[rva + 16] = 0\n        extra.write_bytes(bytes(raw))\n        assert _mint().returncode == 0\n        names = [row[\"name\"] for row in sorted(_load_json()[\"entries\"], key=lambda r: r[\"seq\"])]\n>       assert names == _want_names()\nE       AssertionError: assert ['old.clat', ...at', 'd.clat'] == ['old.clat', ...a2.clat', ...]\nE         \nE         At index 1 diff: 'a.clat' != 'b.clat'\nE         Right contains 2 more items, first extra item: 'e.clat'\nE         Use -v to get more diff\n\n/tests/test_outputs.py:171: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_bw05_empty_exit",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.005289921995426994,
+                "start": 1789134468.8092456,
+                "stop": 1789134468.8258328,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_bw05_empty_exit() -> None:\n        \"\"\"empty well makes tallow fail.\"\"\"\n        _restore()\n        for p in WELL.glob(\"*.clat\"):\n            p.unlink()\n        proc = subprocess.run([\"/app/bin/clatter\", \"tallow\"], capture_output=True, text=True)\n        _assert_native()\n>       assert proc.returncode != 0\nE       AssertionError: assert 0 != 0\nE        +  where 0 = CompletedProcess(args=['/app/bin/clatter', 'tallow'], returncode=0, stdout='', stderr='').returncode\n\n/tests/test_outputs.py:183: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_bw06_outside_exit",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.01587189899146324,
+                "start": 1789134468.8260887,
+                "stop": 1789134468.8519986,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_bw06_outside_exit() -> None:\n        \"\"\"pour of a path outside the well exits nonzero.\"\"\"\n        _restore()\n        assert _mint().returncode == 0\n        proc = subprocess.run(\n            [\"/app/bin/clatter\", \"pour\", \"/app/scratch\"],\n            capture_output=True,\n            text=True,\n        )\n        _assert_native()\n>       assert proc.returncode != 0\nE       AssertionError: assert 0 != 0\nE        +  where 0 = CompletedProcess(args=['/app/bin/clatter', 'pour', '/app/scratch'], returncode=0, stdout='', stderr='').returncode\n\n/tests/test_outputs.py:196: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_bw07_schema_rows",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.009636638998927083,
+                "start": 1789134468.8523223,
+                "stop": 1789134468.87309,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_bw07_schema_rows() -> None:\n        \"\"\"json lists every well file once with required fields.\"\"\"\n        _restore()\n        assert _mint().returncode == 0\n        body = _load_json()\n        names = [row[\"name\"] for row in body[\"entries\"]]\n        well = {p.name for p in WELL.glob(\"*.clat\")}\n>       assert set(names) == well\nE       AssertionError: assert {'a.clat', 'b...', 'old.clat'} == {'a.clat', 'a...e2.clat', ...}\nE         \nE         Extra items in the right set:\nE         'e2.clat'\nE         'a2.clat'\nE         Use -v to get more diff\n\n/tests/test_outputs.py:206: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_bw08_tsv_rows",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.009821024003031198,
+                "start": 1789134468.8734345,
+                "stop": 1789134468.893452,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_bw08_tsv_rows() -> None:\n        \"\"\"tsv rows match json seq/name/digest/guid.\"\"\"\n        _restore()\n        assert _mint().returncode == 0\n        body = _load_json()\n        lines = TSV_PATH.read_text().splitlines()\n        assert lines[0] == \"seq\\tname\\tdigest\\tguid\"\n        rows = [ln.split(\"\\t\") for ln in lines[1:] if ln]\n        js = sorted(body[\"entries\"], key=lambda r: r[\"seq\"])\n        assert len(rows) == len(js)\n        for rec, j in zip(rows, js):\n            assert rec[0] == str(j[\"seq\"])\n            assert rec[1] == j[\"name\"]\n            assert rec[2] == j[\"digest\"]\n            assert rec[3] == j[\"guid\"]\n>       assert rows[0][1] == _want_names()[0]\nE       AssertionError: assert 'a.clat' == 'old.clat'\nE         \nE         - old.clat\nE         + a.clat\n\n/tests/test_outputs.py:229: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_bw09_hex_body",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.010326946998247877,
+                "start": 1789134468.8936706,
+                "stop": 1789134468.9122252,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_bw09_hex_body() -> None:\n        \"\"\"digest matches dump bytes and seq-1 is the earliest crash.\"\"\"\n        _restore()\n        assert _mint().returncode == 0\n        body = _load_json()\n        by_seq = {row[\"seq\"]: row for row in body[\"entries\"]}\n        want = _want_names()\n>       assert by_seq[1][\"name\"] == want[0]\nE       AssertionError: assert 'd.clat' == 'old.clat'\nE         \nE         - old.clat\nE         ? --\nE         + d.clat\n\n/tests/test_outputs.py:239: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_bw10_k_split",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.010324196991859935,
+                "start": 1789134468.912459,
+                "stop": 1789134468.932296,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_bw10_k_split() -> None:\n        \"\"\"batch_count is ceil of entry count over three and first batch is earliest names.\"\"\"\n        _restore()\n        assert _mint().returncode == 0\n        body = _load_json()\n        n = len(body[\"entries\"])\n        assert body[\"batch_count\"] == (n + 2) // 3\n        names = [row[\"name\"] for row in sorted(body[\"entries\"], key=lambda r: r[\"seq\"])]\n>       assert names[:3] == _want_names()[:3]\nE       AssertionError: assert ['a.clat', 'e.clat', 'd.clat'] == ['old.clat', ...at', 'd.clat']\nE         \nE         At index 0 diff: 'a.clat' != 'old.clat'\nE         Use -v to get more diff\n\n/tests/test_outputs.py:258: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_bw11_zz_regen",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.01517288999457378,
+                "start": 1789134468.9325328,
+                "stop": 1789134468.9582136,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_bw11_zz_regen() -> None:\n        \"\"\"tallow then pour restores keg files after they are clobbered.\"\"\"\n        _restore()\n        assert _mint().returncode == 0\n        JSON_PATH.write_text(\"{}\")\n        TSV_PATH.write_text(\"junk\")\n        proc = subprocess.run([\"/app/bin/clatter\", \"tallow\"], capture_output=True, text=True)\n        assert proc.returncode == 0\n        proc = subprocess.run([\"/app/bin/clatter\", \"pour\"], capture_output=True, text=True)\n        _assert_native()\n        assert proc.returncode == 0\n        names = [row[\"name\"] for row in sorted(_load_json()[\"entries\"], key=lambda r: r[\"seq\"])]\n>       assert names == _want_names()\nE       AssertionError: assert ['e.clat', 'a...', 'old.clat'] == ['old.clat', ...'e.clat', ...]\nE         \nE         At index 0 diff: 'e.clat' != 'old.clat'\nE         Right contains 2 more items, first extra item: 'e.clat'\nE         Use -v to get more diff\n\n/tests/test_outputs.py:273: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_bw12_one_shot",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.011485422008263413,
+                "start": 1789134468.958609,
+                "stop": 1789134468.9792647,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_bw12_one_shot() -> None:\n        \"\"\"one tallow subprocess then one pour subprocess fills the keg.\"\"\"\n        _restore()\n        _assert_native()\n        a = subprocess.run([\"/app/bin/clatter\", \"tallow\"], capture_output=True, text=True)\n        assert a.returncode == 0\n        b = subprocess.run([\"/app/bin/clatter\", \"pour\"], capture_output=True, text=True)\n        assert b.returncode == 0\n        names = [row[\"name\"] for row in sorted(_load_json()[\"entries\"], key=lambda r: r[\"seq\"])]\n>       assert names == _want_names()\nE       AssertionError: assert ['b.clat', 'a...at', 'e.clat'] == ['old.clat', ...'e.clat', ...]\nE         \nE         At index 0 diff: 'b.clat' != 'old.clat'\nE         Right contains 2 more items, first extra item: 'e.clat'\nE         Use -v to get more diff\n\n/tests/test_outputs.py:285: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_bw13_flag_gone",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.004826532996958122,
+                "start": 1789134468.979526,
+                "stop": 1789134468.9940014,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_bw13_flag_gone() -> None:\n        \"\"\"failed empty mint leaves MARK absent.\"\"\"\n        _restore()\n        MARK.write_text(\"ok\")\n        for p in WELL.glob(\"*.clat\"):\n            p.unlink()\n        subprocess.run([\"/app/bin/clatter\", \"tallow\"], capture_output=True, text=True)\n        _assert_native()\n>       assert not MARK.exists()\nE       AssertionError: assert not True\nE        +  where True = exists()\nE        +    where exists = PosixPath('/app/kegbay/MARK').exists\n\n/tests/test_outputs.py:296: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_bw14_seed_hide",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.013245461996120866,
+                "start": 1789134468.9943094,
+                "stop": 1789134469.0185409,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_bw14_seed_hide() -> None:\n        \"\"\"chronology holds even if last-good is moved aside.\"\"\"\n        _restore()\n        hidden = KEG / \"hide.rec\"\n        if ARC.exists():\n            shutil.move(str(ARC), str(hidden))\n        try:\n            assert _mint().returncode == 0\n            names = [row[\"name\"] for row in sorted(_load_json()[\"entries\"], key=lambda r: r[\"seq\"])]\n>           assert names == _want_names()\nE           AssertionError: assert ['b.clat', 'e...at', 'a.clat'] == ['old.clat', ...'e.clat', ...]\nE             \nE             At index 0 diff: 'b.clat' != 'old.clat'\nE             Right contains 2 more items, first extra item: 'e.clat'\nE             Use -v to get more diff\n\n/tests/test_outputs.py:308: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            }
+        ]
+    }
+}

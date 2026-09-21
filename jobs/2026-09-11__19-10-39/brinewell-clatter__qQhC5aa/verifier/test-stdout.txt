@@ -1,0 +1,49 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 14 items
+
+../tests/test_outputs.py ........F.....                                  [100%]
+
+=================================== FAILURES ===================================
+______________________________ test_bw09_hex_body ______________________________
+
+    def test_bw09_hex_body() -> None:
+        """digest matches dump bytes and seq-1 is the earliest crash."""
+        _restore()
+        assert _mint().returncode == 0
+        body = _load_json()
+        by_seq = {row["seq"]: row for row in body["entries"]}
+        want = _want_names()
+        assert by_seq[1]["name"] == want[0]
+        for row in body["entries"]:
+            proc = subprocess.run(
+                ["sha256sum", str(WELL / row["name"])],
+                capture_output=True,
+                text=True,
+            )
+>           assert row["digest"] == proc.stdout.split()[0]
+E           AssertionError: assert '00729ecd9c58...3a27462675fa9' == '6727175f53e5...234cda98b67f5'
+E             
+E             - 6727175f53e5a66f47bff49403667cfaf694b2f2e7b7729a399234cda98b67f5
+E             + 00729ecd9c58f7557079765a35460f6720cbf37626209ecf3ba3a27462675fa9
+
+/tests/test_outputs.py:246: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_bw01_repeat_pair
+PASSED ../tests/test_outputs.py::test_bw02_arc_order
+PASSED ../tests/test_outputs.py::test_bw03_pair_adj
+PASSED ../tests/test_outputs.py::test_bw04_hold_extra
+PASSED ../tests/test_outputs.py::test_bw05_empty_exit
+PASSED ../tests/test_outputs.py::test_bw06_outside_exit
+PASSED ../tests/test_outputs.py::test_bw07_schema_rows
+PASSED ../tests/test_outputs.py::test_bw08_tsv_rows
+PASSED ../tests/test_outputs.py::test_bw10_k_split
+PASSED ../tests/test_outputs.py::test_bw11_zz_regen
+PASSED ../tests/test_outputs.py::test_bw12_one_shot
+PASSED ../tests/test_outputs.py::test_bw13_flag_gone
+PASSED ../tests/test_outputs.py::test_bw14_seed_hide
+FAILED ../tests/test_outputs.py::test_bw09_hex_body - AssertionError: assert ...
+========================= 1 failed, 13 passed in 0.25s =========================

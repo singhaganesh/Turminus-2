@@ -1,0 +1,208 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py FFFFFFFFFFFF                                    [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_g01_first_slot ______________________________
+
+    def test_g01_first_slot() -> None:
+        """jab of the lowest listed WIRE returns that card REPLY."""
+        _restore()
+        rows = _load_cards()
+        row = min(rows, key=lambda r: int(r["wire"]))
+>       assert _reply(int(row["wire"])) == row["reply"]
+E       AssertionError: assert 'pump-ok' == 'fan-ok'
+E         
+E         - fan-ok
+E         + pump-ok
+
+/tests/test_outputs.py:86: AssertionError
+_____________________________ test_g02_second_slot _____________________________
+
+    def test_g02_second_slot() -> None:
+        """jab of the next listed WIRE returns that card REPLY."""
+        _restore()
+        rows = sorted(_load_cards(), key=lambda r: int(r["wire"]))
+        row = rows[1]
+>       assert _reply(int(row["wire"])) == row["reply"]
+E       AssertionError: assert 'valve-ok' == 'pump-ok'
+E         
+E         - pump-ok
+E         + valve-ok
+
+/tests/test_outputs.py:94: AssertionError
+______________________________ test_g03_hole_miss ______________________________
+
+    def test_g03_hole_miss() -> None:
+        """an integer no card lists prints fallthrough."""
+        _restore()
+        used = {int(r["wire"]) for r in _load_cards()}
+        hole = 5
+        assert hole not in used
+>       assert _reply(hole) == "fallthrough"
+E       AssertionError: assert 'latch-ok' == 'fallthrough'
+E         
+E         - fallthrough
+E         + latch-ok
+
+/tests/test_outputs.py:103: AssertionError
+______________________________ test_g04_high_slot ______________________________
+
+    def test_g04_high_slot() -> None:
+        """a high listed WIRE still returns its REPLY."""
+        _restore()
+        row = next(r for r in _load_cards() if int(r["wire"]) == 15)
+>       assert _reply(15) == row["reply"]
+E       AssertionError: assert 'fallthrough' == 'watch-ok'
+E         
+E         - watch-ok
+E         + fallthrough
+
+/tests/test_outputs.py:110: AssertionError
+_____________________________ test_g05_newer_slot ______________________________
+
+    def test_g05_newer_slot() -> None:
+        """the last card WIRE returns its REPLY, not fallthrough."""
+        _restore()
+        row = max(_load_cards(), key=lambda r: int(r["wire"]))
+>       assert _reply(int(row["wire"])) == row["reply"]
+E       AssertionError: assert 'fallthrough' == 'vent-ok'
+E         
+E         - vent-ok
+E         + fallthrough
+
+/tests/test_outputs.py:117: AssertionError
+______________________________ test_g06_mid_slot _______________________________
+
+    def test_g06_mid_slot() -> None:
+        """a mid-range listed WIRE returns its REPLY."""
+        _restore()
+        row = next(r for r in _load_cards() if int(r["wire"]) == 12)
+>       assert _reply(12) == row["reply"]
+E       AssertionError: assert 'fallthrough' == 'bias-ok'
+E         
+E         - bias-ok
+E         + fallthrough
+
+/tests/test_outputs.py:125: AssertionError
+______________________________ test_g07_open_exit ______________________________
+
+    def test_g07_open_exit() -> None:
+        """cork exits non-zero when a card cannot be served by the running hopper."""
+        _restore()
+        extra = CARDS / "z_extra.card"
+        extra.write_text("LABEL EXTRA_GAP\nWIRE 3\nREPLY gap-ok\n")
+        try:
+            assert _knit().returncode == 0
+            proc = _wax()
+>           assert proc.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/gasketd', 'cork'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:136: AssertionError
+_____________________________ test_g08_live_match ______________________________
+
+    def test_g08_live_match() -> None:
+        """seal served labels are the cards whose poke REPLY matches."""
+        _restore()
+        assert _knit().returncode == 0
+        proc = _wax()
+        live_ok = []
+        for row in _load_cards():
+            if _reply(int(row["wire"])) == row["reply"]:
+                live_ok.append(row["label"])
+>       assert live_ok, "running hopper must serve at least the listed cards"
+E       AssertionError: running hopper must serve at least the listed cards
+E       assert []
+
+/tests/test_outputs.py:154: AssertionError
+______________________________ test_g09_keys_obj _______________________________
+
+    def test_g09_keys_obj() -> None:
+        """seal.json has served list and status string aligned with live poke."""
+        _restore()
+        assert _knit().returncode == 0
+        proc = _wax()
+        body = json.loads(SEAL.read_text())
+        assert isinstance(body["served"], list)
+        mismatches = [
+            row for row in _load_cards() if _reply(int(row["wire"])) != row["reply"]
+        ]
+        if mismatches:
+>           assert proc.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/gasketd', 'cork'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:172: AssertionError
+_____________________________ test_g10_zz_restore ______________________________
+
+    def test_g10_zz_restore() -> None:
+        """cork rewrites a corrupt seal from the running hopper."""
+        _restore()
+        assert _knit().returncode == 0
+        SEAL.parent.mkdir(parents=True, exist_ok=True)
+        SEAL.write_text("{\"served\":[],\"status\":\"sealed\"}\n")
+        proc = _wax()
+        live_ok = [
+            row["label"]
+            for row in _load_cards()
+            if _reply(int(row["wire"])) == row["reply"]
+        ]
+>       assert live_ok
+E       assert []
+
+/tests/test_outputs.py:191: AssertionError
+______________________________ test_g11_hdr_magic ______________________________
+
+    def test_g11_hdr_magic() -> None:
+        """hopper is ELF and the newest WIRE is served."""
+        _restore()
+        _assert_native()
+        row = max(_load_cards(), key=lambda r: int(r["wire"]))
+>       assert _reply(int(row["wire"])) == row["reply"]
+E       AssertionError: assert 'fallthrough' == 'vent-ok'
+E         
+E         - vent-ok
+E         + fallthrough
+
+/tests/test_outputs.py:203: AssertionError
+______________________________ test_g12_once_pass ______________________________
+
+    def test_g12_once_pass() -> None:
+        """one jab subprocess returns the first card REPLY."""
+        _restore()
+        rows = sorted(_load_cards(), key=lambda r: int(r["wire"]))
+        row = rows[0]
+        proc = subprocess.run(
+            ["/app/bin/gasketd", "jab", str(int(row["wire"]))],
+            capture_output=True,
+            text=True,
+        )
+        assert BIN.read_bytes()[:4] == b"\x7fELF"
+        assert proc.returncode == 0, proc.stderr
+        body = json.loads(proc.stdout)
+>       assert body["reply"] == row["reply"]
+E       AssertionError: assert 'pump-ok' == 'fan-ok'
+E         
+E         - fan-ok
+E         + pump-ok
+
+/tests/test_outputs.py:219: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_g01_first_slot - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_g02_second_slot - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_g03_hole_miss - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_g04_high_slot - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_g05_newer_slot - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_g06_mid_slot - AssertionError: assert '...
+FAILED ../tests/test_outputs.py::test_g07_open_exit - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_g08_live_match - AssertionError: runnin...
+FAILED ../tests/test_outputs.py::test_g09_keys_obj - AssertionError: assert 0...
+FAILED ../tests/test_outputs.py::test_g10_zz_restore - assert []
+FAILED ../tests/test_outputs.py::test_g11_hdr_magic - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_g12_once_pass - AssertionError: assert ...
+============================== 12 failed in 0.34s ==============================

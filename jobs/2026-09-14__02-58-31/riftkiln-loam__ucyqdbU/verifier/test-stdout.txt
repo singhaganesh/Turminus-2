@@ -1,0 +1,264 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py FFFFFFFFFFFF                                    [100%]
+
+=================================== FAILURES ===================================
+________________________________ test_k01_alpha ________________________________
+
+    def test_k01_alpha() -> None:
+        """held nested clip sits beside the inner pen under the outer pen."""
+        src = _write_qn(_nested_a())
+        dest = Path("/tmp/out1.json")
+        proc = _sift(src, dest)
+        assert proc.returncode == 0, proc.stderr
+        body = _load(dest)
+>       _clip_sib(body, "outer", "inner", "wet")
+
+/tests/test_outputs.py:108: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+body = {'members': [{'kind': 'peg', 'mark': '1', 'tag': 'a'}, {'kind': 'pen', 'members': [{'clip': 'wet', 'kind': 'pen', 'members': [{...}], 'stem': 'inner'}], 'stem': 'outer'}], 'yard': 'north'}
+outer = 'outer', inner = 'inner', stem = 'wet'
+
+    def _clip_sib(body: dict, outer: str, inner: str, stem: str) -> None:
+        members = body["members"]
+        found = None
+        for m in members:
+            if m.get("kind") == "pen" and m.get("stem") == outer:
+                found = m
+                break
+            if m.get("kind") == "pen":
+                _clip_sib(m, outer, inner, stem)
+        if found is None:
+            return
+        kids = found["members"]
+        assert "clip" not in found
+        idx = next(i for i, k in enumerate(kids) if k.get("kind") == "pen" and k.get("stem") == inner)
+        inn = kids[idx]
+>       assert "clip" not in inn
+E       AssertionError: assert 'clip' not in {'clip': 'wet', 'kind': 'pen', 'members': [{'kind': 'peg', 'mark': '2', 'tag': 'b'}], 'stem': 'inner'}
+
+/tests/test_outputs.py:94: AssertionError
+________________________________ test_k02_bravo ________________________________
+
+    def test_k02_bravo() -> None:
+        """clip after a second inner pen still belongs to the outer pen."""
+        src = _write_qn(_nested_b())
+        dest = Path("/tmp/out2.json")
+        proc = _sift(src, dest)
+        assert proc.returncode == 0, proc.stderr
+        body = _load(dest)
+>       _clip_sib(body, "outer", "right", "damp")
+
+/tests/test_outputs.py:118: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+body = {'members': [{'kind': 'peg', 'mark': '9', 'tag': 'z'}, {'kind': 'pen', 'members': [{'kind': 'pen', 'members': [{...}],...em': 'left'}, {'clip': 'damp', 'kind': 'pen', 'members': [{...}], 'stem': 'right'}], 'stem': 'outer'}], 'yard': 'west'}
+outer = 'outer', inner = 'right', stem = 'damp'
+
+    def _clip_sib(body: dict, outer: str, inner: str, stem: str) -> None:
+        members = body["members"]
+        found = None
+        for m in members:
+            if m.get("kind") == "pen" and m.get("stem") == outer:
+                found = m
+                break
+            if m.get("kind") == "pen":
+                _clip_sib(m, outer, inner, stem)
+        if found is None:
+            return
+        kids = found["members"]
+        assert "clip" not in found
+        idx = next(i for i, k in enumerate(kids) if k.get("kind") == "pen" and k.get("stem") == inner)
+        inn = kids[idx]
+>       assert "clip" not in inn
+E       AssertionError: assert 'clip' not in {'clip': 'damp', 'kind': 'pen', 'members': [{'kind': 'peg', 'mark': '2', 'tag': 'q'}], 'stem': 'right'}
+
+/tests/test_outputs.py:94: AssertionError
+_______________________________ test_k03_charlie _______________________________
+
+    def test_k03_charlie() -> None:
+        """deeper pen nest still lifts clip to the enclosing pen."""
+        src = _write_qn(_nested_c())
+        dest = Path("/tmp/out3.json")
+        proc = _sift(src, dest)
+        assert proc.returncode == 0, proc.stderr
+        body = _load(dest)
+        mid = body["members"][0]["members"][0]
+        inn = mid["members"][0]
+        assert inn["kind"] == "pen"
+>       assert "clip" not in inn
+E       AssertionError: assert 'clip' not in {'clip': 'fog', 'kind': 'pen', 'members': [{'kind': 'peg', 'mark': '2', 'tag': 'b'}], 'stem': 'inner'}
+
+/tests/test_outputs.py:131: AssertionError
+________________________________ test_k04_delta ________________________________
+
+    def test_k04_delta() -> None:
+        """peg under the inner pen survives beside the sibling clip."""
+        src = _write_qn(_nested_a())
+        dest = Path("/tmp/out4.json")
+        proc = _sift(src, dest)
+        assert proc.returncode == 0
+        body = _load(dest)
+        outer = next(m for m in body["members"] if m.get("kind") == "pen")
+        inner = outer["members"][0]
+        assert inner["members"][0]["kind"] == "peg"
+        assert isinstance(inner["members"][0].get("tag"), str)
+        assert inner["members"][0]["tag"]
+>       assert "clip" not in inner
+E       AssertionError: assert 'clip' not in {'clip': 'wet', 'kind': 'pen', 'members': [{'kind': 'peg', 'mark': '2', 'tag': 'b'}], 'stem': 'inner'}
+
+/tests/test_outputs.py:149: AssertionError
+________________________________ test_k05_echo _________________________________
+
+    def test_k05_echo() -> None:
+        """helper exits nonzero when the recipe still records a nesting cut."""
+        old = _inject_conflict()
+        try:
+            OK.unlink(missing_ok=True)
+            proc = subprocess.run(["/app/hearth.sh"], capture_output=True, text=True)
+>           assert proc.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/hearth.sh'], returncode=0, stdout='', stderr='warning: variable `I` should have a snake c...enum Node {\n   | ^^^^^^^^^\n   = note: `#[warn(private_interfaces)]` on by default\n\nwarning: 1 warning emitted\n\n').returncode
+
+/tests/test_outputs.py:175: AssertionError
+_______________________________ test_k06_foxtrot _______________________________
+
+    def test_k06_foxtrot() -> None:
+        """brew.ok is absent after a recipe that still records a nesting cut."""
+        old = _inject_conflict()
+        try:
+            OK.unlink(missing_ok=True)
+            proc = subprocess.run(["/app/hearth.sh"], capture_output=True, text=True)
+>           assert proc.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/hearth.sh'], returncode=0, stdout='', stderr='warning: variable `I` should have a snake c...enum Node {\n   | ^^^^^^^^^\n   = note: `#[warn(private_interfaces)]` on by default\n\nwarning: 1 warning emitted\n\n').returncode
+
+/tests/test_outputs.py:186: AssertionError
+________________________________ test_k07_golf _________________________________
+
+    def test_k07_golf() -> None:
+        """quarrel ledger stays nonempty when the helper refuses that recipe."""
+        old = _inject_conflict()
+        try:
+            proc = subprocess.run(["/app/hearth.sh"], capture_output=True, text=True)
+>           assert proc.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/hearth.sh'], returncode=0, stdout='', stderr='warning: variable `I` should have a snake c...enum Node {\n   | ^^^^^^^^^\n   = note: `#[warn(private_interfaces)]` on by default\n\nwarning: 1 warning emitted\n\n').returncode
+
+/tests/test_outputs.py:197: AssertionError
+________________________________ test_k08_hotel ________________________________
+
+    def test_k08_hotel() -> None:
+        """running mill stays ELF after a refused helper pass."""
+        old = _inject_conflict()
+        try:
+            subprocess.run(["/app/hearth.sh"], capture_output=True, text=True)
+            _assert_native()
+            proc = subprocess.run(["/app/hearth.sh"], capture_output=True, text=True)
+>           assert proc.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/hearth.sh'], returncode=0, stdout='', stderr='warning: variable `I` should have a snake c...enum Node {\n   | ^^^^^^^^^\n   = note: `#[warn(private_interfaces)]` on by default\n\nwarning: 1 warning emitted\n\n').returncode
+
+/tests/test_outputs.py:211: AssertionError
+________________________________ test_k09_india ________________________________
+
+    def test_k09_india() -> None:
+        """inner pen object has no clip property."""
+        src = _write_qn(_nested_a())
+        dest = Path("/tmp/out9.json")
+        assert _sift(src, dest).returncode == 0
+        body = _load(dest)
+        outer = next(m for m in body["members"] if m.get("kind") == "pen")
+        inner = outer["members"][0]
+>       assert "clip" not in inner
+E       AssertionError: assert 'clip' not in {'clip': 'wet', 'kind': 'pen', 'members': [{'kind': 'peg', 'mark': '2', 'tag': 'b'}], 'stem': 'inner'}
+
+/tests/test_outputs.py:224: AssertionError
+_______________________________ test_k10_juliet ________________________________
+
+    def test_k10_juliet() -> None:
+        """clip stem matches the ident written before the outer close."""
+        src = _write_qn(_nested_a())
+        dest = Path("/tmp/out10.json")
+        assert _sift(src, dest).returncode == 0
+        body = _load(dest)
+        outer = next(m for m in body["members"] if m.get("kind") == "pen")
+>       assert outer["members"][1]["kind"] == "clip"
+               ^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+/tests/test_outputs.py:235: IndexError
+________________________________ test_k11_kilo _________________________________
+
+    def test_k11_kilo() -> None:
+        """outer members list is inner pen then clip, not a tagged inner only."""
+        src = _write_qn(_nested_a())
+        dest = Path("/tmp/out11.json")
+        assert _sift(src, dest).returncode == 0
+        body = _load(dest)
+        outer = next(m for m in body["members"] if m.get("kind") == "pen")
+        kinds = [m["kind"] for m in outer["members"]]
+>       assert kinds == ["pen", "clip"]
+E       AssertionError: assert ['pen'] == ['pen', 'clip']
+E         
+E         Right contains one more item: 'clip'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:248: AssertionError
+________________________________ test_k12_lima _________________________________
+
+    def test_k12_lima() -> None:
+        """corrupt dest then run the MAP helper; held nested clip still siblings."""
+        dest = Path("/tmp/out12.json")
+        dest.write_text("{\"yard\":\"nope\"}")
+        proc = subprocess.run(["/app/hearth.sh"], capture_output=True, text=True)
+        assert proc.returncode == 0
+        src = _write_qn(_nested_b())
+        assert _sift(src, dest).returncode == 0
+        body = _load(dest)
+>       _clip_sib(body, "outer", "right", "damp")
+
+/tests/test_outputs.py:260: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+body = {'members': [{'kind': 'peg', 'mark': '9', 'tag': 'z'}, {'kind': 'pen', 'members': [{'kind': 'pen', 'members': [{...}],...em': 'left'}, {'clip': 'damp', 'kind': 'pen', 'members': [{...}], 'stem': 'right'}], 'stem': 'outer'}], 'yard': 'west'}
+outer = 'outer', inner = 'right', stem = 'damp'
+
+    def _clip_sib(body: dict, outer: str, inner: str, stem: str) -> None:
+        members = body["members"]
+        found = None
+        for m in members:
+            if m.get("kind") == "pen" and m.get("stem") == outer:
+                found = m
+                break
+            if m.get("kind") == "pen":
+                _clip_sib(m, outer, inner, stem)
+        if found is None:
+            return
+        kids = found["members"]
+        assert "clip" not in found
+        idx = next(i for i, k in enumerate(kids) if k.get("kind") == "pen" and k.get("stem") == inner)
+        inn = kids[idx]
+>       assert "clip" not in inn
+E       AssertionError: assert 'clip' not in {'clip': 'damp', 'kind': 'pen', 'members': [{'kind': 'peg', 'mark': '2', 'tag': 'q'}], 'stem': 'right'}
+
+/tests/test_outputs.py:94: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_k01_alpha - AssertionError: assert 'cli...
+FAILED ../tests/test_outputs.py::test_k02_bravo - AssertionError: assert 'cli...
+FAILED ../tests/test_outputs.py::test_k03_charlie - AssertionError: assert 'c...
+FAILED ../tests/test_outputs.py::test_k04_delta - AssertionError: assert 'cli...
+FAILED ../tests/test_outputs.py::test_k05_echo - AssertionError: assert 0 != 0
+FAILED ../tests/test_outputs.py::test_k06_foxtrot - AssertionError: assert 0 ...
+FAILED ../tests/test_outputs.py::test_k07_golf - AssertionError: assert 0 != 0
+FAILED ../tests/test_outputs.py::test_k08_hotel - AssertionError: assert 0 != 0
+FAILED ../tests/test_outputs.py::test_k09_india - AssertionError: assert 'cli...
+FAILED ../tests/test_outputs.py::test_k10_juliet - IndexError: list index out...
+FAILED ../tests/test_outputs.py::test_k11_kilo - AssertionError: assert ['pen...
+FAILED ../tests/test_outputs.py::test_k12_lima - AssertionError: assert 'clip...
+============================= 12 failed in 32.36s ==============================

@@ -1,0 +1,234 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 14 items
+
+../tests/test_outputs.py FFFFFF.FFFFFFF                                  [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_vx01_full_copy ______________________________
+
+    def test_vx01_full_copy() -> None:
+        """After nick, wake exits 0 and the nicked id is not held."""
+        slip = INBOX / "oak-a.slip"
+        payload = b"oak-alpha-payload"
+        slip.write_bytes(payload)
+        hid = _id_hex(payload)
+        _cli("nick", str(slip))
+        r = _wake()
+        assert r.returncode == 0
+>       assert hid not in _load_wake()["held"]
+E       AssertionError: assert 'f7f893287b63906a76dd4c5d4a364278' not in ['7131d883b9a11835fa6ed471b7f1c1b4', 'f3c1bcfb3c2f1490f89470a03c83b152', 'f7f893287b63906a76dd4c5d4a364278']
+
+/tests/test_outputs.py:60: AssertionError
+______________________________ test_vx02_tide_gap ______________________________
+
+    def test_vx02_tide_gap() -> None:
+        """After nick, every held id pulls back in full."""
+        slip = INBOX / "oak-b.slip"
+        payload = b"oak-bravo-payload"
+        slip.write_bytes(payload)
+        _cli("nick", str(slip))
+        r = _wake()
+        assert r.returncode == 0
+        doc = _load_wake()
+>       assert _id_hex(payload) not in doc["held"]
+E       AssertionError: assert '7011e6b1354f79dc0268473447b5b755' not in ['7131d883b9a11835fa6ed471b7f1c1b4', 'f3c1bcfb3c2f1490f89470a03c83b152', 'f7f893287b63906a76dd4c5d4a364278', '7011e6b1354f79dc0268473447b5b755']
+E        +  where '7011e6b1354f79dc0268473447b5b755' = _id_hex(b'oak-bravo-payload')
+
+/tests/test_outputs.py:72: AssertionError
+______________________________ test_vx03_short_rc ______________________________
+
+    def test_vx03_short_rc() -> None:
+        """A pin row past the blob makes wake exit non-zero."""
+        hid = _plant_torn()
+        try:
+            r = _wake()
+>           assert r.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/crumbark', 'wake'], returncode=0, stdout=b'', stderr=b'').returncode
+
+/tests/test_outputs.py:84: AssertionError
+______________________________ test_vx04_pack_len ______________________________
+
+    def test_vx04_pack_len() -> None:
+        """pull of the seed id has the slip length."""
+        payload = SEED.read_bytes()
+        hid = _id_hex(payload)
+        _wake()
+        got = _pull(hid)
+>       assert len(got) == len(payload)
+E       AssertionError: assert 32 == 22
+E        +  where 32 = len(b'\x00\x00\x00\x16seed-alpha-payload-01\n\x00\x00\x00\x00\x00\x00')
+E        +  and   22 = len(b'seed-alpha-payload-01\n')
+
+/tests/test_outputs.py:97: AssertionError
+_____________________________ test_vx05_seed_keep ______________________________
+
+    def test_vx05_seed_keep() -> None:
+        """pull of the prior id returns the prior slip bytes."""
+        payload = PRIOR.read_bytes()
+        hid = _id_hex(payload)
+        _wake()
+>       assert _pull(hid) == payload
+E       AssertionError: assert b'\x00\x00\x0...0\x00\x00\x00' == b'prior-bravo-payload-02\n'
+E         
+E         At index 0 diff: b'\x00' != b'p'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:105: AssertionError
+______________________________ test_vx06_tag_set _______________________________
+
+    def test_vx06_tag_set() -> None:
+        """wake.json kind and note match CARD.txt on a clean pass, and held pulls match slips."""
+        r = _wake()
+        assert r.returncode == 0
+        doc = _load_wake()
+        assert doc["kind"] == "live"
+        assert doc["note"] == "ok"
+        mapping = {_id_hex(SEED.read_bytes()): SEED.read_bytes(), _id_hex(PRIOR.read_bytes()): PRIOR.read_bytes()}
+        for hid in doc["held"]:
+            if hid in mapping:
+>               assert _pull(hid) == mapping[hid]
+E               AssertionError: assert b'\x00\x00\x0...0\x00\x00\x00' == b'prior-bravo-payload-02\n'
+E                 
+E                 At index 0 diff: b'\x00' != b'p'
+E                 Use -v to get more diff
+
+/tests/test_outputs.py:118: AssertionError
+_____________________________ test_vx08_extra_oak ______________________________
+
+    def test_vx08_extra_oak() -> None:
+        """Grade-time slip nick still leaves wake at 0 without holding the nicked id."""
+        slip = INBOX / "oak-c.slip"
+        payload = b"oak-charlie-payload-grade"
+        slip.write_bytes(payload)
+        hid = _id_hex(payload)
+        _cli("nick", str(slip))
+        r = _wake()
+        assert r.returncode == 0
+>       assert hid not in _load_wake()["held"]
+E       AssertionError: assert '5f37d8870aabeca977e6d09591b03e29' not in ['7131d883b9a11835fa6ed471b7f1c1b4', 'f3c1bcfb3c2f1490f89470a03c83b152', 'f7f893287b63906a76dd4c5d4a364278', '7011e6b1354f79dc0268473447b5b755', '5f37d8870aabeca977e6d09591b03e29']
+
+/tests/test_outputs.py:142: AssertionError
+______________________________ test_vx09_obj_keys ______________________________
+
+    def test_vx09_obj_keys() -> None:
+        """wake.json keeps held, note, kind when the pin is torn, with kind void."""
+        hid = _plant_torn()
+        try:
+            r = _wake()
+            doc = _load_wake()
+            assert set(doc) >= {"held", "note", "kind"}
+>           assert doc["kind"] == "void"
+E           AssertionError: assert 'live' == 'void'
+E             
+E             - void
+E             + live
+
+/tests/test_outputs.py:152: AssertionError
+______________________________ test_vx10_span_len ______________________________
+
+    def test_vx10_span_len() -> None:
+        """pull of a freshly laded oak slip has that slip's length."""
+        slip = INBOX / "oak-d.slip"
+        payload = b"oak-delta-len-check"
+        slip.write_bytes(payload)
+        _cli("lade", str(slip))
+        _wake()
+        hid = _id_hex(payload)
+>       assert len(_pull(hid)) == len(payload)
+E       AssertionError: assert 32 == 19
+E        +  where 32 = len(b'\x00\x00\x00\x13oak-delta-len-check\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+E        +    where b'\x00\x00\x00\x13oak-delta-len-check\x00\x00\x00\x00\x00\x00\x00\x00\x00' = _pull('a934e92d7e22f5285222b8b4251c5a29')
+E        +  and   19 = len(b'oak-delta-len-check')
+
+/tests/test_outputs.py:169: AssertionError
+______________________________ test_vx11_hue_gap _______________________________
+
+    def test_vx11_hue_gap() -> None:
+        """Short blob for a pin row is absent from held and wake is non-zero."""
+        hid = _plant_torn()
+        try:
+            r = _wake()
+            doc = _load_wake()
+            assert hid not in doc["held"]
+>           assert r.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/crumbark', 'wake'], returncode=0, stdout=b'', stderr=b'').returncode
+
+/tests/test_outputs.py:179: AssertionError
+______________________________ test_vx12_keep_old ______________________________
+
+    def test_vx12_keep_old() -> None:
+        """Older ids stay in held after nick."""
+        prior = _id_hex(PRIOR.read_bytes())
+        seed = _id_hex(SEED.read_bytes())
+        slip = INBOX / "oak-e.slip"
+        slip.write_bytes(b"oak-echo-nick")
+        hid = _id_hex(b"oak-echo-nick")
+        _cli("nick", str(slip))
+        r = _wake()
+        assert r.returncode == 0
+        doc = _load_wake()
+>       assert hid not in doc["held"]
+E       AssertionError: assert 'b31f23e5b7e3037a0149e5cc615de56f' not in ['7131d883b9a11835fa6ed471b7f1c1b4', 'f3c1bcfb3c2f1490f89470a03c83b152', 'f7f893287b63906a76dd4c5d4a364278', '7011e6b1354f79dc0268473447b5b755', '5f37d8870aabeca977e6d09591b03e29', 'a934e92d7e22f5285222b8b4251c5a29', ...]
+
+/tests/test_outputs.py:196: AssertionError
+_____________________________ test_vx13_void_span ______________________________
+
+    def test_vx13_void_span() -> None:
+        """held pull of seed has no trailing NUL pad."""
+        payload = SEED.read_bytes()
+        hid = _id_hex(payload)
+        _wake()
+        got = _pull(hid)
+>       assert got == payload
+E       AssertionError: assert b'\x00\x00\x0...0\x00\x00\x00' == b'seed-alpha-payload-01\n'
+E         
+E         At index 0 diff: b'\x00' != b's'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:207: AssertionError
+____________________________ test_zz_rewrites_wake _____________________________
+
+    def test_zz_rewrites_wake() -> None:
+        """Hand-written wake.json is replaced by a real wake pass."""
+        WAKE.write_text("{}")
+        r = _wake()
+        doc = _load_wake()
+        assert "held" in doc
+        assert "kind" in doc
+        if r.returncode == 0:
+            assert doc["kind"] == "live"
+            known = {
+                _id_hex(SEED.read_bytes()): SEED.read_bytes(),
+                _id_hex(PRIOR.read_bytes()): PRIOR.read_bytes(),
+            }
+            for hid, payload in known.items():
+                if hid in doc["held"]:
+>                   assert _pull(hid) == payload
+E                   AssertionError: assert b'\x00\x00\x0...0\x00\x00\x00' == b'seed-alpha-payload-01\n'
+E                     
+E                     At index 0 diff: b'\x00' != b's'
+E                     Use -v to get more diff
+
+/tests/test_outputs.py:225: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_vx07_omit_bad
+FAILED ../tests/test_outputs.py::test_vx01_full_copy - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_vx02_tide_gap - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_vx03_short_rc - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_vx04_pack_len - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_vx05_seed_keep - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_vx06_tag_set - AssertionError: assert b...
+FAILED ../tests/test_outputs.py::test_vx08_extra_oak - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_vx09_obj_keys - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_vx10_span_len - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_vx11_hue_gap - AssertionError: assert 0...
+FAILED ../tests/test_outputs.py::test_vx12_keep_old - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_vx13_void_span - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_zz_rewrites_wake - AssertionError: asse...
+========================= 13 failed, 1 passed in 2.91s =========================

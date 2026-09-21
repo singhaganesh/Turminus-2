@@ -1,0 +1,1231 @@
+[?2004hroot@965a75798bcb:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@965a75798bcb:/app# clear
+[?2004l[H[J[3J[?2004hroot@965a75798bcb:/app# cat /app/treenotes/USTAR.txt; printf '\n===== DESK =====\n'; cat /app/treenotes/DESK.txt; printf '\n===== APPLY =====\n'; cat /app/yarnwell/APPLY.txt; printf '\n===== SEAL =====\n'; cat /app/cordpit/SEAL.txt; printf '\n===== TREE =====\n'; cat /app/treenotes/TREE.txt
+[?2004lustar member header is 512 bytes. name occupies bytes 0-99. size octal occupies 124-135 (the slice end is 136). typeflag sits at 156: regular file uses ASCII 0 (the byte that Python writes as b"0"). Payload follows the header and is padded to 512.
+
+walk_sig is hashlib.sha256 hex of regular-file names joined by newline in apply order (SHA-256). Length is 64. Alphabet is 0123456789abcdef.
+
+A quarry of truncated bytes or a non-ustar stream such as not-an-archive returns nonzero. A ledger filled with xxxx is junk and quarry must rebuild members.idx from the sealed kith.
+
+python3 -c import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())
+
+===== DESK =====
+Desk JSON keys: timezone, cluster, log_events, member_count, source_kith, walk_sig.
+
+sys.conf uses key=value lines. timezone and cluster come from the sys.conf payload the mill applies. log_events is the lexicographically sorted unique event strings from every app.log payload. member_count is the integer of regular-file payloads applied. source_kith is the archive basename.
+
+A brief archive copied to /tmp/kestrel.kith sits outside /app/sealwell. The sealed original also lives at /app/seed/sealwell/kestrel.kith.
+
+===== APPLY =====
+operator note: APPLY
+
+===== SEAL =====
+cordpit notes: two brief processes on one sealed kith must parse to one object. Paths outside sealwell fail.
+
+===== TREE =====
+idxmill
+overlaypit
+logbag
+siltcli
+ustarwalk
+cfgbag
+offseturn
+paxcue
+pidhash
+keeppit
+[?2004hroot@965a75798bcb:/app# printf '\n===== TOP LEVEL =====\n'; find /app -maxdepth 2 -type f -printf '%p\n' | sort; printf '\n===== TYPES =====\n'; file /app/bin/siltcord /app/sealwell/kestrel.kith /app/idxbay/members.idx; printf '\n===== MANIFESTS =====\n'; find /app -maxdepth 3 -name Cargo.toml -print
+[?2004l
+===== TOP LEVEL =====
+/app/bin/siltcord
+/app/cfgbag/alias.rs
+/app/cfgbag/kv.rs
+/app/cordpit/SEAL.txt
+/app/deskjson/READY
+/app/deskjson/pass-a.json
+/app/idxbay/README.txt
+/app/idxbay/members.idx
+/app/idxmill/shard.rs
+/app/keeppit/first.rs
+/app/logbag/write.rs
+/app/offseturn/rank.rs
+/app/overlaypit/blend.rs
+/app/paxcue/long.rs
+/app/pidhash/seed.rs
+/app/sealwell/kestrel.kith
+/app/siltcli/boot.rs
+/app/siltcli/quarry.rs
+/app/siltcli/slate.rs
+/app/siltcli/usage.txt
+/app/treenotes/DESK.txt
+/app/treenotes/FLICKER.txt
+/app/treenotes/TREE.txt
+/app/treenotes/USTAR.txt
+/app/ustarwalk/block.rs
+/app/ustarwalk/hdr.rs
+/app/wick.sh
+/app/yarnwell/APPLY.txt
+/app/yarnwell/amber-kith-leaf.txt
+/app/yarnwell/cinder-desk-pair.txt
+/app/yarnwell/flint-seal-bay.txt
+/app/yarnwell/gorse-kestrel-urn.txt
+/app/yarnwell/hazel-member-note.txt
+/app/yarnwell/iodine-pass-pair.txt
+/app/yarnwell/jasper-kith-well.txt
+/app/yarnwell/kelp-desk-note.txt
+/app/yarnwell/kestrel-cluster-stable.txt
+/app/yarnwell/kestrel-member-ledger.txt
+/app/yarnwell/kith-desk-pass-pair.txt
+/app/yarnwell/kith-process-pair.txt
+/app/yarnwell/lichen-kestrel-bay.txt
+/app/yarnwell/mica-support-kith.txt
+/app/yarnwell/nacre-bundle-note.txt
+/app/yarnwell/onyx-kith-desk.txt
+/app/yarnwell/pearl-kestrel-well.txt
+/app/yarnwell/quartz-desk-note.txt
+/app/yarnwell/rime-kith-pass.txt
+/app/yarnwell/sedge-kestrel-note.txt
+/app/yarnwell/seed-kestrel-copy.txt
+/app/yarnwell/topaz-bundle-desk.txt
+/app/yarnwell/umber-kith-well.txt
+/app/yarnwell/verdant-kestrel-bay.txt
+/app/yarnwell/willow-desk-kith.txt
+
+===== TYPES =====
+bash: file: command not found
+
+===== MANIFESTS =====
+[?2004hroot@965a75798bcb:/app# for f in /app/{ustarwalk,idxmill,overlaypit,logbag,siltcli,cfgbag,offseturn,paxcue,pidhash,keeppit}/*.rs /app/wick.sh /app/siltcli/usage.txt /app/treenotes/FLICKER.txt /app/idxbay/README.txt; do echo "===== $f ====="; sed -n '1,240p' "$f"; done
+[?2004l===== /app/ustarwalk/block.rs =====
+pub fn span(n: u64) -> u64 {
+    ((n + 511) / 512) * 512
+}
+===== /app/ustarwalk/hdr.rs =====
+/// ustar headers are 512 bytes; payload is padded to that size.
+pub struct Row {
+    pub name: String,
+    pub hdr: u64,
+    pub size: u64,
+    pub body: u64,
+    pub flag: u8,
+}
+
+fn oct_u64(buf: &[u8]) -> u64 {
+    let mut n: u64 = 0;
+    for &b in buf {
+        if b == 0 || b == b' ' {
+            continue;
+        }
+        if b >= b'0' && b <= b'7' {
+            n = n * 8 + u64::from(b - b'0');
+        }
+    }
+    n
+}
+
+pub fn scan(path: &str) -> Result<Vec<Row>, i32> {
+    let raw = match std::fs::read(path) {
+        Ok(x) => x,
+        Err(_) => return Err(1),
+    };
+    if raw.len() < 512 {
+        return Err(1);
+    }
+    let mut rows = Vec::new();
+    let mut off = 0usize;
+    let mut saw = false;
+    while off + 512 <= raw.len() {
+        let blk = &raw[off..off + 512];
+        if blk.iter().all(|b| *b == 0) {
+            break;
+        }
+        let magic = &blk[257..262];
+        if magic != b"ustar" {
+            return Err(1);
+        }
+        saw = true;
+        let nlen = blk[0..100]
+            .iter()
+            .position(|b| *b == 0)
+            .unwrap_or(100);
+        let name = String::from_utf8_lossy(&blk[0..nlen]).to_string();
+        let size = oct_u64(&blk[124..136]);
+        let flag = blk[156];
+        let body = (off + 512) as u64;
+        rows.push(Row {
+            name,
+            hdr: off as u64,
+            size,
+            body,
+            flag,
+        });
+        let padded = ((size + 511) / 512) * 512;
+        off = off + 512 + padded as usize;
+    }
+    if !saw {
+        return Err(1);
+    }
+    Ok(rows)
+}
+
+pub fn load_body(path: &str, row: &Row) -> Result<Vec<u8>, i32> {
+    let raw = std::fs::read(path).map_err(|_| 1)?;
+    let s = row.body as usize;
+    let e = s + row.size as usize;
+    if e > raw.len() {
+        return Err(1);
+    }
+    Ok(raw[s..e].to_vec())
+}
+===== /app/idxmill/shard.rs =====
+use super::hdr;
+
+#[path = "../pidhash/seed.rs"]
+mod seed;
+#[path = "../ustarwalk/block.rs"]
+mod walk;
+
+pub fn rib_a(a: &str, b: &str) -> i32 {
+    let mut rows = match hdr::scan(a) {
+        Ok(x) => x,
+        Err(_) => Vec::new(),
+    };
+    rows.sort_by_key(|r| seed::mix(&r.name));
+    let regs: Vec<&hdr::Row> = rows
+        .iter()
+        .filter(|r| r.flag == b'0' || r.flag == 0)
+        .collect();
+    let mut out = Vec::new();
+    out.extend_from_slice(b"SILT1");
+    let n = regs.len() as u32;
+    out.extend_from_slice(&n.to_le_bytes());
+    for r in regs {
+        out.extend_from_slice(&r.hdr.to_le_bytes());
+        out.extend_from_slice(&r.size.to_le_bytes());
+        out.extend_from_slice(&r.body.to_le_bytes());
+        let nb = r.name.as_bytes();
+        let nl = nb.len() as u16;
+        out.extend_from_slice(&nl.to_le_bytes());
+        out.extend_from_slice(nb);
+        let _ = walk::span(r.size);
+    }
+    if std::fs::write(b, out).is_err() {
+        return 1;
+    }
+    0
+}
+===== /app/overlaypit/blend.rs =====
+pub struct Pack {
+    pub t: String,
+    pub c: String,
+    pub e: Vec<String>,
+    pub n: u32,
+    pub s: String,
+    pub w: String,
+}
+
+struct Rec {
+    name: String,
+    hdr: u64,
+    size: u64,
+    body: u64,
+}
+
+fn read_idx(path: &str) -> Result<Vec<Rec>, i32> {
+    let raw = std::fs::read(path).map_err(|_| 1)?;
+    if raw.len() < 9 || &raw[0..5] != b"SILT1" {
+        return Err(1);
+    }
+    let n = u32::from_le_bytes(raw[5..9].try_into().unwrap());
+    let mut i = 9usize;
+    let mut out = Vec::new();
+    for _ in 0..n {
+        if i + 26 > raw.len() {
+            return Err(1);
+        }
+        let hdr = u64::from_le_bytes(raw[i..i + 8].try_into().unwrap());
+        i += 8;
+        let size = u64::from_le_bytes(raw[i..i + 8].try_into().unwrap());
+        i += 8;
+        let body = u64::from_le_bytes(raw[i..i + 8].try_into().unwrap());
+        i += 8;
+        let nl = u16::from_le_bytes(raw[i..i + 2].try_into().unwrap()) as usize;
+        i += 2;
+        if i + nl > raw.len() {
+            return Err(1);
+        }
+        let name = String::from_utf8_lossy(&raw[i..i + nl]).to_string();
+        i += nl;
+        out.push(Rec {
+            name,
+            hdr,
+            size,
+            body,
+        });
+    }
+    Ok(out)
+}
+
+fn load(path: &str, body: u64, size: u64) -> Result<Vec<u8>, i32> {
+    let raw = std::fs::read(path).map_err(|_| 1)?;
+    let s = body as usize;
+    let e = s + size as usize;
+    if e > raw.len() {
+        return Err(1);
+    }
+    Ok(raw[s..e].to_vec())
+}
+
+fn digest(text: &str) -> String {
+    let mut cmd = std::process::Command::new("python3");
+    cmd.args([
+        "-c",
+        "import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())",
+    ])
+    .stdin(std::process::Stdio::piped())
+    .stdout(std::process::Stdio::piped());
+    let mut child = match cmd.spawn() {
+        Ok(c) => c,
+        Err(_) => return String::new(),
+    };
+    {
+        use std::io::Write;
+        if let Some(ref mut sin) = child.stdin {
+            let _ = sin.write_all(text.as_bytes());
+        }
+    }
+    drop(child.stdin.take());
+    match child.wait_with_output() {
+        Ok(out) => String::from_utf8_lossy(&out.stdout).trim().to_string(),
+        Err(_) => String::new(),
+    }
+}
+
+#[path = "../keeppit/first.rs"]
+mod first;
+#[path = "../cfgbag/kv.rs"]
+mod kv;
+#[path = "../cfgbag/alias.rs"]
+mod alias;
+
+pub fn rib_b(a: &str, b: &str) -> Result<Pack, i32> {
+    let recs = read_idx(b)?;
+    let mut confs: Vec<(String, u64, Vec<u8>)> = Vec::new();
+    let mut logs: Vec<Vec<u8>> = Vec::new();
+    let mut bag: std::collections::HashMap<usize, String> = std::collections::HashMap::new();
+    for (i, r) in recs.iter().enumerate() {
+        bag.insert(i, r.name.clone());
+        let blob = load(a, r.body, r.size)?;
+        if r.name.contains("sys.conf") {
+            confs.push((r.name.clone(), r.hdr, blob));
+        } else if r.name.contains("app.log") {
+            logs.push(blob);
+        }
+    }
+    confs.sort_by_key(|row| row.1);
+    let picked = first::keep_head(&confs);
+    let mut t = String::new();
+    let mut c = String::new();
+    if let Some(blob) = picked {
+        let map = kv::pairs(&blob);
+        if let Some(v) = map.get("timezone") {
+            t = v.clone();
+        }
+        if let Some(v) = map.get("cluster") {
+            c = v.clone();
+        }
+    }
+    let mut e = Vec::new();
+    if let Some(blob) = logs.first() {
+        for line in String::from_utf8_lossy(blob).lines() {
+            let s = line.trim();
+            if !s.is_empty() {
+                e.push(s.to_string());
+            }
+        }
+    }
+    e.sort();
+    e.dedup();
+    let names: Vec<String> = bag.values().cloned().collect();
+    let walk = names.join("\n");
+    let _ = alias::fold("");
+    Ok(Pack {
+        t,
+        c,
+        e,
+        n: confs.len() as u32,
+        s: a.to_string(),
+        w: digest(&walk).to_ascii_uppercase(),
+    })
+}
+===== /app/logbag/write.rs =====
+use super::blend::Pack;
+
+fn json_escape(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+pub fn rib_c(p: &Pack, out: &str, _a: &str) -> i32 {
+    if let Some(parent) = std::path::Path::new(out).parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let ev: Vec<String> = p
+        .e
+        .iter()
+        .map(|x| format!("\"{}\"", json_escape(x)))
+        .collect();
+    let body = format!(
+        "{{\"timezone\":\"{}\",\"cluster\":\"{}\",\"log_events\":[{}],\"member_count\":{},\"source_kith\":\"{}\",\"walk_sig\":\"{}\"}}\n",
+        json_escape(&p.t),
+        json_escape(&p.c),
+        ev.join(","),
+        p.n,
+        json_escape(&p.s),
+        json_escape(&p.w)
+    );
+    if std::fs::write(out, body).is_err() {
+        return 1;
+    }
+    if std::fs::write("/app/deskjson/READY", "ok\n").is_err() {
+        return 1;
+    }
+    0
+}
+===== /app/siltcli/boot.rs =====
+#[path = "quarry.rs"]
+mod quarry;
+#[path = "slate.rs"]
+mod slate;
+
+fn main() {
+    let mut args = std::env::args();
+    let _ = args.next();
+    let cmd = args.next().unwrap_or_default();
+    let code = match cmd.as_str() {
+        "quarry" => {
+            let a = args
+                .next()
+                .unwrap_or_else(|| "/app/sealwell/kestrel.kith".to_string());
+            let b = args
+                .next()
+                .unwrap_or_else(|| "/app/idxbay/members.idx".to_string());
+            quarry::go(&a, &b)
+        }
+        "brief" => {
+            let out = match args.next() {
+                Some(x) => x,
+                None => {
+                    eprintln!("usage: siltcord brief OUT.json");
+                    std::process::exit(2);
+                }
+            };
+            let a = args
+                .next()
+                .unwrap_or_else(|| "/app/sealwell/kestrel.kith".to_string());
+            let b = args
+                .next()
+                .unwrap_or_else(|| "/app/idxbay/members.idx".to_string());
+            slate::go(&out, &a, &b)
+        }
+        _ => {
+            eprintln!("usage: siltcord quarry|brief");
+            2
+        }
+    };
+    std::process::exit(code);
+}
+===== /app/siltcli/quarry.rs =====
+#[path = "../ustarwalk/hdr.rs"]
+mod hdr;
+#[path = "../idxmill/shard.rs"]
+mod shard;
+
+pub fn go(a: &str, b: &str) -> i32 {
+    shard::rib_a(a, b)
+}
+===== /app/siltcli/slate.rs =====
+#[path = "../overlaypit/blend.rs"]
+mod blend;
+#[path = "../logbag/write.rs"]
+mod uni;
+
+pub fn go(out: &str, a: &str, b: &str) -> i32 {
+    match blend::rib_b(a, b) {
+        Ok(p) => uni::rib_c(&p, out, a),
+        Err(c) => c,
+    }
+}
+===== /app/cfgbag/alias.rs =====
+pub fn fold(name: &str) -> String {
+    name.trim_start_matches("./").to_string()
+}
+===== /app/cfgbag/kv.rs =====
+use std::collections::BTreeMap;
+
+pub fn pairs(blob: &[u8]) -> BTreeMap<String, String> {
+    let mut m = BTreeMap::new();
+    for line in String::from_utf8_lossy(blob).lines() {
+        if let Some((k, v)) = line.split_once('=') {
+            m.insert(k.trim().to_string(), v.trim().to_string());
+        }
+    }
+    m
+}
+===== /app/offseturn/rank.rs =====
+pub fn by_hdr(a: u64, b: u64) -> std::cmp::Ordering {
+    a.cmp(&b)
+}
+===== /app/paxcue/long.rs =====
+pub fn peek(name: &str) -> bool {
+    name.contains("PaxHeaders")
+}
+===== /app/pidhash/seed.rs =====
+pub fn mix(name: &str) -> u64 {
+    let mut h: u64 = 0xcbf29ce484222325;
+    for b in name.bytes() {
+        h ^= u64::from(b);
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    h
+}
+===== /app/keeppit/first.rs =====
+pub struct Head;
+
+impl Head {
+    pub fn take<'a>(rows: &'a [(String, u64, Vec<u8>)]) -> Option<&'a Vec<u8>> {
+        rows.first().map(|r| &r.2)
+    }
+}
+
+pub fn keep_head(rows: &[(String, u64, Vec<u8>)]) -> Option<&Vec<u8>> {
+    Head::take(rows)
+}
+===== /app/wick.sh =====
+#!/bin/sh
+set -eu
+export PATH="/usr/local/cargo/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+mkdir -p /app/bin /app/deskjson /app/idxbay
+rustc --edition 2021 -O /app/siltcli/boot.rs -o /app/bin/siltcord
+===== /app/siltcli/usage.txt =====
+siltcord quarry [archive] [idx]
+siltcord brief OUT.json [archive] [idx]
+===== /app/treenotes/FLICKER.txt =====
+If configuration strings flicker across desk runs, keep_head in keeppit retains the first sys.conf payload the mill sees. That path is enough for a stable smoke against cluster.
+===== /app/idxbay/README.txt =====
+quarry writes members.idx from a kith under sealwell.
+brief reads that ledger and writes a JSON object.
+
+Sealed original: /app/seed/sealwell/kestrel.kith
+Outside copy used only as a rejected path: /tmp/kestrel.kith
+Junk ledger bytes: xxxx
+Non-ustar quarry sample: not-an-archive
+walk_sig uses hashlib.sha256
+[?2004hroot@965a75798bcb:/app# printf 'ELF magic: '; od -An -tx1 -N4 /app/bin/siltcord; printf '\nCurrent files:\n'; ls -l /app/bin/siltcord /app/sealwell/kestrel.kith /app/idxbay/members.idx /app/deskjson; printf '\nLedger:\n'; cat /app/idxbay/members.idx; printf '\nExisting desk files:\n'; for f in /app/deskjson/*.json /app/deskjson/READY; do echo "--- $f"; cat "$f"; echo; done
+[?2004lELF magic:  7f 45 4c 46
+
+Current files:
+-rwxr-xr-x 1 root root 4155248 Sep 11 14:52 /app/bin/siltcord
+-rw-r--r-- 1 root root     246 Sep 11 14:52 /app/idxbay/members.idx
+-rw-rw-r-- 1 root root    8192 Sep 11 13:38 /app/sealwell/kestrel.kith
+
+/app/deskjson:
+total 8
+-rw-r--r-- 1 root root   3 Sep 11 14:52 READY
+-rw-r--r-- 1 root root 207 Sep 11 14:52 pass-a.json
+
+Ledger:
+SILT1          '               ./etc/sys.conf       	               var/log/app.log                      var/log/app.log                      opt/app/build.id        !               etc/sys.conf                     	 etc/hosts
+Existing desk files:
+--- /app/deskjson/pass-a.json
+{"timezone":"Etc/UTC","cluster":"staging","log_events":["EVT_BOOT"],"member_count":2,"source_kith":"/app/sealwell/kestrel.kith","walk_sig":"97556D80F429ACAF29D38332B336D237919E1B97D121E86CA2BD194FB1E5519B"}
+
+--- /app/deskjson/READY
+ok
+
+[?2004hroot@965a75798bcb:/app# python3 - <<'PY'
+[?2004l[?2004h> import tarfile, hashlib
+[?2004l[?2004h> p='/app/sealwell/kestrel.kith'
+[?2004l[?2004h> try:
+[?2004l[?2004h>  with tarfile.open(p,'r:') as t:
+[?2004l[?2004h>   regs=[m for m in t.getmembers() if m.isfile()]
+[?2004l[?2004h>   print('regular members:', len(regs))
+[?2004l[?2004h>   for m in regs:
+[?2004l[?2004h>    b=t.extractfile(m).read()
+[?2004l[?2004h>    print(repr(m.name), m.size, repr(b[:200]))
+[?2004l[?2004h>   print('walk_sig:',hashlib.sha256('\n'.join(m.name for m in regs).encode()).hexdigest())
+[?2004l[?2004h> except Exception as e: print(type(e).__name__,e)
+[?2004l[?2004h> PY
+[?2004lregular members: 2
+'etc/sys.conf' 33 b'timezone=Etc/UTC\ncluster=staging\n'
+'var/log/app.log' 9 b'EVT_BOOT\n'
+walk_sig: 5b240ea8c8f9b5f32f5e93e77376daeb5bf6e6930d836d9dc0b0f893e23c0419
+[?2004hroot@965a75798bcb:/app# rm -f /app/deskjson/READY /app/deskjson/test-a.json /app/deskjson/test-b.json
+[?2004l[?2004hroot@965a75798bcb:/app# /app/bin/siltcord quarry; echo "quarry_status=$?"; /app/bin/siltcord brief /app/deskjson/test-a.json; echo "brief_a_status=$?"; /app/bin/siltcord brief /app/deskjson/test-b.json; echo "brief_b_status=$?"; ls -l /app/deskjson; for f in /app/deskjson/test-*.json /app/deskjson/READY /app/idxbay/members.idx; do echo "---$f"; cat "$f" 2>/dev/null || true; echo; done
+[?2004lquarry_status=0
+brief_a_status=0
+brief_b_status=0
+total 16
+-rw-r--r-- 1 root root   3 Sep 11 15:10 READY
+-rw-r--r-- 1 root root 207 Sep 11 14:52 pass-a.json
+-rw-r--r-- 1 root root 207 Sep 11 15:10 test-a.json
+-rw-r--r-- 1 root root 207 Sep 11 15:10 test-b.json
+---/app/deskjson/test-a.json
+{"timezone":"Etc/UTC","cluster":"staging","log_events":["EVT_BOOT"],"member_count":2,"source_kith":"/app/sealwell/kestrel.kith","walk_sig":"672E041A646D34B97119FA0FBB0F81430E68C9C6EF84AB117F2E38B46E65A79C"}
+
+---/app/deskjson/test-b.json
+{"timezone":"Etc/UTC","cluster":"staging","log_events":["EVT_BOOT"],"member_count":2,"source_kith":"/app/sealwell/kestrel.kith","walk_sig":"C9003CD9A0DCCAE9AB84A57A175706F5BA6B0E67388F254FBAB2E7D820FDEBD0"}
+
+---/app/deskjson/READY
+ok
+
+---/app/idxbay/members.idx
+SILT1          '               ./etc/sys.conf       	               var/log/app.log                      var/log/app.log                      opt/app/build.id        !               etc/sys.conf                     	 etc/hosts
+[?2004hroot@965a75798bcb:/app# for f in /app/siltcli/boot.rs /app/siltcli/quarry.rs /app/siltcli/slate.rs /app/overlaypit/blend.rs; do echo "===== $f ====="; nl -ba "$f"; done
+[?2004l===== /app/siltcli/boot.rs =====
+     1	#[path = "quarry.rs"]
+     2	mod quarry;
+     3	#[path = "slate.rs"]
+     4	mod slate;
+     5	
+     6	fn main() {
+     7	    let mut args = std::env::args();
+     8	    let _ = args.next();
+     9	    let cmd = args.next().unwrap_or_default();
+    10	    let code = match cmd.as_str() {
+    11	        "quarry" => {
+    12	            let a = args
+    13	                .next()
+    14	                .unwrap_or_else(|| "/app/sealwell/kestrel.kith".to_string());
+    15	            let b = args
+    16	                .next()
+    17	                .unwrap_or_else(|| "/app/idxbay/members.idx".to_string());
+    18	            quarry::go(&a, &b)
+    19	        }
+    20	        "brief" => {
+    21	            let out = match args.next() {
+    22	                Some(x) => x,
+    23	                None => {
+    24	                    eprintln!("usage: siltcord brief OUT.json");
+    25	                    std::process::exit(2);
+    26	                }
+    27	            };
+    28	            let a = args
+    29	                .next()
+    30	                .unwrap_or_else(|| "/app/sealwell/kestrel.kith".to_string());
+    31	            let b = args
+    32	                .next()
+    33	                .unwrap_or_else(|| "/app/idxbay/members.idx".to_string());
+    34	            slate::go(&out, &a, &b)
+    35	        }
+    36	        _ => {
+    37	            eprintln!("usage: siltcord quarry|brief");
+    38	            2
+    39	        }
+    40	    };
+    41	    std::process::exit(code);
+    42	}
+===== /app/siltcli/quarry.rs =====
+     1	#[path = "../ustarwalk/hdr.rs"]
+     2	mod hdr;
+     3	#[path = "../idxmill/shard.rs"]
+     4	mod shard;
+     5	
+     6	pub fn go(a: &str, b: &str) -> i32 {
+     7	    shard::rib_a(a, b)
+     8	}
+===== /app/siltcli/slate.rs =====
+     1	#[path = "../overlaypit/blend.rs"]
+     2	mod blend;
+     3	#[path = "../logbag/write.rs"]
+     4	mod uni;
+     5	
+     6	pub fn go(out: &str, a: &str, b: &str) -> i32 {
+     7	    match blend::rib_b(a, b) {
+     8	        Ok(p) => uni::rib_c(&p, out, a),
+     9	        Err(c) => c,
+    10	    }
+    11	}
+===== /app/overlaypit/blend.rs =====
+     1	pub struct Pack {
+     2	    pub t: String,
+     3	    pub c: String,
+     4	    pub e: Vec<String>,
+     5	    pub n: u32,
+     6	    pub s: String,
+     7	    pub w: String,
+     8	}
+     9	
+    10	struct Rec {
+    11	    name: String,
+    12	    hdr: u64,
+    13	    size: u64,
+    14	    body: u64,
+    15	}
+    16	
+    17	fn read_idx(path: &str) -> Result<Vec<Rec>, i32> {
+    18	    let raw = std::fs::read(path).map_err(|_| 1)?;
+    19	    if raw.len() < 9 || &raw[0..5] != b"SILT1" {
+    20	        return Err(1);
+    21	    }
+    22	    let n = u32::from_le_bytes(raw[5..9].try_into().unwrap());
+    23	    let mut i = 9usize;
+    24	    let mut out = Vec::new();
+    25	    for _ in 0..n {
+    26	        if i + 26 > raw.len() {
+    27	            return Err(1);
+    28	        }
+    29	        let hdr = u64::from_le_bytes(raw[i..i + 8].try_into().unwrap());
+    30	        i += 8;
+    31	        let size = u64::from_le_bytes(raw[i..i + 8].try_into().unwrap());
+    32	        i += 8;
+    33	        let body = u64::from_le_bytes(raw[i..i + 8].try_into().unwrap());
+    34	        i += 8;
+    35	        let nl = u16::from_le_bytes(raw[i..i + 2].try_into().unwrap()) as usize;
+    36	        i += 2;
+    37	        if i + nl > raw.len() {
+    38	            return Err(1);
+    39	        }
+    40	        let name = String::from_utf8_lossy(&raw[i..i + nl]).to_string();
+    41	        i += nl;
+    42	        out.push(Rec {
+    43	            name,
+    44	            hdr,
+    45	            size,
+    46	            body,
+    47	        });
+    48	    }
+    49	    Ok(out)
+    50	}
+    51	
+    52	fn load(path: &str, body: u64, size: u64) -> Result<Vec<u8>, i32> {
+    53	    let raw = std::fs::read(path).map_err(|_| 1)?;
+    54	    let s = body as usize;
+    55	    let e = s + size as usize;
+    56	    if e > raw.len() {
+    57	        return Err(1);
+    58	    }
+    59	    Ok(raw[s..e].to_vec())
+    60	}
+    61	
+    62	fn digest(text: &str) -> String {
+    63	    let mut cmd = std::process::Command::new("python3");
+    64	    cmd.args([
+    65	        "-c",
+    66	        "import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())",
+    67	    ])
+    68	    .stdin(std::process::Stdio::piped())
+    69	    .stdout(std::process::Stdio::piped());
+    70	    let mut child = match cmd.spawn() {
+    71	        Ok(c) => c,
+    72	        Err(_) => return String::new(),
+    73	    };
+    74	    {
+    75	        use std::io::Write;
+    76	        if let Some(ref mut sin) = child.stdin {
+    77	            let _ = sin.write_all(text.as_bytes());
+    78	        }
+    79	    }
+    80	    drop(child.stdin.take());
+    81	    match child.wait_with_output() {
+    82	        Ok(out) => String::from_utf8_lossy(&out.stdout).trim().to_string(),
+    83	        Err(_) => String::new(),
+    84	    }
+    85	}
+    86	
+    87	#[path = "../keeppit/first.rs"]
+    88	mod first;
+    89	#[path = "../cfgbag/kv.rs"]
+    90	mod kv;
+    91	#[path = "../cfgbag/alias.rs"]
+    92	mod alias;
+    93	
+    94	pub fn rib_b(a: &str, b: &str) -> Result<Pack, i32> {
+    95	    let recs = read_idx(b)?;
+    96	    let mut confs: Vec<(String, u64, Vec<u8>)> = Vec::new();
+    97	    let mut logs: Vec<Vec<u8>> = Vec::new();
+    98	    let mut bag: std::collections::HashMap<usize, String> = std::collections::HashMap::new();
+    99	    for (i, r) in recs.iter().enumerate() {
+   100	        bag.insert(i, r.name.clone());
+   101	        let blob = load(a, r.body, r.size)?;
+   102	        if r.name.contains("sys.conf") {
+   103	            confs.push((r.name.clone(), r.hdr, blob));
+   104	        } else if r.name.contains("app.log") {
+   105	            logs.push(blob);
+   106	        }
+   107	    }
+   108	    confs.sort_by_key(|row| row.1);
+   109	    let picked = first::keep_head(&confs);
+   110	    let mut t = String::new();
+   111	    let mut c = String::new();
+   112	    if let Some(blob) = picked {
+   113	        let map = kv::pairs(&blob);
+   114	        if let Some(v) = map.get("timezone") {
+   115	            t = v.clone();
+   116	        }
+   117	        if let Some(v) = map.get("cluster") {
+   118	            c = v.clone();
+   119	        }
+   120	    }
+   121	    let mut e = Vec::new();
+   122	    if let Some(blob) = logs.first() {
+   123	        for line in String::from_utf8_lossy(blob).lines() {
+   124	            let s = line.trim();
+   125	            if !s.is_empty() {
+   126	                e.push(s.to_string());
+   127	            }
+   128	        }
+   129	    }
+   130	    e.sort();
+   131	    e.dedup();
+   132	    let names: Vec<String> = bag.values().cloned().collect();
+   133	    let walk = names.join("\n");
+   134	    let _ = alias::fold("");
+   135	    Ok(Pack {
+   136	        t,
+   137	        c,
+   138	        e,
+   139	        n: confs.len() as u32,
+   140	        s: a.to_string(),
+   141	        w: digest(&walk).to_ascii_uppercase(),
+   142	    })
+   143	}
+[?2004hroot@965a75798bcb:/app# for f in /app/cfgbag/alias.rs /app/cfgbag/kv.rs /app/logbag/write.rs /app/offseturn/rank.rs; do echo "===== $f ====="; nl -ba "$f"; done M[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[Ke
+[?2004l===== /app/cfgbag/alias.rs =====
+     1	pub fn fold(name: &str) -> String {
+     2	    name.trim_start_matches("./").to_string()
+     3	}
+===== /app/cfgbag/kv.rs =====
+     1	use std::collections::BTreeMap;
+     2	
+     3	pub fn pairs(blob: &[u8]) -> BTreeMap<String, String> {
+     4	    let mut m = BTreeMap::new();
+     5	    for line in String::from_utf8_lossy(blob).lines() {
+     6	        if let Some((k, v)) = line.split_once('=') {
+     7	            m.insert(k.trim().to_string(), v.trim().to_string());
+     8	        }
+     9	    }
+    10	    m
+    11	}
+===== /app/logbag/write.rs =====
+     1	use super::blend::Pack;
+     2	
+     3	fn json_escape(s: &str) -> String {
+     4	    s.replace('\\', "\\\\").replace('"', "\\\"")
+     5	}
+     6	
+     7	pub fn rib_c(p: &Pack, out: &str, _a: &str) -> i32 {
+     8	    if let Some(parent) = std::path::Path::new(out).parent() {
+     9	        let _ = std::fs::create_dir_all(parent);
+    10	    }
+    11	    let ev: Vec<String> = p
+    12	        .e
+    13	        .iter()
+    14	        .map(|x| format!("\"{}\"", json_escape(x)))
+    15	        .collect();
+    16	    let body = format!(
+    17	        "{{\"timezone\":\"{}\",\"cluster\":\"{}\",\"log_events\":[{}],\"member_count\":{},\"source_kith\":\"{}\",\"walk_sig\":\"{}\"}}\n",
+    18	        json_escape(&p.t),
+    19	        json_escape(&p.c),
+    20	        ev.join(","),
+    21	        p.n,
+    22	        json_escape(&p.s),
+    23	        json_escape(&p.w)
+    24	    );
+    25	    if std::fs::write(out, body).is_err() {
+    26	        return 1;
+    27	    }
+    28	    if std::fs::write("/app/deskjson/READY", "ok\n").is_err() {
+    29	        return 1;
+    30	    }
+    31	    0
+    32	}
+===== /app/offseturn/rank.rs =====
+     1	pub fn by_hdr(a: u64, b: u64) -> std::cmp::Ordering {
+     2	    a.cmp(&b)
+     3	}
+[?2004hroot@965a75798bcb:/app# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p=Path('/app/sealwell/kestrel.kith').read_bytes()
+[?2004l[?2004h> o=0
+[?2004l[?2004h> while o+512<=len(p):
+[?2004l[?2004h>  h=p[o:o+512]
+[?2004l[?2004h>  if not any(h):
+[?2004l[?2004h>   print(o,'ZERO'); break
+[?2004l[?2004h>  name=h[:100].split(b'\0',1)[0].decode('utf-8','replace')
+[?2004l[?2004h>  prefix=h[345:500].split(b'\0',1)[0].decode('utf-8','replace')
+[?2004l[?2004h>  if prefix: name=prefix+'/'+name
+[?2004l[?2004h>  field=h[124:136].rstrip(b'\0 ').lstrip(b' ')
+[?2004l[?2004h>  try: size=int(field or b'0',8)
+[?2004l[?2004h>  except Exception: size=-1
+[?2004l[?2004h>  flag=h[156]
+[?2004l[?2004h>  body=p[o+512:o+512+max(size,0)]
+[?2004l[?2004h>  print(f'off={o} flag={flag:#04x} size={size} name={name!r} magic={h[257:263]!r} body={body[:160]!r}')
+[?2004l[?2004h>  if size<0: break
+[?2004l[?2004h>  o += 512+((size+511)//512)*512
+[?2004l[?2004h> print('length',len(p),'next',o)
+[?2004l[?2004h> PY
+[?2004loff=0 flag=0x30 size=33 name='etc/sys.conf' magic=b'ustar\x00' body=b'timezone=Etc/UTC\ncluster=staging\n'
+off=1024 flag=0x30 size=9 name='var/log/app.log' magic=b'ustar\x00' body=b'EVT_BOOT\n'
+off=2048 flag=0x78 size=23 name='PaxHeaders/sys' magic=b'ustar\x00' body=b'25 path=./etc/sys.conf\n'
+off=3072 flag=0x30 size=39 name='./etc/sys.conf' magic=b'ustar\x00' body=b'timezone=America/Chicago\ncluster=alpha\n'
+off=4096 flag=0x30 size=11 name='var/log/app.log' magic=b'ustar\x00' body=b'EVT_RELOAD\n'
+off=5120 flag=0x30 size=20 name='etc/hosts' magic=b'ustar\x00' body=b'127.0.0.1 localhost\n'
+off=6144 flag=0x30 size=6 name='opt/app/build.id' magic=b'ustar\x00' body=b'rel-9\n'
+7168 ZERO
+length 8192 next 7168
+[?2004hroot@965a75798bcb:/app# find /app/seed -maxdepth 3 -type f -ls 2>/dev/null || true; cmp -l /app/sealwell/kestrel.kith /app/seed/sealwell/kestrel.kith 2>/dev/null | head || true
+[?2004l 23231845      8 -rw-rw-r--   1 root     root         8192 Sep 11 13:38 /app/seed/sealwell/kestrel.kith
+[?2004hroot@965a75798bcb:/app# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p=Path('/app/sealwell/kestrel.kith').read_bytes()
+[?2004l[?2004h> o=0
+[?2004l[?2004h> while o+512<=len(p) and any(p[o:o+512]):
+[?2004l[?2004h>  h=p[o:o+512]; name=h[:100].split(b'\0',1)[0].decode(errors='replace')
+[?2004l[?2004h>  sf=h[148:156]
+[?2004l[?2004h>  try: stored=int(sf.rstrip(b'\0 ').lstrip(b' ') or b'0',8)
+[?2004l[?2004h>  except: stored=None
+[?2004l[?2004h>  unsigned=sum(h[:148])+8*32+sum(h[156:])
+[?2004l[?2004h>  signed=sum(x if x<128 else x-256 for x in h[:148])+8*32+sum(x if x<128 else x-256 for x in h[156:])
+[?2004l[?2004h>  def octal(a,b):
+[?2004l[?2004h>   x=h[a:b].strip(b'\0 ')
+[?2004l[?2004h>   try:return int(x or b'0',8)
+[?2004l[?2004h>   except:return None
+[?2004l[?2004h>  size=octal(124,136)
+[?2004l[?2004h>  print(o,repr(name),'stored',stored,'unsigned',unsigned,'signed',signed,'valid',stored in (unsigned,signed),'mode',h[100:108],'uid',h[108:116],'gid',h[116:124],'size',h[124:136],'mtime',h[136:148],'chk',sf,'ver',h[263:265])
+[?2004l[?2004h>  o += 512+((size+511)//512)*512 if size is not None else 512
+[?2004l[?2004h> PY
+[?2004l0 'etc/sys.conf' stored 4258 unsigned 4258 signed 4258 valid True mode b'0000644\x00' uid b'0000000\x00' gid b'0000000\x00' size b'00000000041\x00' mtime b'14524770400\x00' chk b'010242\x00 ' ver b'00'
+1024 'var/log/app.log' stored 4507 unsigned 4507 signed 4507 valid True mode b'0000644\x00' uid b'0000000\x00' gid b'0000000\x00' size b'00000000011\x00' mtime b'14524770400\x00' chk b'010633\x00 ' ver b'00'
+2048 'PaxHeaders/sys' stored 4547 unsigned 4547 signed 4547 valid True mode b'0000644\x00' uid b'0000000\x00' gid b'0000000\x00' size b'00000000027\x00' mtime b'14524770400\x00' chk b'010703\x00 ' ver b'00'
+3072 './etc/sys.conf' stored 4357 unsigned 4357 signed 4357 valid True mode b'0000644\x00' uid b'0000000\x00' gid b'0000000\x00' size b'00000000047\x00' mtime b'14524770400\x00' chk b'010405\x00 ' ver b'00'
+4096 'var/log/app.log' stored 4509 unsigned 4509 signed 4509 valid True mode b'0000644\x00' uid b'0000000\x00' gid b'0000000\x00' size b'00000000013\x00' mtime b'14524770400\x00' chk b'010635\x00 ' ver b'00'
+5120 'etc/hosts' stored 4001 unsigned 4001 signed 4001 valid True mode b'0000644\x00' uid b'0000000\x00' gid b'0000000\x00' size b'00000000024\x00' mtime b'14524770400\x00' chk b'007641\x00 ' ver b'00'
+6144 'opt/app/build.id' stored 4610 unsigned 4610 signed 4610 valid True mode b'0000644\x00' uid b'0000000\x00' gid b'0000000\x00' size b'00000000006\x00' mtime b'14524770400\x00' chk b'011002\x00 ' ver b'00'
+[?2004hroot@965a75798bcb:/app# python3 - <<'PY'
+[?2004l[?2004h> p='/app/ustarwalk/hdr.rs'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> s=s.replace('fn oct_u64(buf: &[u8]) -> u64 {\n    let mut n: u64 = 0;\n    for &b in buf {\n        if b == 0 || b == b\' \' {\n            continue;\n        }\n        if b >= b\'0\' && b <= b\'7\' {\n            n = n * 8 + u64::from(b - b\'0\');\n        }\n    }\n    n\n}', '''fn oct_u64(buf: &[u8]) -> Result<u64, i32> {
+[?2004l[?2004h>     let field = buf.iter().copied()
+[?2004l[?2004h>         .skip_while(|b| *b == b' ')
+[?2004l[?2004h>         .take_while(|b| *b != 0 && *b != b' ');
+[?2004l[?2004h>     let mut n = 0u64;
+[?2004l[?2004h>     let mut any = false;
+[?2004l[?2004h>     for b in field {
+[?2004l[?2004h>         if !(b'0'..=b'7').contains(&b) { return Err(1); }
+[?2004l[?2004h>         any = true;
+[?2004l[?2004h>         n = n.checked_mul(8).and_then(|v| v.checked_add(u64::from(b-b'0'))).ok_or(1)?;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if any { Ok(n) } else { Err(1) }
+[?2004l[?2004h> }''')
+[?2004l[?2004h> s=s.replace('    let mut saw = false;\n', '    let mut saw = false;\n    let mut ended = false;\n')
+[?2004l[?2004h> s=s.replace('        if blk.iter().all(|b| *b == 0) {\n            break;\n        }', '        if blk.iter().all(|b| *b == 0) {\n            ended = true;\n            break;\n        }')
+[?2004l[?2004h> s=s.replace('        let size = oct_u64(&blk[124..136]);\n        let flag = blk[156];', '''        let size = oct_u64(&blk[124..136])?;
+[?2004l[?2004h>         let flag = blk[156];
+[?2004l[?2004h>         // In a kith, a PaxHeaders entry is the end-of-apply cue.  Material
+[?2004l[?2004h>         // after it is not part of the sealed member walk.
+[?2004l[?2004h>         if flag == b'x' || name.contains("PaxHeaders") {
+[?2004l[?2004h>             ended = true;
+[?2004l[?2004h>             break;
+[?2004l[?2004h>         }''')
+[?2004l[?2004h> s=s.replace('        let padded = ((size + 511) / 512) * 512;\n        off = off + 512 + padded as usize;', '''        let padded = size.checked_add(511).ok_or(1)? / 512 * 512;
+[?2004l[?2004h>         let next = off.checked_add(512).and_then(|v| v.checked_add(padded as usize)).ok_or(1)?;
+[?2004l[?2004h>         if next > raw.len() { return Err(1); }
+[?2004l[?2004h>         off = next;''')
+[?2004l[?2004h> s=s.replace('    if !saw {\n        return Err(1);\n    }', '    if !saw || !ended {\n        return Err(1);\n    }')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> 
+[?2004l[?2004h> p='/app/idxmill/shard.rs'; s=open(p).read()
+[?2004l[?2004h> s=s.replace('    let mut rows = match hdr::scan(a) {\n        Ok(x) => x,\n        Err(_) => Vec::new(),\n    };\n    rows.sort_by_key(|r| seed::mix(&r.name));', '    let rows = match hdr::scan(a) {\n        Ok(x) => x,\n        Err(c) => return c,\n    };')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@965a75798bcb:/app# python3 - <<'PY'
+[?2004l[?2004h> p='/app/overlaypit/blend.rs'; s=open(p).read()
+[?2004l[?2004h> s=s.replace('    Ok(out)\n}', '    if i != raw.len() { return Err(1); }\n    Ok(out)\n}', 1)
+[?2004l[?2004h> s=s.replace('#[path = "../keeppit/first.rs"]', '#[path = "../ustarwalk/hdr.rs"]\nmod hdr;\n#[path = "../keeppit/first.rs"]')
+[?2004l[?2004h> start=s.index('pub fn rib_b(')
+[?2004l[?2004h> s=s[:start]+'''pub fn rib_b(a: &str, b: &str) -> Result<Pack, i32> {
+[?2004l[?2004h>     let recs = read_idx(b)?;
+[?2004l[?2004h>     let scanned: Vec<hdr::Row> = hdr::scan(a)?.into_iter()
+[?2004l[?2004h>         .filter(|r| r.flag == b'0' || r.flag == 0).collect();
+[?2004l[?2004h>     if recs.len() != scanned.len() { return Err(1); }
+[?2004l[?2004h>     for (r, h) in recs.iter().zip(scanned.iter()) {
+[?2004l[?2004h>         if r.name != h.name || r.hdr != h.hdr || r.body != h.body || r.size != h.size {
+[?2004l[?2004h>             return Err(1);
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     let mut confs: Vec<(String, u64, Vec<u8>)> = Vec::new();
+[?2004l[?2004h>     let mut logs: Vec<Vec<u8>> = Vec::new();
+[?2004l[?2004h>     for r in &recs {
+[?2004l[?2004h>         let blob = load(a, r.body, r.size)?;
+[?2004l[?2004h>         if r.name.contains("sys.conf") {
+[?2004l[?2004h>             confs.push((r.name.clone(), r.hdr, blob));
+[?2004l[?2004h>         } else if r.name.contains("app.log") {
+[?2004l[?2004h>             logs.push(blob);
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     confs.sort_by_key(|row| row.1);
+[?2004l[?2004h>     let picked = first::keep_head(&confs);
+[?2004l[?2004h>     let mut t = String::new();
+[?2004l[?2004h>     let mut c = String::new();
+[?2004l[?2004h>     if let Some(blob) = picked {
+[?2004l[?2004h>         let map = kv::pairs(blob);
+[?2004l[?2004h>         if let Some(v) = map.get("timezone") { t = v.clone(); }
+[?2004l[?2004h>         if let Some(v) = map.get("cluster") { c = v.clone(); }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     let mut e = Vec::new();
+[?2004l[?2004h>     for blob in &logs {
+[?2004l[?2004h>         for line in String::from_utf8_lossy(blob).lines() {
+[?2004l[?2004h>             let v = line.trim();
+[?2004l[?2004h>             if !v.is_empty() { e.push(v.to_string()); }
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     e.sort();
+[?2004l[?2004h>     e.dedup();
+[?2004l[?2004h>     let walk = recs.iter().map(|r| r.name.as_str()).collect::<Vec<_>>().join("\\n");
+[?2004l[?2004h>     let source = std::path::Path::new(a).file_name()
+[?2004l[?2004h>         .and_then(|x| x.to_str()).ok_or(1)?.to_string();
+[?2004l[?2004h>     let _ = alias::fold("");
+[?2004l[?2004h>     Ok(Pack { t, c, e, n: recs.len() as u32, s: source, w: digest(&walk) })
+[?2004l[?2004h> }
+[?2004l[?2004h> '''
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@965a75798bcb:/app# python3 - <<'PY'
+[?2004l[?2004h> p='/app/siltcli/slate.rs'; s=open(p).read()
+[?2004l[?2004h> s=s.replace('pub fn go(out: &str, a: &str, b: &str) -> i32 {\n    match blend::rib_b(a, b) {', '''pub fn go(out: &str, a: &str, b: &str) -> i32 {
+[?2004l[?2004h>     let _ = std::fs::remove_file("/app/deskjson/READY");
+[?2004l[?2004h>     let archive = match std::fs::canonicalize(a) { Ok(p) => p, Err(_) => return 1 };
+[?2004l[?2004h>     let sealwell = match std::fs::canonicalize("/app/sealwell") { Ok(p) => p, Err(_) => return 1 };
+[?2004l[?2004h>     if !archive.starts_with(&sealwell) { return 1; }
+[?2004l[?2004h>     match blend::rib_b(a, b) {''')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> p='/app/logbag/write.rs'; s=open(p).read().replace('std::fs::write("/app/deskjson/READY", "ok\\n")','std::fs::write("/app/deskjson/READY", "brief-ok")')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@965a75798bcb:/app# /app/wick.sh
+[?2004l[0m[1m[33mwarning[0m[0m[1m: function `load_body` is never used[0m
+[0m  [0m[0m[1m[38;5;12m--> [0m[0m/app/siltcli/../ustarwalk/hdr.rs:79:8[0m
+[0m   [0m[0m[1m[38;5;12m|[0m
+[0m[1m[38;5;12m79[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0mpub fn load_body(path: &str, row: &Row) -> Result<Vec<u8>, i32> {[0m
+[0m   [0m[0m[1m[38;5;12m|[0m[0m        [0m[0m[1m[33m^^^^^^^^^[0m
+[0m   [0m[0m[1m[38;5;12m|[0m
+[0m   [0m[0m[1m[38;5;12m= [0m[0m[1mnote[0m[0m: `#[warn(dead_code)]` on by default[0m
+
+[0m[1m[33mwarning[0m[0m[1m: function `mix` is never used[0m
+[0m [0m[0m[1m[38;5;12m--> [0m[0m/app/siltcli/../idxmill/../pidhash/seed.rs:1:8[0m
+[0m  [0m[0m[1m[38;5;12m|[0m
+[0m[1m[38;5;12m1[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0mpub fn mix(name: &str) -> u64 {[0m
+[0m  [0m[0m[1m[38;5;12m|[0m[0m        [0m[0m[1m[33m^^^[0m
+
+[0m[1m[33mwarning[0m[0m[1m: function `load_body` is never used[0m
+[0m  [0m[0m[1m[38;5;12m--> [0m[0m/app/siltcli/../overlaypit/../ustarwalk/hdr.rs:79:8[0m
+[0m   [0m[0m[1m[38;5;12m|[0m
+[0m[1m[38;5;12m79[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0mpub fn load_body(path: &str, row: &Row) -> Result<Vec<u8>, i32> {[0m
+[0m   [0m[0m[1m[38;5;12m|[0m[0m        [0m[0m[1m[33m^^^^^^^^^[0m
+
+rm -f /app/deskjson/READY /app/deskjson/pass-a.json /app/deskjson/pass-b.json
+/app/bin/siltcord quarry; echo quarry=$?
+/app/bin/siltcord brief /app/deskjson/pass-a.json; echo brief_a=$?
+/app/bin/siltcord brief /app/deskjson/pass-b.json; echo brief_b=$?
+cat /app/deskjson/pass-a.json; cat /app/deskjson/pass-b.json; printf 'READY='; cat /app/deskjson/READY; echo
+cmp /app/deskjson/pass-a.json /app/deskjson/pass-b.json; echo deterministic=$?
+[0m[1m[33mwarning[0m[0m[1m: 3 warnings emitted[0m
+
+[?2004hroot@965a75798bcb:/app# printf 'magic: '; od -An -tx1 -N4 /app/bin/siltcord
+[?2004lmagic:  7f 45 4c 46
+[?2004hroot@965a75798bcb:/app# rm -f /app/deskjson/READY /app/deskjson/pass-a.json /app/deskjson/pass-b.json
+[?2004l[?2004hroot@965a75798bcb:/app# /app/bin/siltcord quarry; echo quarry=$?
+[?2004lquarry=0
+[?2004hroot@965a75798bcb:/app# /app/bin/siltcord brief /app/deskjson/pass-a.json; echo brief_a=$?
+[?2004lbrief_a=0
+[?2004hroot@965a75798bcb:/app# /app/bin/siltcord brief /app/deskjson/pass-b.json; echo brief_b=$?
+[?2004lbrief_b=0
+[?2004hroot@965a75798bcb:/app# cat /app/deskjson/pass-a.json; cat /app/deskjson/pass-b.json; printf 'READY='; cat /app/deskjson/READY; echo
+[?2004l{"timezone":"Etc/UTC","cluster":"staging","log_events":["EVT_BOOT"],"member_count":2,"source_kith":"kestrel.kith","walk_sig":"5b240ea8c8f9b5f32f5e93e77376daeb5bf6e6930d836d9dc0b0f893e23c0419"}
+{"timezone":"Etc/UTC","cluster":"staging","log_events":["EVT_BOOT"],"member_count":2,"source_kith":"kestrel.kith","walk_sig":"5b240ea8c8f9b5f32f5e93e77376daeb5bf6e6930d836d9dc0b0f893e23c0419"}
+READY=brief-ok
+[?2004hroot@965a75798bcb:/app# cmp /app/deskjson/pass-a.json /app/deskjson/pass-b.json; echo deterministic=$?
+[?2004ldeterministic=0
+[?2004hroot@965a75798bcb:/app# set +e
+[?2004l[?2004hroot@965a75798bcb:/app# cp /app/idxbay/members.idx /tmp/good.idx
+[?2004l[?2004hroot@965a75798bcb:/app# printf xxxx > /app/idxbay/members.idx
+[?2004l[?2004hroot@965a75798bcb:/app# /app/bin/siltcord quarry; qjunk=$?
+[?2004l[?2004hroot@965a75798bcb:/app# cmp /app/idxbay/members.idx /tmp/good.idx; rebuilt=$?
+[?2004l[?2004hroot@965a75798bcb:/app# printf not-an-archive > /tmp/bad.kith
+[?2004l[?2004hroot@965a75798bcb:/app# rm -f /app/deskjson/READY
+[?2004l[?2004hroot@965a75798bcb:/app# /app/bin/siltcord quarry /tmp/bad.kith /tmp/bad.idx; qbad=$?
+[?2004l[?2004hroot@965a75798bcb:/app# test ! -e /app/deskjson/READY; rbad=$?
+[?2004l[?2004hroot@965a75798bcb:/app# head -c 1000 /app/sealwell/kestrel.kith > /tmp/truncated.kith
+[?2004l[?2004hroot@965a75798bcb:/app# /app/bin/siltcord quarry /tmp/truncated.kith /tmp/trunc.idx; qtrunc=$?
+[?2004l[?2004hroot@965a75798bcb:/app# cp /app/sealwell/kestrel.kith /tmp/kestrel.kith
+[?2004l[?2004hroot@965a75798bcb:/app# /app/bin/siltcord brief /tmp/outside.json /tmp/kestrel.kith /app/idxbay/members.idx; bout=$?
+[?2004l[?2004hroot@965a75798bcb:/app# test ! -e /app/deskjson/READY; rout=$?
+[?2004l[?2004hroot@965a75798bcb:/app# printf 'qjunk=%s rebuilt_cmp=%s qbad=%s ready_absent_bad=%s qtrunc=%s outside=%s ready_absent_outside=%s\n' "$qjunk" "$rebuilt" "$qbad" "$rbad" "$qtrunc" "$bout" "$rout"
+[?2004lqjunk=0 rebuilt_cmp=0 qbad=1 ready_absent_bad=0 qtrunc=1 outside=1 ready_absent_outside=0
+[?2004hroot@965a75798bcb:/app# nl -ba /app/ustarwalk/hdr.rs | sed -n '20,100p'
+[?2004l    20	    }
+    21	    if any { Ok(n) } else { Err(1) }
+    22	}
+    23	
+    24	pub fn scan(path: &str) -> Result<Vec<Row>, i32> {
+    25	    let raw = match std::fs::read(path) {
+    26	        Ok(x) => x,
+    27	        Err(_) => return Err(1),
+    28	    };
+    29	    if raw.len() < 512 {
+    30	        return Err(1);
+    31	    }
+    32	    let mut rows = Vec::new();
+    33	    let mut off = 0usize;
+    34	    let mut saw = false;
+    35	    let mut ended = false;
+    36	    while off + 512 <= raw.len() {
+    37	        let blk = &raw[off..off + 512];
+    38	        if blk.iter().all(|b| *b == 0) {
+    39	            ended = true;
+    40	            break;
+    41	        }
+    42	        let magic = &blk[257..262];
+    43	        if magic != b"ustar" {
+    44	            return Err(1);
+    45	        }
+    46	        saw = true;
+    47	        let nlen = blk[0..100]
+    48	            .iter()
+    49	            .position(|b| *b == 0)
+    50	            .unwrap_or(100);
+    51	        let name = String::from_utf8_lossy(&blk[0..nlen]).to_string();
+    52	        let size = oct_u64(&blk[124..136])?;
+    53	        let flag = blk[156];
+    54	        // In a kith, a PaxHeaders entry is the end-of-apply cue.  Material
+    55	        // after it is not part of the sealed member walk.
+    56	        if flag == b'x' || name.contains("PaxHeaders") {
+    57	            ended = true;
+    58	            break;
+    59	        }
+    60	        let body = (off + 512) as u64;
+    61	        rows.push(Row {
+    62	            name,
+    63	            hdr: off as u64,
+    64	            size,
+    65	            body,
+    66	            flag,
+    67	        });
+    68	        let padded = size.checked_add(511).ok_or(1)? / 512 * 512;
+    69	        let next = off.checked_add(512).and_then(|v| v.checked_add(padded as usize)).ok_or(1)?;
+    70	        if next > raw.len() { return Err(1); }
+    71	        off = next;
+    72	    }
+    73	    if !saw || !ended {
+    74	        return Err(1);
+    75	    }
+    76	    Ok(rows)
+    77	}
+    78	
+    79	pub fn load_body(path: &str, row: &Row) -> Result<Vec<u8>, i32> {
+    80	    let raw = std::fs::read(path).map_err(|_| 1)?;
+    81	    let s = row.body as usize;
+    82	    let e = s + row.size as usize;
+    83	    if e > raw.len() {
+    84	        return Err(1);
+    85	    }
+    86	    Ok(raw[s..e].to_vec())
+    87	}
+[?2004hroot@965a75798bcb:/app# python3 - <<'PY'
+[?2004l[?2004h> p='/app/ustarwalk/hdr.rs'; s=open(p).read()
+[?2004l[?2004h> s=s.replace('    let mut ended = false;\n', '    let mut ended = false;\n    let mut apply = true;\n')
+[?2004l[?2004h> s=s.replace('''        // In a kith, a PaxHeaders entry is the end-of-apply cue.  Material
+[?2004l[?2004h>         // after it is not part of the sealed member walk.
+[?2004l[?2004h>         if flag == b'x' || name.contains("PaxHeaders") {
+[?2004l[?2004h>             ended = true;
+[?2004l[?2004h>             break;
+[?2004l[?2004h>         }
+[?2004l[?2004h>         let body = (off + 512) as u64;
+[?2004l[?2004h>         rows.push(Row {
+[?2004l[?2004h>             name,
+[?2004l[?2004h>             hdr: off as u64,
+[?2004l[?2004h>             size,
+[?2004l[?2004h>             body,
+[?2004l[?2004h>             flag,
+[?2004l[?2004h>         });''', '''        // A PaxHeaders member ends the applied walk, but continue parsing
+[?2004l[?2004h>         // the remaining stream so truncation or malformed trailing bytes fail.
+[?2004l[?2004h>         let cue = flag == b'x' || name.contains("PaxHeaders");
+[?2004l[?2004h>         if cue { apply = false; }
+[?2004l[?2004h>         let body = (off + 512) as u64;
+[?2004l[?2004h>         if apply {
+[?2004l[?2004h>             rows.push(Row {
+[?2004l[?2004h>                 name,
+[?2004l[?2004h>                 hdr: off as u64,
+[?2004l[?2004h>                 size,
+[?2004l[?2004h>                 body,
+[?2004l[?2004h>                 flag,
+[?2004l[?2004h>             });
+[?2004l[?2004h>         }''')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> 
+[?2004l[?2004h> p='/app/siltcli/quarry.rs'; s=open(p).read()
+[?2004l[?2004h> s=s.replace('pub fn go(a: &str, b: &str) -> i32 {\n    shard::rib_a(a, b)', 'pub fn go(a: &str, b: &str) -> i32 {\n    let _ = std::fs::remove_file("/app/deskjson/READY");\n    shard::rib_a(a, b)')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@965a75798bcb:/app# /app/wick.sh
+[?2004l[0m[1m[33mwarning[0m[0m[1m: function `load_body` is never used[0m
+[0m  [0m[0m[1m[38;5;12m--> [0m[0m/app/siltcli/../ustarwalk/hdr.rs:80:8[0m
+[0m   [0m[0m[1m[38;5;12m|[0m
+[0m[1m[38;5;12m80[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0mpub fn load_body(path: &str, row: &Row) -> Result<Vec<u8>, i32> {[0m
+[0m   [0m[0m[1m[38;5;12m|[0m[0m        [0m[0m[1m[33m^^^^^^^^^[0m
+[0m   [0m[0m[1m[38;5;12m|[0m
+[0m   [0m[0m[1m[38;5;12m= [0m[0m[1mnote[0m[0m: `#[warn(dead_code)]` on by default[0m
+
+[0m[1m[33mwarning[0m[0m[1m: function `mix` is never used[0m
+[0m [0m[0m[1m[38;5;12m--> [0m[0m/app/siltcli/../idxmill/../pidhash/seed.rs:1:8[0m
+[0m  [0m[0m[1m[38;5;12m|[0m
+[0m[1m[38;5;12m1[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0mpub fn mix(name: &str) -> u64 {[0m
+[0m  [0m[0m[1m[38;5;12m|[0m[0m        [0m[0m[1m[33m^^^[0m
+
+[0m[1m[33mwarning[0m[0m[1m: function `load_body` is never used[0m
+[0m  [0m[0m[1m[38;5;12m--> [0m[0m/app/siltcli/../overlaypit/../ustarwalk/hdr.rs:80:8[0m
+[0m   [0m[0m[1m[38;5;12m|[0m
+[0m[1m[38;5;12m80[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0mpub fn load_body(path: &str, row: &Row) -> Result<Vec<u8>, i32> {[0m
+[0m   [0m[0m[1m[38;5;12m|[0m[0m        [0m[0m[1m[33m^^^^^^^^^[0m
+
+[0m[1m[33mwarning[0m[0m[1m: 3 warnings emitted[0m
+
+[?2004hroot@965a75798bcb:/app# set +e
+[?2004l[?2004hroot@965a75798bcb:/app# /app/bin/siltcord quarry
+[?2004l[?2004hroot@965a75798bcb:/app# /app/bin/siltcord brief /app/deskjson/check.json
+[?2004l[?2004hroot@965a75798bcb:/app# printf 'READY before failed quarry: '; cat /app/deskjson/READY; echo
+[?2004lREADY before failed quarry: brief-ok
+[?2004hroot@965a75798bcb:/app# printf not-an-archive >/tmp/bad.kith
+[?2004l[?2004hroot@965a75798bcb:/app# /app/bin/siltcord quarry /tmp/bad.kith /tmp/bad.idx; echo bad_status=$?
+[?2004lbad_status=1
+[?2004hroot@965a75798bcb:/app# test ! -e /app/deskjson/READY; echo ready_absent_after_bad=$?
+[?2004lready_absent_after_bad=0
+[?2004hroot@965a75798bcb:/app# for n in 1000 2500 3500 5000 7000; do head -c "$n" /app/sealwell/kestrel.kith > "/tmp/trunc-$n.kith"; /app/bin/siltcord quarry "/tmp/trunc-$n.kith" "/tmp/trunc-$n.idx"; echo "trunc_$n=$?"; done
+[?2004ltrunc_1000=1
+trunc_2500=1
+trunc_3500=1
+trunc_5000=1
+trunc_7000=1
+[?2004hroot@965a75798bcb:/app# set -e
+[?2004l[?2004hroot@965a75798bcb:/app# rm -f /app/deskjson/READY /app/deskjson/pass-a.json /app/deskjson/pass-b.json
+[?2004l[?2004hroot@965a75798bcb:/app# /app/bin/siltcord quarry
+[?2004l[?2004hroot@965a75798bcb:/app# /app/bin/siltcord brief /app/deskjson/pass-a.json
+[?2004l[?2004hroot@965a75798bcb:/app# /app/bin/siltcord brief /app/deskjson/pass-b.json
+[?2004l[?2004hroot@965a75798bcb:/app# cmp /app/deskjson/pass-a.json /app/deskjson/pass-b.json
+[?2004l[?2004hroot@965a75798bcb:/app# test "$(cat /app/deskjson/READY)" = brief-ok
+[?2004l[?2004hroot@965a75798bcb:/app# python3 - <<'PY'
+[?2004l[?2004h> import json
+[?2004l[?2004h> p=json.load(open('/app/deskjson/pass-a.json'))
+[?2004l[?2004h> assert p == {
+[?2004l[?2004h>  'timezone':'Etc/UTC', 'cluster':'staging', 'log_events':['EVT_BOOT'],
+[?2004l[?2004h>  'member_count':2, 'source_kith':'kestrel.kith',
+[?2004l[?2004h>  'walk_sig':'5b240ea8c8f9b5f32f5e93e77376daeb5bf6e6930d836d9dc0b0f893e23c0419'}
+[?2004l[?2004h> print(p)
+[?2004l[?2004h> PY
+[?2004l{'timezone': 'Etc/UTC', 'cluster': 'staging', 'log_events': ['EVT_BOOT'], 'member_count': 2, 'source_kith': 'kestrel.kith', 'walk_sig': '5b240ea8c8f9b5f32f5e93e77376daeb5bf6e6930d836d9dc0b0f893e23c0419'}
+[?2004hroot@965a75798bcb:/app# printf 'ELF='; od -An -tx1 -N4 /app/bin/siltcord; printf 'READY='; cat /app/deskjson/READY; echo
+[?2004lELF= 7f 45 4c 46
+READY=brief-ok
+[?2004hroot@965a75798bcb:/app# 

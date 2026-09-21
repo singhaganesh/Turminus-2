@@ -1,0 +1,625 @@
+[?2004hroot@39362b762127:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@39362b762127:/app# clear
+[?2004l[H[J[3J[?2004hroot@39362b762127:/app# pwd; printf '%s\n' '--- LIST ---'; cat /app/opstext/LIST.txt; printf '%s\n' '--- WALL/MIN ---'; cat /app/opstext/WALL /app/floorcue/MIN.txt; printf '%s\n' '--- files ---'; find /app/environment /app/daywell /app/bloturn /app/packbay -maxdepth 3 -printf '%y %p\n' 2>/dev/null | sort; printf '%s\n' '--- types ---'; file /app/bin/dewkiln /app/environment/* 2>/dev/null
+[?2004l/app
+--- LIST ---
+dewkiln layout
+==============
+
+wickmill/boot.rs dispatches clasp.
+
+Pipeline crates:
+- hopcue/
+- millrib/
+- restpit/
+- urncue/
+- shardfold/
+- lidcue/
+
+Day files live in /app/daywell.
+clasp writes /app/bloturn/ledger.json and /app/bloturn/check.json
+and unpacks /app/packbay/latest.
+Fixture copies of the day files sit at /app/seed/daywell.
+
+check.json object:
+- probe (string)
+- matched (integer)
+- taken (integer)
+
+CI floor integer lives in /app/floorcue/MIN.txt.
+
+Extra daywell files still use names like d20260908.tbl and d20260914.tbl.
+
+
+Rebuild the binary with /app/wick.sh after source edits.
+--- WALL/MIN ---
+20260913
+15
+--- files ---
+d /app/bloturn
+d /app/daywell
+d /app/packbay
+d /app/packbay/latest
+d /app/packbay/stage
+f /app/bloturn/GUARD
+f /app/bloturn/check.json
+f /app/bloturn/ledger.json
+f /app/daywell/d20260910.tbl
+f /app/daywell/d20260911.tbl
+f /app/daywell/d20260912.tbl
+f /app/daywell/d20260913.tbl
+f /app/packbay/latest/d20260910.tbl
+f /app/packbay/latest/d20260911.tbl
+f /app/packbay/stage/d20260910.tbl
+f /app/packbay/stage/d20260911.tbl
+f /app/packbay/stage/d20260912.tbl
+--- types ---
+[?2004hroot@39362b762127:/app# printf '%s\n' '--- environment contents ---'; for f in /app/environment/*; do if [ -f "$f" ]; then echo "### $f"; sed -n '1,240p' "$f"; fi; done
+[?2004l--- environment contents ---
+[?2004hroot@39362b762127:/app# printf '%s\n' '--- source tree ---'; find /app/environment -maxdepth 4 -type f -print | sort; echo '--- build script ---'; sed -n '1,240p' /app/wick.sh; echo '--- manifests and rust ---'; find /app/environment -type f \( -name '*.rs' -o -name 'Cargo.toml' -o -name 'Cargo.lock' \) -print0 | sort -z | while IFS= read -r -d '' f; do echo "### $f"; sed -n '1,300p' "$f"; done
+[?2004l--- source tree ---
+find: ‘/app/environment’: No such file or directory
+--- build script ---
+#!/bin/sh
+set -eu
+export PATH="/usr/local/cargo/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+mkdir -p /app/bin /app/bloturn /app/packbay
+rustc --edition 2021 -O /app/wickmill/boot.rs -o /app/bin/dewkiln
+--- manifests and rust ---
+find: ‘/app/environment’: No such file or directory
+[?2004hroot@39362b762127:/app# echo '--- direct input counts/content ---'; for f in /app/daywell/d*.tbl; do printf '%s: ' "$(basename "$f")"; wc -l < "$f"; sed -n '1,40p' "$f"; done; echo '--- existing outputs ---'; for f in /app/bloturn/ledger.json /app/bloturn/check.json /app/bloturn/GUARD; do echo "### $f"; cat "$f" 2>/dev/null || true; echo; done; echo '--- latest counts ---'; for f in /app/packbay/latest/*; do [ -f "$f" ] && printf '%s: %s\n' "$(basename "$f")" "$(wc -l < "$f")"; done; echo '--- existing clasp run ---'; /app/bin/dewkiln clasp; rc=$?; echo "RC=$rc"; find /app/packbay/latest -maxdepth 1 -type f -printf '%f\n' | sort; echo '--- post-run check/guard ---'; cat /app/bloturn/check.json 2>/dev/null; echo; cat /app/bloturn/GUARD 2>/dev/null; echo
+[?2004l--- direct input counts/content ---
+d20260910.tbl: 5
+101
+102
+103
+104
+105
+d20260911.tbl: 4
+201
+202
+203
+204
+d20260912.tbl: 6
+301
+302
+303
+304
+305
+306
+d20260913.tbl: 7
+401
+402
+403
+404
+405
+406
+407
+--- existing outputs ---
+### /app/bloturn/ledger.json
+{"taken":15}
+### /app/bloturn/check.json
+{"probe":"ledger","matched":15,"taken":15}
+
+### /app/bloturn/GUARD
+ok
+--- latest counts ---
+d20260910.tbl: 5
+d20260911.tbl: 4
+--- existing clasp run ---
+RC=0
+d20260910.tbl
+d20260911.tbl
+--- post-run check/guard ---
+{"probe":"ledger","matched":15,"taken":15}
+
+ok
+[?2004hroot@39362b762127:/app# echo '--- top-level ---'; find /app -maxdepth 2 -printf '%y %p\n' | sort; echo '--- pipeline sources ---'; for d in wickmill hopcue millrib restpit urncue shardfold lidcue; do echo "===== /app/$d ====="; find "/app/$d" -maxdepth 3 -type f -print 2>/dev/null | sort | while read -r f; do echo "### $f"; sed -n '1,360p' "$f"; done; done
+[?2004l--- top-level ---
+d /app
+d /app/bin
+d /app/bloturn
+d /app/corkpit
+d /app/daywell
+d /app/floorcue
+d /app/hopcue
+d /app/lidcue
+d /app/millrib
+d /app/opstext
+d /app/packbay
+d /app/packbay/latest
+d /app/packbay/stage
+d /app/restpit
+d /app/seed
+d /app/seed/daywell
+d /app/shardfold
+d /app/urncue
+d /app/wickmill
+f /app/bin/dewkiln
+f /app/bloturn/GUARD
+f /app/bloturn/check.json
+f /app/bloturn/ledger.json
+f /app/corkpit/NOTE.txt
+f /app/corkpit/floor.rs
+f /app/daywell/d20260910.tbl
+f /app/daywell/d20260911.tbl
+f /app/daywell/d20260912.tbl
+f /app/daywell/d20260913.tbl
+f /app/floorcue/MIN.txt
+f /app/hopcue/rim.rs
+f /app/lidcue/skip.rs
+f /app/millrib/gait.rs
+f /app/millrib/sheet.tpl
+f /app/opstext/LIST.txt
+f /app/opstext/SHIFT.txt
+f /app/opstext/WALL
+f /app/restpit/soak.rs
+f /app/shardfold/read.rs
+f /app/urncue/fold.rs
+f /app/wick.sh
+f /app/wickmill/boot.rs
+f /app/wickmill/usage.txt
+--- pipeline sources ---
+===== /app/wickmill =====
+### /app/wickmill/boot.rs
+#[path = "../urncue/fold.rs"]
+mod fold;
+#[path = "../millrib/gait.rs"]
+mod gait;
+#[path = "../lidcue/skip.rs"]
+mod skip;
+#[path = "../corkpit/floor.rs"]
+mod floor;
+
+fn main() {
+    let mut args = std::env::args();
+    let _ = args.next();
+    let cmd = args.next().unwrap_or_default();
+    if cmd != "clasp" {
+        eprintln!("usage: dewkiln clasp");
+        std::process::exit(2);
+    }
+    let _ = std::fs::remove_file("/app/bloturn/GUARD");
+    let code = match fold::fold() {
+        Ok((packed, taken)) => {
+            let mut dump = packed.clone();
+            skip::skip(&mut dump);
+            let _ = floor::floor(taken);
+            gait::gait(taken, &packed)
+        }
+        Err(c) => c,
+    };
+    std::process::exit(code);
+}
+### /app/wickmill/usage.txt
+dewkiln clasp
+===== /app/hopcue =====
+### /app/hopcue/rim.rs
+pub fn rim(a: i32, b: Vec<(i32, String)>) -> Vec<(i32, String)> {
+    b.into_iter().filter(|(d, _)| *d < a).collect()
+}
+===== /app/millrib =====
+### /app/millrib/gait.rs
+use std::fs;
+
+fn emit(p: &str, m: i32, t: i32) -> Result<(), i32> {
+    let tpl = fs::read_to_string("/app/millrib/sheet.tpl").map_err(|_| 1)?;
+    let out = tpl
+        .replace("__P__", p)
+        .replace("__M__", &m.to_string())
+        .replace("__T__", &t.to_string());
+    fs::create_dir_all("/app/bloturn").map_err(|_| 1)?;
+    fs::write("/app/bloturn/check.json", out).map_err(|_| 1)?;
+    Ok(())
+}
+
+pub fn gait(a: i32, _b: &[(i32, String)]) -> i32 {
+    let _ = fs::remove_file("/app/bloturn/GUARD");
+    if emit("ledger", a, a).is_err() {
+        return 1;
+    }
+    if fs::write("/app/bloturn/GUARD", "ok").is_err() {
+        return 1;
+    }
+    0
+}
+### /app/millrib/sheet.tpl
+{"probe":"__P__","matched":__M__,"taken":__T__}
+===== /app/restpit =====
+### /app/restpit/soak.rs
+use std::fs;
+
+pub fn soak(a: &[(i32, String)], b: &str) -> Result<(), i32> {
+    let _ = fs::remove_dir_all(b);
+    fs::create_dir_all(b).map_err(|_| 1)?;
+    let mut xs: Vec<(i32, String)> = a.to_vec();
+    xs.sort_by_key(|x| x.0);
+    if !xs.is_empty() {
+        xs.pop();
+    }
+    for (d, p) in xs {
+        let name = format!("d{:08}.tbl", d);
+        fs::copy(&p, format!("{}/{}", b, name)).map_err(|_| 1)?;
+    }
+    Ok(())
+}
+===== /app/urncue =====
+### /app/urncue/fold.rs
+#[path = "../hopcue/rim.rs"]
+mod rim;
+#[path = "../restpit/soak.rs"]
+mod soak;
+#[path = "../shardfold/read.rs"]
+mod read;
+
+use std::fs;
+
+pub fn fold() -> Result<(Vec<(i32, String)>, i32), i32> {
+    let wall: i32 = fs::read_to_string("/app/opstext/WALL")
+        .map_err(|_| 1)?
+        .trim()
+        .parse()
+        .map_err(|_| 1)?;
+    let listed = read::list("/app/daywell");
+    let picked = rim::rim(wall, listed);
+    if picked.is_empty() {
+        fs::create_dir_all("/app/bloturn").map_err(|_| 1)?;
+        fs::write("/app/bloturn/ledger.json", "{\"taken\":0}").map_err(|_| 1)?;
+        let _ = fs::remove_dir_all("/app/packbay/stage");
+        let _ = fs::remove_dir_all("/app/packbay/latest");
+        fs::create_dir_all("/app/packbay/stage").ok();
+        fs::create_dir_all("/app/packbay/latest").ok();
+        return Ok((Vec::new(), 0));
+    }
+    let _ = fs::remove_dir_all("/app/packbay/stage");
+    fs::create_dir_all("/app/packbay/stage").map_err(|_| 1)?;
+    let mut packed = Vec::new();
+    let mut taken = 0;
+    for (d, p) in picked {
+        let name = format!("d{:08}.tbl", d);
+        let dest = format!("/app/packbay/stage/{}", name);
+        fs::copy(&p, &dest).map_err(|_| 1)?;
+        taken += read::nlines(&dest);
+        packed.push((d, dest));
+    }
+    soak::soak(&packed, "/app/packbay/latest")?;
+    fs::create_dir_all("/app/bloturn").map_err(|_| 1)?;
+    let body = format!("{{\"taken\":{}}}", taken);
+    fs::write("/app/bloturn/ledger.json", body).map_err(|_| 1)?;
+    Ok((packed, taken))
+}
+===== /app/shardfold =====
+### /app/shardfold/read.rs
+use std::fs;
+
+pub fn list(root: &str) -> Vec<(i32, String)> {
+    let mut v = Vec::new();
+    let rd = match fs::read_dir(root) {
+        Ok(x) => x,
+        Err(_) => return v,
+    };
+    for ent in rd.flatten() {
+        let name = ent.file_name().to_string_lossy().into_owned();
+        if !name.starts_with('d') || !name.ends_with(".tbl") {
+            continue;
+        }
+        let mid = &name[1..name.len() - 4];
+        if let Ok(d) = mid.parse::<i32>() {
+            v.push((d, ent.path().to_string_lossy().into_owned()));
+        }
+    }
+    v.sort_by_key(|x| x.0);
+    v
+}
+
+pub fn nlines(path: &str) -> i32 {
+    match fs::read_to_string(path) {
+        Ok(t) => t.lines().filter(|l| !l.trim().is_empty()).count() as i32,
+        Err(_) => 0,
+    }
+}
+===== /app/lidcue =====
+### /app/lidcue/skip.rs
+pub fn skip(a: &mut [(i32, String)]) {
+    a.sort_by(|x, y| x.1.cmp(&y.1));
+}
+
+pub fn width(a: &[(i32, String)]) -> usize {
+    a.len()
+}
+
+pub fn first(a: &[(i32, String)]) -> Option<i32> {
+    a.first().map(|x| x.0)
+}
+[?2004hroot@39362b762127:/app# echo '--- ELF and linkage ---'; file /app/bin/dewkiln; ldd /app/bin/dewkiln 2>&1 || true; echo '--- fixture files/counts ---'; find /app/seed -maxdepth 3 -type f -print -exec sh -c 'printf "lines="; wc -l < "$1"' _ {} \; 2>/dev/null | head -100
+[?2004l--- ELF and linkage ---
+bash: file: command not found
+	linux-vdso.so.1 (0x00007e47299f1000)
+	libgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007e472995f000)
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007e472977e000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007e47299f3000)
+--- fixture files/counts ---
+/app/seed/daywell/d20260911.tbl
+lines=4
+/app/seed/daywell/d20260913.tbl
+lines=7
+/app/seed/daywell/d20260912.tbl
+lines=6
+/app/seed/daywell/d20260910.tbl
+lines=5
+[?2004hroot@39362b762127:/app# echo '--- floor and notes ---'; for f in /app/corkpit/* /app/opstext/SHIFT.txt; do echo "### $f"; sed -n '1,300p' "$f"; done
+[?2004l--- floor and notes ---
+### /app/corkpit/NOTE.txt
+floor() reads MIN.txt and compares a taken total to that integer.
+CI used this as a cheap rehearsal when the desk was first wired.
+### /app/corkpit/floor.rs
+use std::fs;
+
+pub fn floor(a: i32) -> bool {
+    let t = match fs::read_to_string("/app/floorcue/MIN.txt") {
+        Ok(s) => s.trim().parse::<i32>().unwrap_or(0),
+        Err(_) => 0,
+    };
+    a >= t
+}
+### /app/opstext/SHIFT.txt
+Nightly clasp has stayed green since the CI floor landed.
+Operators still open /app/packbay/latest after incidents and find the
+newest populated day file missing even when /app/daywell still holds it.
+The floor value lives under floorcue/.
+[?2004hroot@39362b762127:/app# cat > /tmp/patch.py <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p=Path('/app/hopcue/rim.rs')
+[?2004l[?2004h> s=p.read_text().replace('*d < a', '*d <= a')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> 
+[?2004l[?2004h> p=Path('/app/restpit/soak.rs')
+[?2004l[?2004h> s=p.read_text().replace('    if !xs.is_empty() {\n        xs.pop();\n    }\n','')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> 
+[?2004l[?2004h> p=Path('/app/urncue/fold.rs')
+[?2004l[?2004h> s=p.read_text()
+[?2004l[?2004h> s=s.replace('''        return Ok((Vec::new(), 0));''','''        return Err(1);''')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@39362b762127:/app# python3 /tmp/patch.py
+[?2004l[?2004hroot@39362b762127:/app# sed -n '1,240p' /app/hopcue/rim.rs /app/restpit/soak.rs /app/urncue/fold.rs
+[?2004lpub fn rim(a: i32, b: Vec<(i32, String)>) -> Vec<(i32, String)> {
+    b.into_iter().filter(|(d, _)| *d <= a).collect()
+}
+use std::fs;
+
+pub fn soak(a: &[(i32, String)], b: &str) -> Result<(), i32> {
+    let _ = fs::remove_dir_all(b);
+    fs::create_dir_all(b).map_err(|_| 1)?;
+    let mut xs: Vec<(i32, String)> = a.to_vec();
+    xs.sort_by_key(|x| x.0);
+    for (d, p) in xs {
+        let name = format!("d{:08}.tbl", d);
+        fs::copy(&p, format!("{}/{}", b, name)).map_err(|_| 1)?;
+    }
+    Ok(())
+}
+#[path = "../hopcue/rim.rs"]
+mod rim;
+#[path = "../restpit/soak.rs"]
+mod soak;
+#[path = "../shardfold/read.rs"]
+mod read;
+
+use std::fs;
+
+pub fn fold() -> Result<(Vec<(i32, String)>, i32), i32> {
+    let wall: i32 = fs::read_to_string("/app/opstext/WALL")
+        .map_err(|_| 1)?
+        .trim()
+        .parse()
+        .map_err(|_| 1)?;
+    let listed = read::list("/app/daywell");
+    let picked = rim::rim(wall, listed);
+    if picked.is_empty() {
+        fs::create_dir_all("/app/bloturn").map_err(|_| 1)?;
+        fs::write("/app/bloturn/ledger.json", "{\"taken\":0}").map_err(|_| 1)?;
+        let _ = fs::remove_dir_all("/app/packbay/stage");
+        let _ = fs::remove_dir_all("/app/packbay/latest");
+        fs::create_dir_all("/app/packbay/stage").ok();
+        fs::create_dir_all("/app/packbay/latest").ok();
+        return Err(1);
+    }
+    let _ = fs::remove_dir_all("/app/packbay/stage");
+    fs::create_dir_all("/app/packbay/stage").map_err(|_| 1)?;
+    let mut packed = Vec::new();
+    let mut taken = 0;
+    for (d, p) in picked {
+        let name = format!("d{:08}.tbl", d);
+        let dest = format!("/app/packbay/stage/{}", name);
+        fs::copy(&p, &dest).map_err(|_| 1)?;
+        taken += read::nlines(&dest);
+        packed.push((d, dest));
+    }
+    soak::soak(&packed, "/app/packbay/latest")?;
+    fs::create_dir_all("/app/bloturn").map_err(|_| 1)?;
+    let body = format!("{{\"taken\":{}}}", taken);
+    fs::write("/app/bloturn/ledger.json", body).map_err(|_| 1)?;
+    Ok((packed, taken))
+}
+[?2004hroot@39362b762127:/app# cat > /app/millrib/gait.rs <<'RS'
+[?2004l[?2004h> use std::fs;
+[?2004l[?2004h> use std::path::Path;
+[?2004l[?2004h> 
+[?2004l[?2004h> fn emit(p: &str, m: i32, t: i32) -> Result<(), i32> {
+[?2004l[?2004h>     let tpl = fs::read_to_string("/app/millrib/sheet.tpl").map_err(|_| 1)?;
+[?2004l[?2004h>     let out = tpl
+[?2004l[?2004h>         .replace("__P__", p)
+[?2004l[?2004h>         .replace("__M__", &m.to_string())
+[?2004l[?2004h>         .replace("__T__", &t.to_string());
+[?2004l[?2004h>     fs::create_dir_all("/app/bloturn").map_err(|_| 1)?;
+[?2004l[?2004h>     fs::write("/app/bloturn/check.json", out).map_err(|_| 1)
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> fn rows(path: &Path) -> Result<i32, i32> {
+[?2004l[?2004h>     let text = fs::read_to_string(path).map_err(|_| 1)?;
+[?2004l[?2004h>     Ok(text.lines().filter(|line| !line.trim().is_empty()).count() as i32)
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> // Verify by reopening the live inputs.  In particular, never derive matched
+[?2004l[?2004h> // from ledger.json or from the staged copies.
+[?2004l[?2004h> fn live_count() -> Result<(i32, Vec<(i32, i32)>), i32> {
+[?2004l[?2004h>     let wall = fs::read_to_string("/app/opstext/WALL")
+[?2004l[?2004h>         .map_err(|_| 1)?
+[?2004l[?2004h>         .trim()
+[?2004l[?2004h>         .parse::<i32>()
+[?2004l[?2004h>         .map_err(|_| 1)?;
+[?2004l[?2004h>     let mut files = Vec::new();
+[?2004l[?2004h>     let rd = fs::read_dir("/app/daywell").map_err(|_| 1)?;
+[?2004l[?2004h>     for ent in rd {
+[?2004l[?2004h>         let ent = ent.map_err(|_| 1)?;
+[?2004l[?2004h>         let name = ent.file_name().to_string_lossy().into_owned();
+[?2004l[?2004h>         if name.len() != 13 || !name.starts_with('d') || !name.ends_with(".tbl") {
+[?2004l[?2004h>             continue;
+[?2004l[?2004h>         }
+[?2004l[?2004h>         let day = match name[1..9].parse::<i32>() {
+[?2004l[?2004h>             Ok(day) => day,
+[?2004l[?2004h>             Err(_) => continue,
+[?2004l[?2004h>         };
+[?2004l[?2004h>         if day <= wall {
+[?2004l[?2004h>             files.push((day, rows(&ent.path())?));
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if files.is_empty() {
+[?2004l[?2004h>         return Err(1);
+[?2004l[?2004h>     }
+[?2004l[?2004h>     files.sort_by_key(|item| item.0);
+[?2004l[?2004h>     let total = files.iter().map(|item| item.1).sum();
+[?2004l[?2004h>     Ok((total, files))
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn gait(taken: i32, packed: &[(i32, String)], floor_ok: bool) -> i32 {
+[?2004l[?2004h>     let _ = fs::remove_file("/app/bloturn/GUARD");
+[?2004l[?2004h>     let _ = fs::remove_file("/app/bloturn/check.json");
+[?2004l[?2004h>     let (matched, live) = match live_count() {
+[?2004l[?2004h>         Ok(value) => value,
+[?2004l[?2004h>         Err(_) => return 1,
+[?2004l[?2004h>     };
+[?2004l[?2004h>     if !floor_ok || matched != taken || packed.len() != live.len() {
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     // Confirm every live input, including the newest one, was restored with
+[?2004l[?2004h>     // the same row count under latest.
+[?2004l[?2004h>     for (day, expected) in &live {
+[?2004l[?2004h>         let path = format!("/app/packbay/latest/d{:08}.tbl", day);
+[?2004l[?2004h>         if rows(Path::new(&path)) != Ok(*expected) {
+[?2004l[?2004h>             return 1;
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if emit("/app/daywell", matched, taken).is_err() {
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if fs::write("/app/bloturn/GUARD", "ok").is_err() {
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     0
+[?2004l[?2004h> }
+[?2004l[?2004h> RS
+[?2004l[?2004hroot@39362b762127:/app# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p=Path('/app/wickmill/boot.rs')
+[?2004l[?2004h> s=p.read_text()
+[?2004l[?2004h> s=s.replace('let _ = std::fs::remove_file("/app/bloturn/GUARD");', 'let _ = std::fs::remove_file("/app/bloturn/GUARD");\n    let _ = std::fs::remove_file("/app/bloturn/check.json");')
+[?2004l[?2004h> s=s.replace('''            let _ = floor::floor(taken);
+[?2004l[?2004h>             gait::gait(taken, &packed)''', '''            let floor_ok = floor::floor(taken);
+[?2004l[?2004h>             gait::gait(taken, &packed, floor_ok)''')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> 
+[?2004l[?2004h> p=Path('/app/shardfold/read.rs')
+[?2004l[?2004h> s=p.read_text().replace('''        if !name.starts_with('d') || !name.ends_with(".tbl") {
+[?2004l[?2004h>             continue;
+[?2004l[?2004h>         }
+[?2004l[?2004h>         let mid = &name[1..name.len() - 4];''', '''        if name.len() != 13 || !name.starts_with('d') || !name.ends_with(".tbl") {
+[?2004l[?2004h>             continue;
+[?2004l[?2004h>         }
+[?2004l[?2004h>         let mid = &name[1..9];''')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> 
+[?2004l[?2004h> p=Path('/app/urncue/fold.rs')
+[?2004l[?2004h> s=p.read_text().replace('''        taken += read::nlines(&dest);''', '''        taken += read::nlines(&p);''')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@39362b762127:/app# /app/wick.sh
+[?2004l[0m[1m[33mwarning[0m[0m[1m: function `width` is never used[0m
+[0m [0m[0m[1m[38;5;12m--> [0m[0m/app/wickmill/../lidcue/skip.rs:5:8[0m
+[0m  [0m[0m[1m[38;5;12m|[0m
+[0m[1m[38;5;12m5[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0mpub fn width(a: &[(i32, String)]) -> usize {[0m
+[0m  [0m[0m[1m[38;5;12m|[0m[0m        [0m[0m[1m[33m^^^^^[0m
+[0m  [0m[0m[1m[38;5;12m|[0m
+[0m  [0m[0m[1m[38;5;12m= [0m[0m[1mnote[0m[0m: `#[warn(dead_code)]` on by default[0m
+
+[0m[1m[33mwarning[0m[0m[1m: function `first` is never used[0m
+[0m [0m[0m[1m[38;5;12m--> [0m[0m/app/wickmill/../lidcue/skip.rs:9:8[0m
+[0m  [0m[0m[1m[38;5;12m|[0m
+[0m[1m[38;5;12m9[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0mpub fn first(a: &[(i32, String)]) -> Option<i32> {[0m
+[0m  [0m[0m[1m[38;5;12m|[0m[0m        [0m[0m[1m[33m^^^^^[0m
+
+[0m[1m[33mwarning[0m[0m[1m: 2 warnings emitted[0m
+
+[?2004hroot@39362b762127:/app# /app/bin/dewkiln clasp; rc=$?; echo "RC=$rc"; echo '--- JSON/GUARD ---'; cat /app/bloturn/ledger.json; echo; cat /app/bloturn/check.json; echo; cat /app/bloturn/GUARD; echo; echo '--- latest ---'; for f in /app/packbay/latest/*; do printf '%s %s\n' "$(basename "$f")" "$(wc -l < "$f")"; done
+[?2004lRC=0
+--- JSON/GUARD ---
+{"taken":22}
+{"probe":"/app/daywell","matched":22,"taken":22}
+
+ok
+--- latest ---
+d20260910.tbl 5
+d20260911.tbl 4
+d20260912.tbl 6
+d20260913.tbl 7
+[?2004hroot@39362b762127:/app# set -u
+[?2004l[?2004hroot@39362b762127:/app# printf '999\n1000\n' > /app/daywell/d20260914.tbl
+[?2004l[?2004hroot@39362b762127:/app# /app/bin/dewkiln clasp; rc=$?
+[?2004l[?2004hroot@39362b762127:/app# echo "future-test RC=$rc absent=$([ ! -e /app/packbay/latest/d20260914.tbl ] && echo yes || echo no)"
+[?2004lfuture-test RC=0 absent=yes
+[?2004hroot@39362b762127:/app# rm -f /app/daywell/d20260914.tbl
+[?2004l[?2004hroot@39362b762127:/app# mkdir -p /tmp/daywell-save
+[?2004l[?2004hroot@39362b762127:/app# mv /app/daywell/d*.tbl /tmp/daywell-save/
+[?2004l[?2004hroot@39362b762127:/app# /app/bin/dewkiln clasp; rc=$?
+[?2004l[?2004hroot@39362b762127:/app# echo "empty-test RC=$rc guard_absent=$([ ! -e /app/bloturn/GUARD ] && echo yes || echo no) check_absent=$([ ! -e /app/bloturn/check.json ] && echo yes || echo no)"
+[?2004lempty-test RC=1 guard_absent=yes check_absent=yes
+[?2004hroot@39362b762127:/app# mv /tmp/daywell-save/d*.tbl /app/daywell/
+[?2004l[?2004hroot@39362b762127:/app# rmdir /tmp/daywell-save
+[?2004l[?2004hroot@39362b762127:/app# oldmin=$(cat /app/floorcue/MIN.txt)
+[?2004l[?2004hroot@39362b762127:/app# printf '999\n' > /app/floorcue/MIN.txt
+[?2004l[?2004hroot@39362b762127:/app# /app/bin/dewkiln clasp; rc=$?
+[?2004l[?2004hroot@39362b762127:/app# echo "floor-test RC=$rc guard_absent=$([ ! -e /app/bloturn/GUARD ] && echo yes || echo no)"
+[?2004lfloor-test RC=1 guard_absent=yes
+[?2004hroot@39362b762127:/app# printf '%s\n' "$oldmin" > /app/floorcue/MIN.txt
+[?2004l[?2004hroot@39362b762127:/app# /app/bin/dewkiln clasp; rc=$?
+[?2004l[?2004hroot@39362b762127:/app# echo "final RC=$rc"
+[?2004lfinal RC=0
+[?2004hroot@39362b762127:/app# python3 - <<'PY'
+[?2004l[?2004h> import json
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> ledger=json.loads(Path('/app/bloturn/ledger.json').read_text())
+[?2004l[?2004h> check=json.loads(Path('/app/bloturn/check.json').read_text())
+[?2004l[?2004h> inputs={p.name:sum(bool(x.strip()) for x in p.read_text().splitlines()) for p in Path('/app/daywell').glob('d*.tbl') if int(p.name[1:9]) <= int(Path('/app/opstext/WALL').read_text())}
+[?2004l[?2004h> latest={p.name:sum(bool(x.strip()) for x in p.read_text().splitlines()) for p in Path('/app/packbay/latest').glob('d*.tbl')}
+[?2004l[?2004h> print('ledger=',ledger)
+[?2004l[?2004h> print('check=',check)
+[?2004l[?2004h> print('inputs=',inputs)
+[?2004l[?2004h> print('latest=',latest)
+[?2004l[?2004h> print('guard=',Path('/app/bloturn/GUARD').read_text())
+[?2004l[?2004h> assert set(check)=={'probe','matched','taken'}
+[?2004l[?2004h> assert isinstance(check['probe'],str) and check['probe']=='/app/daywell'
+[?2004l[?2004h> assert type(check['matched']) is int and type(check['taken']) is int
+[?2004l[?2004h> assert check['matched']==check['taken']==sum(inputs.values())==ledger['taken']
+[?2004l[?2004h> assert latest==inputs
+[?2004l[?2004h> assert Path('/app/bin/dewkiln').read_bytes()[:4]==b'\x7fELF'
+[?2004l[?2004h> PY
+[?2004lledger= {'taken': 22}
+check= {'probe': '/app/daywell', 'matched': 22, 'taken': 22}
+inputs= {'d20260911.tbl': 4, 'd20260913.tbl': 7, 'd20260912.tbl': 6, 'd20260910.tbl': 5}
+latest= {'d20260911.tbl': 4, 'd20260913.tbl': 7, 'd20260912.tbl': 6, 'd20260910.tbl': 5}
+guard= ok
+[?2004hroot@39362b762127:/app# 

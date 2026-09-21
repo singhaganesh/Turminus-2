@@ -1,0 +1,246 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 15 items
+
+../tests/test_outputs.py FFFFFFFFFFFFFFF                                 [100%]
+
+=================================== FAILURES ===================================
+______________________________ test_fs01_hdr_tok _______________________________
+
+    def test_fs01_hdr_tok() -> None:
+        """sting leaves a FIN1 header on the dest card."""
+        _assert_native()
+        _sting(TH, VERB, DEST)
+        body = DEST.read_text() if DEST.exists() else ""
+>       assert body.splitlines()[:1] == ["FIN1"]
+E       AssertionError: assert [] == ['FIN1']
+E         
+E         Right contains one more item: 'FIN1'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:57: AssertionError
+______________________________ test_fs02_live_nam ______________________________
+
+    def test_fs02_live_nam() -> None:
+        """sting records the passed thread name."""
+        _assert_native()
+        _sting(TH, VERB, DEST)
+        body = DEST.read_text() if DEST.exists() else ""
+>       assert f"thread={TH}" in body.splitlines()
+E       AssertionError: assert 'thread=desk-k4' in []
+E        +  where [] = <built-in method splitlines of str object at 0x75b9396fb240>()
+E        +    where <built-in method splitlines of str object at 0x75b9396fb240> = ''.splitlines
+
+/tests/test_outputs.py:65: AssertionError
+_____________________________ test_fs03_held_verb ______________________________
+
+    def test_fs03_held_verb() -> None:
+        """sting records a held-out op string."""
+        _assert_native()
+        _sting(TH, VERB, DEST)
+        body = DEST.read_text() if DEST.exists() else ""
+>       assert f"op={VERB}" in body.splitlines()
+E       AssertionError: assert 'op=splice-harbor-overlong-token-alpha-zz' in []
+E        +  where [] = <built-in method splitlines of str object at 0x75b9396fb240>()
+E        +    where <built-in method splitlines of str object at 0x75b9396fb240> = ''.splitlines
+
+/tests/test_outputs.py:73: AssertionError
+_____________________________ test_fs04_close_mark _____________________________
+
+    def test_fs04_close_mark() -> None:
+        """sting dest ends with the END line."""
+        _assert_native()
+        _sting(TH, VERB, DEST)
+        body = DEST.read_text() if DEST.exists() else ""
+>       assert body.endswith("END\n")
+E       AssertionError: assert False
+E        +  where False = <built-in method endswith of str object at 0x75b9396fb240>('END\n')
+E        +    where <built-in method endswith of str object at 0x75b9396fb240> = ''.endswith
+
+/tests/test_outputs.py:81: AssertionError
+_____________________________ test_fs05_long_verb ______________________________
+
+    def test_fs05_long_verb() -> None:
+        """sting records a holdout op string unseen in desk notes."""
+        _assert_native()
+        alt = Path("/app/bloturn/second.rec")
+        _sting(TH, VERB2, alt)
+        body = alt.read_text() if alt.exists() else ""
+>       assert f"op={VERB2}" in body.splitlines()
+E       AssertionError: assert 'op=quay-splice-harbor-overlong-token-beta-yy' in []
+E        +  where [] = <built-in method splitlines of str object at 0x75b9396fb240>()
+E        +    where <built-in method splitlines of str object at 0x75b9396fb240> = ''.splitlines
+
+/tests/test_outputs.py:90: AssertionError
+_____________________________ test_fs06_pair_same ______________________________
+
+    def test_fs06_pair_same() -> None:
+        """sting and ease name the same thread for matching arguments."""
+        _assert_native()
+        a = Path("/app/bloturn/pair-a.rec")
+        b = Path("/app/bloturn/pair-b.rec")
+        _sting(TH, VERB, a)
+        ease = _ease(TH, VERB, b)
+        assert ease.returncode == 0, ease.stderr
+        sa = a.read_text() if a.exists() else ""
+        sb = b.read_text() if b.exists() else ""
+>       assert f"thread={TH}" in sa.splitlines()
+E       AssertionError: assert 'thread=desk-k4' in []
+E        +  where [] = <built-in method splitlines of str object at 0x75b9396fb240>()
+E        +    where <built-in method splitlines of str object at 0x75b9396fb240> = ''.splitlines
+
+/tests/test_outputs.py:103: AssertionError
+_____________________________ test_fs07_bin_magic ______________________________
+
+    def test_fs07_bin_magic() -> None:
+        """mill is ELF and sting dest is a whole four-line card."""
+        _assert_native()
+        _sting(TH, VERB, DEST)
+>       assert DEST.read_text() == _card(TH, VERB)
+E       AssertionError: assert '' == 'FIN1\nthread...pha-zz\nEND\n'
+E         
+E         - FIN1
+E         - thread=desk-k4
+E         - op=splice-harbor-overlong-token-alpha-zz
+E         - END
+
+/tests/test_outputs.py:111: AssertionError
+______________________________ test_fs08_one_proc ______________________________
+
+    def test_fs08_one_proc() -> None:
+        """one sting subprocess leaves the whole dest card."""
+        _assert_native()
+        proc = _sting(TH, VERB, DEST)
+        assert proc.returncode != 0
+>       assert DEST.read_text() == _card(TH, VERB)
+E       AssertionError: assert '' == 'FIN1\nthread...pha-zz\nEND\n'
+E         
+E         - FIN1
+E         - thread=desk-k4
+E         - op=splice-harbor-overlong-token-alpha-zz
+E         - END
+
+/tests/test_outputs.py:119: AssertionError
+_____________________________ test_fs09_read_code ______________________________
+
+    def test_fs09_read_code() -> None:
+        """look exits 0; stdout independently matches the dest file after sting."""
+        _assert_native()
+        _sting(TH, VERB, DEST)
+        got = _look(DEST)
+>       assert got.returncode == 0, got.stderr
+E       AssertionError: 
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/app/bin/finspool', 'look', '/app/bloturn/final.rec'], returncode=1, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:127: AssertionError
+______________________________ test_fs10_bad_root ______________________________
+
+    def test_fs10_bad_root() -> None:
+        """ease outside bloturn exits nonzero and does not leave a success card."""
+        _assert_native()
+        outside = Path("/tmp/finspool-out.rec")
+        if outside.exists():
+            outside.unlink()
+        proc = _ease(TH, VERB, outside)
+>       assert proc.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/finspool', 'ease', 'desk-k4', 'splice-harbor-overlong-token-alpha-zz', '/tmp/finspool-out.rec'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:138: AssertionError
+_____________________________ test_fs11_dirty_redo _____________________________
+
+    def test_fs11_dirty_redo() -> None:
+        """sting recovers a whole dest after a smashed card."""
+        _assert_native()
+        DEST.parent.mkdir(parents=True, exist_ok=True)
+        DEST.write_text("nope\n")
+        _sting(TH, VERB, DEST)
+>       assert DEST.read_text() == _card(TH, VERB)
+E       AssertionError: assert '' == 'FIN1\nthread...pha-zz\nEND\n'
+E         
+E         - FIN1
+E         - thread=desk-k4
+E         - op=splice-harbor-overlong-token-alpha-zz
+E         - END
+
+/tests/test_outputs.py:150: AssertionError
+_____________________________ test_fs12_zero_body ______________________________
+
+    def test_fs12_zero_body() -> None:
+        """sting dest is exactly the four required lines."""
+        _assert_native()
+        _sting("n1", "v1", DEST)
+>       assert DEST.read_text() == _card("n1", "v1")
+E       AssertionError: assert '' == 'FIN1\nthread...nop=v1\nEND\n'
+E         
+E         - FIN1
+E         - thread=n1
+E         - op=v1
+E         - END
+
+/tests/test_outputs.py:157: AssertionError
+____________________________ test_fs13_hyphen_hold _____________________________
+
+    def test_fs13_hyphen_hold() -> None:
+        """holdout hyphen thread survives sting as one token, not a bag split."""
+        _assert_native()
+        dest = Path("/app/bloturn/hold-r.rec")
+        _sting(HOLD_TH, HOLD_OP, dest)
+        body = dest.read_text() if dest.exists() else ""
+>       assert body == _card(HOLD_TH, HOLD_OP)
+E       AssertionError: assert '' == 'FIN1\nthread...eta_ww\nEND\n'
+E         
+E         - FIN1
+E         - thread=keel-hold-r9
+E         - op=fold_zeta_ww
+E         - END
+
+/tests/test_outputs.py:166: AssertionError
+_____________________________ test_fs14_look_hold ______________________________
+
+    def test_fs14_look_hold() -> None:
+        """look reprints the hyphen holdout card independently of the dest path."""
+        _assert_native()
+        dest = Path("/app/bloturn/hold-r.rec")
+        _sting(HOLD_TH, HOLD_OP, dest)
+        got = _look(dest)
+>       assert got.returncode == 0, got.stderr
+E       AssertionError: 
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/app/bin/finspool', 'look', '/app/bloturn/hold-r.rec'], returncode=1, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:175: AssertionError
+_____________________________ test_fs15_bait_root ______________________________
+
+    def test_fs15_bait_root() -> None:
+        """ease on a bloturn-named path outside the dest tree exits nonzero."""
+        _assert_native()
+        bait = Path("/tmp/bloturn-bait.rec")
+        if bait.exists():
+            bait.unlink()
+        proc = _ease(TH, VERB, bait)
+>       assert proc.returncode != 0
+E       AssertionError: assert 0 != 0
+E        +  where 0 = CompletedProcess(args=['/app/bin/finspool', 'ease', 'desk-k4', 'splice-harbor-overlong-token-alpha-zz', '/tmp/bloturn-bait.rec'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:186: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_fs01_hdr_tok - AssertionError: assert [...
+FAILED ../tests/test_outputs.py::test_fs02_live_nam - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_fs03_held_verb - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_fs04_close_mark - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_fs05_long_verb - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_fs06_pair_same - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_fs07_bin_magic - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_fs08_one_proc - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_fs09_read_code - AssertionError: 
+FAILED ../tests/test_outputs.py::test_fs10_bad_root - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_fs11_dirty_redo - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_fs12_zero_body - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_fs13_hyphen_hold - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_fs14_look_hold - AssertionError: 
+FAILED ../tests/test_outputs.py::test_fs15_bait_root - AssertionError: assert...
+============================== 15 failed in 0.50s ==============================

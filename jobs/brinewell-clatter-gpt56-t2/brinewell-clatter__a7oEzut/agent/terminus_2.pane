@@ -1,0 +1,947 @@
+[?2004hroot@45f27bd7e5eb:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@45f27bd7e5eb:/app# clear
+[?2004l[H[J[3J[?2004hroot@45f27bd7e5eb:/app# printf '%s\n' '--- ROUTE ---'; cat /app/opsheet/ROUTE.txt; printf '%s\n' '--- FORMAT ---'; cat /app/opsheet/FORMAT.txt; printf '%s\n' '--- TREE ---'; find /app -maxdepth 3 -type f -printf '%p\n' | sort
+[?2004l--- ROUTE ---
+Pipeline modules live with the CLI under /app/deskbin and as sibling sources under /app. Spool bytes sit in /app/dropwell. Fixture copies sit at /app/seed/dropwell. Side listing helper is /app/dropwalk.
+--- FORMAT ---
+CLAT dump (little-endian):
+
+  magic     4 bytes  "CLAT"
+  version   u16
+  write_stamp u32   dump-write unix seconds
+  nstreams  u16
+  then n directory entries: stype u32, rva u32, size u32
+
+Stream type 3 (exception): dwLowDateTime u32, dwHighDateTime u32, code u32.
+Those two dwords are a Windows FILETIME (100-nanosecond ticks; 10000000 ticks per second).
+The FILETIME epoch is 1601-01-01, 11644473600 seconds before Unix epoch.
+
+Stream type 15 (misc): 16-byte guid, then companion u8 (0 = primary, 1 = extra).
+
+Digest on the keg is SHA-256 (sha256) of the dump file, written as lowercase hex.
+
+Sequence uses these dump fields even when last-good is not present.
+
+Extra dumps added under the well, including names such as mid.clat, use this same layout.
+Fixture copies of the well live at /app/seed/dropwell.
+
+Keg upload.json shape: {"batch_count":N,"entries":[{"seq":1,"name":"<file>","digest":"<hex>","guid":"<hex>"}]} with seq beginning at 1. batch_count is how many groups of three entries the upload splits into (the last group may be shorter). batch.tsv header is seq	name	digest	guid then matching rows. Success writes /app/kegbay/MARK as ok. Empty well, or /app/bin/clatter pour /app/scratch outside /app/dropwell, exits nonzero. On those failures /app/kegbay/MARK must not exist; a false body is not the failure signal.
+--- TREE ---
+/app/bin/clatter
+/app/deskbin/emit.rs
+/app/deskbin/main.rs
+/app/deskbin/parse.rs
+/app/deskbin/pipe.rs
+/app/deskbin/sum.rs
+/app/deskbin/usage.txt
+/app/dropwalk/mtime.rs
+/app/dropwell/a.clat
+/app/dropwell/a2.clat
+/app/dropwell/b.clat
+/app/dropwell/d.clat
+/app/dropwell/e.clat
+/app/dropwell/e2.clat
+/app/dropwell/old.clat
+/app/fat.sh
+/app/fold.rs
+/app/kegbay/MARK
+/app/kegbay/batch.tsv
+/app/kegbay/pairs.tmp
+/app/kegbay/ribbon.txt
+/app/kegbay/upload.json
+/app/opsheet/FORMAT.txt
+/app/opsheet/MTIME_NOTE.txt
+/app/opsheet/ROUTE.txt
+/app/seed/dropwell/a.clat
+/app/seed/dropwell/a2.clat
+/app/seed/dropwell/b.clat
+/app/seed/dropwell/d.clat
+/app/seed/dropwell/e.clat
+/app/seed/dropwell/e2.clat
+/app/seed/dropwell/old.clat
+/app/stamp.rs
+/app/tidearc/README.txt
+/app/tidearc/lastgood.rec
+/app/walk.rs
+[?2004hroot@45f27bd7e5eb:/app# printf '%s\n' '--- TYPES ---'; file /app/bin/clatter; printf '%s\n' '--- KEGBAY ---'; ls -la /app/kegbay; for f in /app/kegbay/upload.json /app/kegbay/batch.tsv /app/kegbay/MARK /app/tidearc/lastgood.rec; do echo "--- $f ---"; if [ -e "$f" ]; then cat "$f"; else echo MISSING; fi; done; printf '%s\n' '--- WELL ---'; find /app/dropwell -maxdepth 2 -type f -printf '%P %s bytes\n' | sort
+[?2004l--- TYPES ---
+bash: file: command not found
+--- KEGBAY ---
+total 28
+drwxr-xr-x 2 root root 4096 Sep 13 07:39 .
+drwxr-xr-x 1 root root 4096 Sep 13 07:39 ..
+-rw-r--r-- 1 root root    2 Sep 13 07:39 MARK
+-rw-r--r-- 1 root root  558 Sep 13 07:39 batch.tsv
+-rw-r--r-- 1 root root  207 Sep 13 07:39 pairs.tmp
+-rw-r--r-- 1 root root  282 Sep 13 07:39 ribbon.txt
+-rw-r--r-- 1 root root  752 Sep 13 07:39 upload.json
+--- /app/kegbay/upload.json ---
+{"batch_count":2,"entries":[{"seq":1,"name":"d.clat","digest":"157d37e1dcfae2297edb4836bf331beee40e1621fe0a350cc1c7359d06b0caea","guid":"03030303030303030303030303030303"},{"seq":2,"name":"a.clat","digest":"224cbf56792e0184b9ad97ad92ad0a102631c7ef419cb9d25c1f25d649af4713","guid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},{"seq":3,"name":"e.clat","digest":"f1694bc270e758e1c8cfd50bd6f1b043629c38ec2e32b4d0933a32f6743fdc46","guid":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"},{"seq":4,"name":"old.clat","digest":"6727175f53e5a66f47bff49403667cfaf694b2f2e7b7729a399234cda98b67f5","guid":"01010101010101010101010101010101"},{"seq":5,"name":"b.clat","digest":"6df95a0e059a72605d5fb9b059a306e415029a909e0c08dc6eb9aa8f928f6d5b","guid":"02020202020202020202020202020202"}]}
+--- /app/kegbay/batch.tsv ---
+seq	name	digest	guid
+1	d.clat	157d37e1dcfae2297edb4836bf331beee40e1621fe0a350cc1c7359d06b0caea	03030303030303030303030303030303
+2	a.clat	224cbf56792e0184b9ad97ad92ad0a102631c7ef419cb9d25c1f25d649af4713	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+3	e.clat	f1694bc270e758e1c8cfd50bd6f1b043629c38ec2e32b4d0933a32f6743fdc46	eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+4	old.clat	6727175f53e5a66f47bff49403667cfaf694b2f2e7b7729a399234cda98b67f5	01010101010101010101010101010101
+5	b.clat	6df95a0e059a72605d5fb9b059a306e415029a909e0c08dc6eb9aa8f928f6d5b	02020202020202020202020202020202
+--- /app/kegbay/MARK ---
+ok--- /app/tidearc/lastgood.rec ---
+1	old.clat	01010101010101010101010101010101
+2	b.clat	02020202020202020202020202020202
+3	d.clat	03030303030303030303030303030303
+4	a.clat	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+5	a2.clat	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+6	e.clat	eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+7	e2.clat	eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+--- WELL ---
+a.clat 65 bytes
+a2.clat 41 bytes
+b.clat 65 bytes
+d.clat 65 bytes
+e.clat 65 bytes
+e2.clat 41 bytes
+old.clat 65 bytes
+[?2004hroot@45f27bd7e5eb:/app# /app/bin/clatter 2>&1; echo status=$?
+[?2004lusage: clatter tallow|pour
+status=2
+[?2004hroot@45f27bd7e5eb:/app# for f in /app/deskbin/main.rs /app/deskbin/parse.rs /app/deskbin/pipe.rs /app/deskbin/sum.rs /app/deskbin/emit.rs /app/fold.rs /app/stamp.rs /app/walk.rs /app/dropwalk/mtime.rs /app/fat.sh /app/opsheet/MTIME_NOTE.txt /app/tidearc/README.txt; do echo "===== $f ====="; sed -n '1,240p' "$f"; done
+[?2004l===== /app/deskbin/main.rs =====
+#[path = "parse.rs"]
+mod parse;
+#[path = "sum.rs"]
+mod sum;
+#[path = "../walk.rs"]
+mod walk;
+#[path = "../stamp.rs"]
+mod stamp;
+#[path = "../fold.rs"]
+mod fold;
+#[path = "pipe.rs"]
+mod pipe;
+#[path = "emit.rs"]
+mod emit;
+
+fn main() {
+    let arg = std::env::args().nth(1).unwrap_or_default();
+    let code = match arg.as_str() {
+        "tallow" => {
+            let a = pipe::fill();
+            if a != 0 {
+                a
+            } else {
+                emit::finish()
+            }
+        }
+        "pour" => emit::pour(),
+        _ => {
+            eprintln!("usage: clatter tallow|pour");
+            2
+        }
+    };
+    std::process::exit(code);
+}
+===== /app/deskbin/parse.rs =====
+use std::fs;
+
+#[allow(dead_code)]
+pub struct Meta {
+    pub write_stamp: u32,
+    pub crash: Option<(u32, u32)>,
+    pub guid: [u8; 16],
+    pub companion: u8,
+}
+
+pub fn load(path: &str) -> Meta {
+    let b = fs::read(path).unwrap_or_default();
+    if b.len() < 12 || &b[0..4] != b"CLAT" {
+        return Meta {
+            write_stamp: 0,
+            crash: None,
+            guid: [0; 16],
+            companion: 0,
+        };
+    }
+    let write_stamp = u32::from_le_bytes(b[6..10].try_into().unwrap());
+    let n = u16::from_le_bytes(b[10..12].try_into().unwrap()) as usize;
+    let mut crash = None;
+    let mut guid = [0u8; 16];
+    let mut companion = 0u8;
+    let mut off = 12usize;
+    for _ in 0..n {
+        if off + 12 > b.len() {
+            break;
+        }
+        let st = u32::from_le_bytes(b[off..off + 4].try_into().unwrap());
+        let rva = u32::from_le_bytes(b[off + 4..off + 8].try_into().unwrap()) as usize;
+        let sz = u32::from_le_bytes(b[off + 8..off + 12].try_into().unwrap()) as usize;
+        off += 12;
+        if rva + sz > b.len() {
+            continue;
+        }
+        let sl = &b[rva..rva + sz];
+        if st == 3 && sl.len() >= 8 {
+            let lo = u32::from_le_bytes(sl[0..4].try_into().unwrap());
+            let hi = u32::from_le_bytes(sl[4..8].try_into().unwrap());
+            crash = Some((lo, hi));
+        }
+        if st == 15 && sl.len() >= 17 {
+            guid.copy_from_slice(&sl[0..16]);
+            companion = sl[16];
+        }
+    }
+    Meta {
+        write_stamp,
+        crash,
+        guid,
+        companion,
+    }
+}
+
+pub fn guid_hex(g: &[u8; 16]) -> String {
+    g.iter().map(|x| format!("{:02x}", x)).collect()
+}
+===== /app/deskbin/pipe.rs =====
+use std::fs;
+
+pub fn fill() -> i32 {
+    match crate::walk::rib_a() {
+        Err(c) => {
+            let _ = fs::remove_file("/app/kegbay/MARK");
+            c
+        }
+        Ok(names) => {
+            let pairs = crate::stamp::rib_b(&names);
+            fs::create_dir_all("/app/kegbay").ok();
+            let mut body = String::new();
+            for (n, k) in pairs {
+                body.push_str(&format!("{}\t{}\n", n, k));
+            }
+            fs::write("/app/kegbay/pairs.tmp", body).ok();
+            0
+        }
+    }
+}
+===== /app/deskbin/sum.rs =====
+use std::process::Command;
+
+pub fn hex_file(path: &str) -> String {
+    let out = Command::new("sha256sum")
+        .arg(path)
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .unwrap_or_default();
+    out.split_whitespace().next().unwrap_or("").to_string()
+}
+===== /app/deskbin/emit.rs =====
+use std::fs;
+use std::path::Path;
+
+fn read_pairs() -> Vec<(String, u64)> {
+    let raw = fs::read_to_string("/app/kegbay/pairs.tmp").unwrap_or_default();
+    let mut v = Vec::new();
+    for line in raw.lines() {
+        let mut it = line.split('\t');
+        if let (Some(n), Some(k)) = (it.next(), it.next()) {
+            if let Ok(u) = k.parse::<u64>() {
+                v.push((n.to_string(), u));
+            }
+        }
+    }
+    v
+}
+
+pub fn finish() -> i32 {
+    let pairs = read_pairs();
+    match crate::fold::rib_c(&pairs, None) {
+        Err(c) => c,
+        Ok(names) => {
+            fs::create_dir_all("/app/kegbay").ok();
+            let mut body = String::new();
+            for (i, n) in names.iter().enumerate() {
+                let m = crate::parse::load(n);
+                body.push_str(&format!(
+                    "{}\t{}\t{}\n",
+                    i + 1,
+                    n,
+                    crate::parse::guid_hex(&m.guid)
+                ));
+            }
+            fs::write("/app/kegbay/ribbon.txt", body).ok();
+            0
+        }
+    }
+}
+
+pub fn pour() -> i32 {
+    let arg = std::env::args().nth(2);
+    let root = arg.unwrap_or_else(|| "/app/dropwell".to_string());
+    match crate::fold::rib_c(&[], Some(&root)) {
+        Err(c) => {
+            let _ = fs::remove_file("/app/kegbay/MARK");
+            return c;
+        }
+        Ok(_) => {}
+    }
+    let ribbon = fs::read_to_string("/app/kegbay/ribbon.txt").unwrap_or_default();
+    let mut rows: Vec<(u32, String, String, String)> = Vec::new();
+    for line in ribbon.lines() {
+        let p: Vec<&str> = line.split('\t').collect();
+        if p.len() < 3 {
+            continue;
+        }
+        let seq: u32 = p[0].parse().unwrap_or(0);
+        let name = p[1].to_string();
+        let g = p[2].to_string();
+        let digest = crate::sum::hex_file(&name);
+        rows.push((seq, Path::new(&name).file_name().unwrap().to_string_lossy().to_string(), digest, g));
+    }
+    let n = rows.len();
+    let batches = if n == 0 { 0 } else { (n + 2) / 3 };
+    let mut json = String::from("{\"batch_count\":");
+    json.push_str(&batches.to_string());
+    json.push_str(",\"entries\":[");
+    for (i, (seq, name, digest, g)) in rows.iter().enumerate() {
+        if i > 0 {
+            json.push(',');
+        }
+        json.push_str(&format!(
+            "{{\"seq\":{},\"name\":\"{}\",\"digest\":\"{}\",\"guid\":\"{}\"}}",
+            seq, name, digest, g
+        ));
+    }
+    json.push_str("]}\n");
+    fs::create_dir_all("/app/kegbay").ok();
+    fs::write("/app/kegbay/upload.json", json).ok();
+    let mut tsv = String::from("seq\tname\tdigest\tguid\n");
+    for (seq, name, digest, g) in &rows {
+        tsv.push_str(&format!("{}\t{}\t{}\t{}\n", seq, name, digest, g));
+    }
+    fs::write("/app/kegbay/batch.tsv", tsv).ok();
+    fs::write("/app/kegbay/MARK", "ok").ok();
+    0
+}
+===== /app/fold.rs =====
+use std::collections::HashMap;
+
+pub fn rib_c(pairs: &[(String, u64)], root: Option<&str>) -> Result<Vec<String>, i32> {
+    if let Some(r) = root {
+        if r.is_empty() {
+            return Err(1);
+        }
+    }
+    if pairs.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut by: HashMap<[u8; 16], Vec<(u64, String)>> = HashMap::new();
+    for (n, k) in pairs {
+        let m = crate::parse::load(n);
+        by.entry(m.guid).or_default().push((*k, n.clone()));
+    }
+    let mut out = Vec::new();
+    for (_g, mut rows) in by {
+        rows.sort_by_key(|r| r.0);
+        out.extend(rows.into_iter().map(|r| r.1));
+    }
+    Ok(out)
+}
+===== /app/stamp.rs =====
+pub fn rib_b(names: &[String]) -> Vec<(String, u64)> {
+    let mut out = Vec::new();
+    for n in names {
+        let m = crate::parse::load(n);
+        let key = if let Some((lo, hi)) = m.crash {
+            ((lo as u64) << 32) | (hi as u64)
+        } else {
+            m.write_stamp as u64
+        };
+        out.push((n.clone(), key));
+    }
+    out
+}
+===== /app/walk.rs =====
+use std::collections::HashMap;
+use std::fs;
+
+pub fn rib_a() -> Result<Vec<String>, i32> {
+    let root = "/app/dropwell";
+    let mut bag: HashMap<String, String> = HashMap::new();
+    let rd = match fs::read_dir(root) {
+        Ok(x) => x,
+        Err(_) => return Ok(Vec::new()),
+    };
+    for ent in rd.flatten() {
+        let p = ent.path();
+        if p.extension().and_then(|s| s.to_str()) != Some("clat") {
+            continue;
+        }
+        let s = p.to_string_lossy().to_string();
+        let meta = crate::parse::load(&s);
+        if meta.crash.is_none() {
+            continue;
+        }
+        bag.insert(s.clone(), s);
+    }
+    if bag.is_empty() {
+        return Ok(Vec::new());
+    }
+    Ok(bag.into_values().collect())
+}
+===== /app/dropwalk/mtime.rs =====
+use std::fs;
+use std::time::SystemTime;
+
+pub fn newest_first(root: &str) -> Vec<String> {
+    let mut rows: Vec<(SystemTime, String)> = Vec::new();
+    if let Ok(rd) = fs::read_dir(root) {
+        for ent in rd.flatten() {
+            let p = ent.path();
+            let t = fs::metadata(&p)
+                .and_then(|m| m.modified())
+                .unwrap_or(SystemTime::UNIX_EPOCH);
+            rows.push((t, p.to_string_lossy().to_string()));
+        }
+    }
+    rows.sort_by(|a, b| b.0.cmp(&a.0));
+    rows.into_iter().map(|r| r.1).collect()
+}
+===== /app/fat.sh =====
+#!/bin/sh
+set -eu
+export PATH="/usr/local/cargo/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+mkdir -p /app/bin
+rustc --edition 2021 -O /app/deskbin/main.rs -o /app/bin/clatter
+===== /app/opsheet/MTIME_NOTE.txt =====
+Scanner already walks newest mtime first via dropwalk. Burst dumps from one crash wave share the same mtime, so that listing is a stable starting point for the ribbon.
+===== /app/tidearc/README.txt =====
+Last accepted server timeline snapshot from the previous upload window.
+Operators may park a copy under kegbay as hide.rec during a keg swap.
+[?2004hroot@45f27bd7e5eb:/app# python3 - <<'PY'
+[?2004l[?2004h> import os,struct,hashlib
+[?2004l[?2004h> for name in sorted(os.listdir('/app/dropwell')):
+[?2004l[?2004h>  p='/app/dropwell/'+name
+[?2004l[?2004h>  b=open(p,'rb').read()
+[?2004l[?2004h>  magic,ver,stamp,n=struct.unpack_from('<4sHIH',b)
+[?2004l[?2004h>  streams=[]
+[?2004l[?2004h>  for i in range(n):
+[?2004l[?2004h>   typ,rva,size=struct.unpack_from('<III',b,12+12*i)
+[?2004l[?2004h>   d=b[rva:rva+size]
+[?2004l[?2004h>   if typ==3:
+[?2004l[?2004h>    lo,hi,code=struct.unpack_from('<III',d)
+[?2004l[?2004h>    streams.append(('exc',((hi<<32)|lo),code))
+[?2004l[?2004h>   elif typ==15:
+[?2004l[?2004h>    streams.append(('misc',d[:16].hex(),d[16] if len(d)>16 else None))
+[?2004l[?2004h>   else: streams.append((typ,rva,size))
+[?2004l[?2004h>  print(name,'len',len(b),'ver',ver,'write',stamp,'streams',streams,'sha',hashlib.sha256(b).hexdigest())
+[?2004l[?2004h> PY
+[?2004la.clat len 65 ver 1 write 1700000000 streams [('misc', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 0), ('exc', 133444737000000000, 3221225477)] sha 224cbf56792e0184b9ad97ad92ad0a102631c7ef419cb9d25c1f25d649af4713
+a2.clat len 41 ver 1 write 1700000000 streams [('misc', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 1)] sha 57fecb62f4f4fc23bb7917c03a6c02c1c4be698144a61ebdc5a87a24612c61a3
+b.clat len 65 ver 1 write 1700000000 streams [('misc', '02020202020202020202020202020202', 0), ('exc', 131444736000000000, 3221225477)] sha 6df95a0e059a72605d5fb9b059a306e415029a909e0c08dc6eb9aa8f928f6d5b
+d.clat len 65 ver 1 write 1700000000 streams [('misc', '03030303030303030303030303030303', 0), ('exc', 132444736000000000, 3221225477)] sha 157d37e1dcfae2297edb4836bf331beee40e1621fe0a350cc1c7359d06b0caea
+e.clat len 65 ver 1 write 1700000000 streams [('misc', 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', 0), ('exc', 135444736000000000, 3221225477)] sha f1694bc270e758e1c8cfd50bd6f1b043629c38ec2e32b4d0933a32f6743fdc46
+e2.clat len 41 ver 1 write 1700000000 streams [('misc', 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', 1)] sha 9af0e00cf837afe51af86ba105612013c528575571e198fbd2f60ed22cb91807
+old.clat len 65 ver 1 write 1700000000 streams [('misc', '01010101010101010101010101010101', 0), ('exc', 127444736000000000, 3221225477)] sha 6727175f53e5a66f47bff49403667cfaf694b2f2e7b7729a399234cda98b67f5
+[?2004hroot@45f27bd7e5eb:/app# rustc --version; xxd -l 32 /app/bin/clatter; ls -la /app/deskbin /app/bin
+[?2004lbash: rustc: command not found
+bash: xxd: command not found
+/app/bin:
+total 4036
+drwxr-xr-x 2 root root    4096 Sep 13 07:39 .
+drwxr-xr-x 1 root root    4096 Sep 13 07:39 ..
+-rwxr-xr-x 1 root root 4121760 Sep 13 07:39 clatter
+
+/app/deskbin:
+total 32
+drwxr-xr-x 2 root root 4096 Sep 11 13:44 .
+drwxr-xr-x 1 root root 4096 Sep 13 07:39 ..
+-rw-rw-r-- 1 root root 2883 Sep 11 13:07 emit.rs
+-rw-rw-r-- 1 root root  666 Sep 11 13:34 main.rs
+-rw-rw-r-- 1 root root 1687 Sep 11 13:18 parse.rs
+-rw-rw-r-- 1 root root  539 Sep 11 13:08 pipe.rs
+-rw-rw-r-- 1 root root  307 Sep 11 13:44 sum.rs
+-rw-rw-r-- 1 root root   34 Sep 11 13:15 usage.txt
+[?2004hroot@45f27bd7e5eb:/app# echo '===== stamp.rs ====='; cat /app/stamp.rs; echo '===== fold.rs ====='; cat /app/fold.rs; echo '===== emit.rs ====='; cat /app/deskbin/emit.rs; echo '===== walk.rs ====='; cat /app/walk.rs
+[?2004l===== stamp.rs =====
+pub fn rib_b(names: &[String]) -> Vec<(String, u64)> {
+    let mut out = Vec::new();
+    for n in names {
+        let m = crate::parse::load(n);
+        let key = if let Some((lo, hi)) = m.crash {
+            ((lo as u64) << 32) | (hi as u64)
+        } else {
+            m.write_stamp as u64
+        };
+        out.push((n.clone(), key));
+    }
+    out
+}
+===== fold.rs =====
+use std::collections::HashMap;
+
+pub fn rib_c(pairs: &[(String, u64)], root: Option<&str>) -> Result<Vec<String>, i32> {
+    if let Some(r) = root {
+        if r.is_empty() {
+            return Err(1);
+        }
+    }
+    if pairs.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut by: HashMap<[u8; 16], Vec<(u64, String)>> = HashMap::new();
+    for (n, k) in pairs {
+        let m = crate::parse::load(n);
+        by.entry(m.guid).or_default().push((*k, n.clone()));
+    }
+    let mut out = Vec::new();
+    for (_g, mut rows) in by {
+        rows.sort_by_key(|r| r.0);
+        out.extend(rows.into_iter().map(|r| r.1));
+    }
+    Ok(out)
+}
+===== emit.rs =====
+use std::fs;
+use std::path::Path;
+
+fn read_pairs() -> Vec<(String, u64)> {
+    let raw = fs::read_to_string("/app/kegbay/pairs.tmp").unwrap_or_default();
+    let mut v = Vec::new();
+    for line in raw.lines() {
+        let mut it = line.split('\t');
+        if let (Some(n), Some(k)) = (it.next(), it.next()) {
+            if let Ok(u) = k.parse::<u64>() {
+                v.push((n.to_string(), u));
+            }
+        }
+    }
+    v
+}
+
+pub fn finish() -> i32 {
+    let pairs = read_pairs();
+    match crate::fold::rib_c(&pairs, None) {
+        Err(c) => c,
+        Ok(names) => {
+            fs::create_dir_all("/app/kegbay").ok();
+            let mut body = String::new();
+            for (i, n) in names.iter().enumerate() {
+                let m = crate::parse::load(n);
+                body.push_str(&format!(
+                    "{}\t{}\t{}\n",
+                    i + 1,
+                    n,
+                    crate::parse::guid_hex(&m.guid)
+                ));
+            }
+            fs::write("/app/kegbay/ribbon.txt", body).ok();
+            0
+        }
+    }
+}
+
+pub fn pour() -> i32 {
+    let arg = std::env::args().nth(2);
+    let root = arg.unwrap_or_else(|| "/app/dropwell".to_string());
+    match crate::fold::rib_c(&[], Some(&root)) {
+        Err(c) => {
+            let _ = fs::remove_file("/app/kegbay/MARK");
+            return c;
+        }
+        Ok(_) => {}
+    }
+    let ribbon = fs::read_to_string("/app/kegbay/ribbon.txt").unwrap_or_default();
+    let mut rows: Vec<(u32, String, String, String)> = Vec::new();
+    for line in ribbon.lines() {
+        let p: Vec<&str> = line.split('\t').collect();
+        if p.len() < 3 {
+            continue;
+        }
+        let seq: u32 = p[0].parse().unwrap_or(0);
+        let name = p[1].to_string();
+        let g = p[2].to_string();
+        let digest = crate::sum::hex_file(&name);
+        rows.push((seq, Path::new(&name).file_name().unwrap().to_string_lossy().to_string(), digest, g));
+    }
+    let n = rows.len();
+    let batches = if n == 0 { 0 } else { (n + 2) / 3 };
+    let mut json = String::from("{\"batch_count\":");
+    json.push_str(&batches.to_string());
+    json.push_str(",\"entries\":[");
+    for (i, (seq, name, digest, g)) in rows.iter().enumerate() {
+        if i > 0 {
+            json.push(',');
+        }
+        json.push_str(&format!(
+            "{{\"seq\":{},\"name\":\"{}\",\"digest\":\"{}\",\"guid\":\"{}\"}}",
+            seq, name, digest, g
+        ));
+    }
+    json.push_str("]}\n");
+    fs::create_dir_all("/app/kegbay").ok();
+    fs::write("/app/kegbay/upload.json", json).ok();
+    let mut tsv = String::from("seq\tname\tdigest\tguid\n");
+    for (seq, name, digest, g) in &rows {
+        tsv.push_str(&format!("{}\t{}\t{}\t{}\n", seq, name, digest, g));
+    }
+    fs::write("/app/kegbay/batch.tsv", tsv).ok();
+    fs::write("/app/kegbay/MARK", "ok").ok();
+    0
+}
+===== walk.rs =====
+use std::collections::HashMap;
+use std::fs;
+
+pub fn rib_a() -> Result<Vec<String>, i32> {
+    let root = "/app/dropwell";
+    let mut bag: HashMap<String, String> = HashMap::new();
+    let rd = match fs::read_dir(root) {
+        Ok(x) => x,
+        Err(_) => return Ok(Vec::new()),
+    };
+    for ent in rd.flatten() {
+        let p = ent.path();
+        if p.extension().and_then(|s| s.to_str()) != Some("clat") {
+            continue;
+        }
+        let s = p.to_string_lossy().to_string();
+        let meta = crate::parse::load(&s);
+        if meta.crash.is_none() {
+            continue;
+        }
+        bag.insert(s.clone(), s);
+    }
+    if bag.is_empty() {
+        return Ok(Vec::new());
+    }
+    Ok(bag.into_values().collect())
+}
+[?2004hroot@45f27bd7e5eb:/app# ls -l /usr/local/cargo/bin/rustc /root/.cargo/bin/rustc /usr/bin/gcc /usr/bin/cc 2>/dev/null || true; command -v sha256sum; stat -c '%n %Y' /app/dropwell/*; od -An -tx1 -N16 /app/bin/clatter
+[?2004llrwxrwxrwx 1 root root 20 Jan  8  2023 /usr/bin/cc -> /etc/alternatives/cc
+lrwxrwxrwx 1 root root  6 Jan  8  2023 /usr/bin/gcc -> gcc-12
+lrwxrwxrwx 1 root root  6 Mar 18  2025 /usr/local/cargo/bin/rustc -> rustup
+/usr/bin/sha256sum
+/app/dropwell/a.clat 1700000000
+/app/dropwell/a2.clat 1700000000
+/app/dropwell/b.clat 1700000000
+/app/dropwell/d.clat 1700000000
+/app/dropwell/e.clat 1700000000
+/app/dropwell/e2.clat 1700000000
+/app/dropwell/old.clat 1700000000
+ 7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00
+[?2004hroot@45f27bd7e5eb:/app# sed -n l /app/tidearc/lastgood.rec; sed -n l /app/kegbay/batch.tsv
+[?2004l1\told.clat\t01010101010101010101010101010101$
+2\tb.clat\t02020202020202020202020202020202$
+3\td.clat\t03030303030303030303030303030303$
+4\ta.clat\taaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa$
+5\ta2.clat\taaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa$
+6\te.clat\teeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee$
+7\te2.clat\teeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee$
+seq\tname\tdigest\tguid$
+1\td.clat\t157d37e1dcfae2297edb4836bf331beee40e1621fe0a350cc1c7359d06\
+b0caea\t03030303030303030303030303030303$
+2\ta.clat\t224cbf56792e0184b9ad97ad92ad0a102631c7ef419cb9d25c1f25d649\
+af4713\taaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa$
+3\te.clat\tf1694bc270e758e1c8cfd50bd6f1b043629c38ec2e32b4d0933a32f674\
+3fdc46\teeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee$
+4\told.clat\t6727175f53e5a66f47bff49403667cfaf694b2f2e7b7729a399234cd\
+a98b67f5\t01010101010101010101010101010101$
+5\tb.clat\t6df95a0e059a72605d5fb9b059a306e415029a909e0c08dc6eb9aa8f92\
+8f6d5b\t02020202020202020202020202020202$
+[?2004hroot@45f27bd7e5eb:/app# cat > /app/deskbin/parse.rs <<'RS'
+[?2004l[?2004h> use std::fs;
+[?2004l[?2004h> 
+[?2004l [?2004h> #[derive(Clone)]
+[?2004l[?2004h> pub struct Meta {
+[?2004l[?2004h>     pub write_stamp: u32,
+[?2004l[?2004h>     pub crash: Option<u64>,
+[?2004l[?2004h>     pub guid: [u8; 16],
+[?2004l[?2004h>     pub companion: u8,
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> fn u16le(b: &[u8], o: usize) -> Option<u16> {
+[?2004l[?2004h>     Some(u16::from_le_bytes(b.get(o..o+2)?.try_into().ok()?))
+[?2004l[?2004h> }
+[?2004l[?2004h> fn u32le(b: &[u8], o: usize) -> Option<u32> {
+[?2004l[?2004h>     Some(u32::from_le_bytes(b.get(o..o+4)?.try_into().ok()?))
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn load(path: &str) -> Result<Meta, ()> {
+[?2004l[?2004h>     let b = fs::read(path).map_err(|_| ())?;
+[?2004l[?2004h>     if b.len() < 12 || &b[0..4] != b"CLAT" { return Err(()); }
+[?2004l[?2004h>     let write_stamp = u32le(&b, 6).ok_or(())?;
+[?2004l[?2004h>     let n = u16le(&b, 10).ok_or(())? as usize;
+[?2004l[?2004h>     if 12usize.checked_add(n.checked_mul(12).ok_or(())?).ok_or(())? > b.len() { return Err(()); }
+[?2004l[?2004h>     let mut crash = None;
+[?2004l[?2004h>     let mut guid = None;
+[?2004l[?2004h>     let mut companion = 0;
+[?2004l[?2004h>     for i in 0..n {
+[?2004l[?2004h>         let o = 12 + i * 12;
+[?2004l[?2004h>         let st = u32le(&b, o).ok_or(())?;
+[?2004l[?2004h>         let rva = u32le(&b, o+4).ok_or(())? as usize;
+[?2004l[?2004h>         let sz = u32le(&b, o+8).ok_or(())? as usize;
+[?2004l[?2004h>         let end = rva.checked_add(sz).ok_or(())?;
+[?2004l[?2004h>         let sl = b.get(rva..end).ok_or(())?;
+[?2004l[?2004h>         if st == 3 && sl.len() >= 8 {
+[?2004l[?2004h>             let lo = u32le(sl, 0).ok_or(())? as u64;
+[?2004l[?2004h>             let hi = u32le(sl, 4).ok_or(())? as u64;
+[?2004l[?2004h>             crash = Some((hi << 32) | lo);
+[?2004l[?2004h>         } else if st == 15 && sl.len() >= 17 {
+[?2004l[?2004h>             let mut g = [0u8; 16];
+[?2004l[?2004h>             g.copy_from_slice(&sl[..16]);
+[?2004l[?2004h>             guid = Some(g);
+[?2004l[?2004h>             companion = sl[16];
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     Ok(Meta { write_stamp, crash, guid: guid.ok_or(())?, companion })
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn guid_hex(g: &[u8; 16]) -> String {
+[?2004l[?2004h>     let mut s = String::with_capacity(32);
+[?2004l[?2004h>     for x in g { s.push_str(&format!("{:02x}", x)); }
+[?2004l[?2004h>     s
+[?2004l[?2004h> }
+[?2004l[?2004h> RS
+[?2004l[?2004hroot@45f27bd7e5eb:/app# cat > /app/walk.rs <<'RS'
+[?2004l[?2004h> use std::fs;
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn rib_a() -> Result<Vec<String>, i32> {
+[?2004l[?2004h>     let mut names = Vec::new();
+[?2004l[?2004h>     let rd = fs::read_dir("/app/dropwell").map_err(|_| 1)?;
+[?2004l[?2004h>     for ent in rd {
+[?2004l[?2004h>         let ent = ent.map_err(|_| 1)?;
+[?2004l[?2004h>         let p = ent.path();
+[?2004l[?2004h>         if p.extension().and_then(|x| x.to_str()) != Some("clat") { continue; }
+[?2004l[?2004h>         if !p.is_file() { continue; }
+[?2004l[?2004h>         let s = p.to_string_lossy().into_owned();
+[?2004l[?2004h>         if crate::parse::load(&s).is_err() { return Err(1); }
+[?2004l[?2004h>         names.push(s);
+[?2004l[?2004h>     }
+[?2004l[?2004h>     names.sort();
+[?2004l[?2004h>     if names.is_empty() { Err(1) } else { Ok(names) }
+[?2004l[?2004h> }
+[?2004l[?2004h> RS
+[?2004l[?2004hroot@45f27bd7e5eb:/app# cat > /app/stamp.rs <<'RS'
+[?2004l[?2004h> pub fn rib_b(names: &[String]) -> Vec<(String, u64)> {
+[?2004l[?2004h>     names.iter().filter_map(|n| {
+[?2004l[?2004h>         let m = crate::parse::load(n).ok()?;
+[?2004l[?2004h>         Some((n.clone(), m.crash.unwrap_or((m.write_stamp as u64) * 10_000_000 + 116_444_736_000_000_000)))
+[?2004l[?2004h>     }).collect()
+[?2004l[?2004h> }
+[?2004l[?2004h> RS
+[?2004l[?2004hroot@45f27bd7e5eb:/app# cat > /app/fold.rs <<'RS'
+[?2004l[?2004h> use std::collections::HashMap;
+[?2004l[?2004h> use std::path::Path;
+[?2004l[?2004h> 
+[?2004l[?2004h> #[derive(Clone)]
+[?2004l[?2004h> struct Row { path: String, name: String, clock: u64, guid: [u8;16], companion: u8, old: Option<usize> }
+[?2004l[?2004h> 
+[?2004l[?2004h> fn old_positions() -> HashMap<String, usize> {
+[?2004l[?2004h>     let mut out = HashMap::new();
+[?2004l[?2004h>     if let Ok(s) = std::fs::read_to_string("/app/tidearc/lastgood.rec") {
+[?2004l[?2004h>         for (i, line) in s.lines().enumerate() {
+[?2004l[?2004h>             let p: Vec<&str> = line.split('\t').collect();
+[?2004l[?2004h>             if p.len() >= 2 { out.entry(p[1].to_string()).or_insert(i); }
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     out
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn rib_c(pairs: &[(String, u64)], _root: Option<&str>) -> Result<Vec<String>, i32> {
+[?2004l[?2004h>     if pairs.is_empty() { return Err(1); }
+[?2004l[?2004h>     let old = old_positions();
+[?2004l[?2004h>     let mut groups: HashMap<[u8;16], Vec<Row>> = HashMap::new();
+[?2004l[?2004h>     for (path, clock) in pairs {
+[?2004l[?2004h>         let m = crate::parse::load(path).map_err(|_| 1)?;
+[?2004l[?2004h>         let name = Path::new(path).file_name().and_then(|x| x.to_str()).ok_or(1)?.to_string();
+[?2004l[?2004h>         let row = Row { path: path.clone(), name: name.clone(), clock: *clock, guid: m.guid,
+[?2004l[?2004h>                         companion: m.companion, old: old.get(&name).copied() };
+[?2004l[?2004h>         groups.entry(m.guid).or_default().push(row);
+[?2004l[?2004h>     }
+[?2004l[?2004h>     let mut gs: Vec<Vec<Row>> = groups.into_values().collect();
+[?2004l[?2004h>     for g in &mut gs {
+[?2004l[?2004h>         let group_clock = g.iter().filter(|r| r.companion == 0).map(|r| r.clock).min()
+[?2004l[?2004h>             .or_else(|| g.iter().map(|r| r.clock).min()).unwrap_or(0);
+[?2004l[?2004h>         for r in g.iter_mut() { r.clock = group_clock; }
+[?2004l[?2004h>         g.sort_by(|a,b| {
+[?2004l[?2004h>             match (a.old, b.old) {
+[?2004l[?2004h>                 (Some(x), Some(y)) => x.cmp(&y),
+[?2004l[?2004h>                 _ => a.companion.cmp(&b.companion).then_with(|| a.name.cmp(&b.name)),
+[?2004l[?2004h>             }
+[?2004l[?2004h>         });
+[?2004l[?2004h>     }
+[?2004l[?2004h>     gs.sort_by(|a,b| {
+[?2004l[?2004h>         let ao = a.iter().filter_map(|r| r.old).min();
+[?2004l[?2004h>         let bo = b.iter().filter_map(|r| r.old).min();
+[?2004l[?2004h>         match (ao, bo) {
+[?2004l[?2004h>             (Some(x), Some(y)) => x.cmp(&y),
+[?2004l[?2004h>             _ => a[0].clock.cmp(&b[0].clock).then_with(|| a[0].guid.cmp(&b[0].guid)),
+[?2004l[?2004h>         }
+[?2004l[?2004h>     });
+[?2004l[?2004h>     Ok(gs.into_iter().flat_map(|g| g.into_iter().map(|r| r.path)).collect())
+[?2004l[?2004h> }
+[?2004l[?2004h> RS
+[?2004l[?2004hroot@45f27bd7e5eb:/app# cat > /app/deskbin/pipe.rs <<'RS'
+[?2004l[?2004h> use std::fs;
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn fill() -> i32 {
+[?2004l[?2004h>     let _ = fs::remove_file("/app/kegbay/MARK");
+[?2004l[?2004h>     let names = match crate::walk::rib_a() { Ok(v) => v, Err(c) => return c };
+[?2004l[?2004h>     let pairs = crate::stamp::rib_b(&names);
+[?2004l[?2004h>     if pairs.len() != names.len() { return 1; }
+[?2004l[?2004h>     if fs::create_dir_all("/app/kegbay").is_err() { return 1; }
+[?2004l[?2004h>     let body: String = pairs.iter().map(|(n,k)| format!("{}\t{}\n", n, k)).collect();
+[?2004l[?2004h>     if fs::write("/app/kegbay/pairs.tmp", body).is_err() { return 1; }
+[?2004l[?2004h>     0
+[?2004l[?2004h> }
+[?2004l[?2004h> RS
+[?2004l[?2004hroot@45f27bd7e5eb:/app# cat > /app/deskbin/emit.rs <<'RS'
+[?2004l[?2004h> use std::fs;
+[?2004l[?2004h> use std::path::{Path, PathBuf};
+[?2004l[?2004h> 
+[?2004l[?2004h> fn fail() -> i32 { let _ = fs::remove_file("/app/kegbay/MARK"); 1 }
+[?2004l[?2004h> fn read_pairs() -> Result<Vec<(String,u64)>,()> {
+[?2004l[?2004h>     let raw = fs::read_to_string("/app/kegbay/pairs.tmp").map_err(|_|())?;
+[?2004l[?2004h>     let mut v = Vec::new();
+[?2004l[?2004h>     for line in raw.lines() {
+[?2004l[?2004h>         let (n,k) = line.split_once('\t').ok_or(())?;
+[?2004l[?2004h>         v.push((n.to_string(), k.parse().map_err(|_|())?));
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if v.is_empty() { Err(()) } else { Ok(v) }
+[?2004l[?2004h> }
+[?2004l[?2004h> fn json_string(s: &str) -> String {
+[?2004l[?2004h>     let mut o = String::from("\"");
+[?2004l[?2004h>     for c in s.chars() { match c { '"'=>o.push_str("\\\""), '\\'=>o.push_str("\\\\"),
+[?2004l[?2004h>         '\n'=>o.push_str("\\n"), '\r'=>o.push_str("\\r"), '\t'=>o.push_str("\\t"),
+[?2004l[?2004h>         c if c < ' ' => o.push_str(&format!("\\u{:04x}",c as u32)), c=>o.push(c) } }
+[?2004l[?2004h>     o.push('"'); o
+[?2004l[?2004h> }
+[?2004l[?2004h> fn allowed_root(s: &str) -> bool {
+[?2004l[?2004h>     let base = match fs::canonicalize("/app/dropwell") { Ok(x)=>x, Err(_)=>return false };
+[?2004l[?2004h>     let p = match fs::canonicalize(s) { Ok(x)=>x, Err(_)=>return false };
+[?2004l[?2004h>     p.starts_with(base)
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn finish() -> i32 {
+[?2004l[?2004h>     let pairs = match read_pairs() { Ok(x)=>x, Err(_)=>return fail() };
+[?2004l[?2004h>     let names = match crate::fold::rib_c(&pairs, None) { Ok(x)=>x, Err(_)=>return fail() };
+[?2004l[?2004h>     let mut body = String::new();
+[?2004l[?2004h>     for (i,n) in names.iter().enumerate() {
+[?2004l[?2004h>         let m = match crate::parse::load(n) { Ok(x)=>x, Err(_)=>return fail() };
+[?2004l[?2004h>         body.push_str(&format!("{}\t{}\t{}\n",i+1,n,crate::parse::guid_hex(&m.guid)));
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if fs::write("/app/kegbay/ribbon.txt",body).is_err() { return fail(); }
+[?2004l[?2004h>     0
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn pour() -> i32 {
+[?2004l[?2004h>     let root = std::env::args().nth(2).unwrap_or_else(|| "/app/dropwell".into());
+[?2004l[?2004h>     if !allowed_root(&root) { return fail(); }
+[?2004l[?2004h>     let current = match crate::walk::rib_a() { Ok(x)=>x, Err(_)=>return fail() };
+[?2004l[?2004h>     let ribbon = match fs::read_to_string("/app/kegbay/ribbon.txt") { Ok(x)=>x, Err(_)=>return fail() };
+[?2004l[?2004h>     let mut rows = Vec::new();
+[?2004l[?2004h>     let mut seen = std::collections::HashSet::new();
+[?2004l[?2004h>     for line in ribbon.lines() {
+[?2004l[?2004h>         let p: Vec<&str> = line.split('\t').collect();
+[?2004l[?2004h>         if p.len()!=3 { return fail(); }
+[?2004l[?2004h>         let seq: usize = match p[0].parse() { Ok(x)=>x,Err(_)=>return fail() };
+[?2004l[?2004h>         let path = p[1];
+[?2004l[?2004h>         let name = match Path::new(path).file_name().and_then(|x|x.to_str()) { Some(x)=>x.to_string(),None=>return fail() };
+[?2004l[?2004h>         if !seen.insert(name.clone()) { return fail(); }
+[?2004l[?2004h>         let digest = crate::sum::hex_file(path);
+[?2004l[?2004h>         if digest.len()!=64 { return fail(); }
+[?2004l[?2004h>         rows.push((seq,name,digest,p[2].to_string()));
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if rows.is_empty() || rows.len()!=current.len() || rows.iter().enumerate().any(|(i,r)|r.0!=i+1) { return fail(); }
+[?2004l[?2004h>     let current_names: std::collections::HashSet<String> = current.iter().filter_map(|p|PathBuf::from(p).file_name()?.to_str().map(str::to_string)).collect(); M[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[K;
+[?2004l[?2004h>     if current_names != seen { return fail(); }
+[?2004l[?2004h>     let mut json=format!("{{\"batch_count\":{},\"entries\":[",(rows.len()+2)/3);
+[?2004l[?2004h>     for (i,(seq,name,digest,guid)) in rows.iter().enumerate() {
+[?2004l[?2004h>         if i>0 { json.push(','); }
+[?2004l[?2004h>         json.push_str(&format!("{{\"seq\":{},\"name\":{},\"digest\":\"{}\",\"guid\":\"{}\"}}",seq,json_string(name),digest,guid));
+[?2004l[?2004h>     }
+[?2004l[?2004h>     json.push_str("]}\n");
+[?2004l[?2004h>     let mut tsv=String::from("seq\tname\tdigest\tguid\n");
+[?2004l[?2004h>     for (seq,name,digest,guid) in &rows { tsv.push_str(&format!("{}\t{}\t{}\t{}\n",seq,name,digest,guid)); }
+[?2004l[?2004h>     if fs::write("/app/kegbay/upload.json.tmp",json).is_err() || fs::write("/app/kegbay/batch.tsv.tmp",tsv).is_err() { return fail(); }
+[?2004l[?2004h>     if fs::rename("/app/kegbay/upload.json.tmp","/app/kegbay/upload.json").is_err() || fs::rename("/app/kegbay/batch.tsv.tmp","/app/kegbay/batch.tsv").is_err() { return fail(); }
+[?2004l[?2004h>     if fs::write("/app/kegbay/MARK","ok").is_err() { return fail(); }
+[?2004l[?2004h>     0
+[?2004l[?2004h> }
+[?2004l[?2004h> RS
+[?2004l[?2004hroot@45f27bd7e5eb:/app# /app/fat.sh
+[?2004l[?2004hroot@45f27bd7e5eb:/app# /app/bin/clatter tallow; echo tallow=$?; /app/bin/clatter pour; echo pour=$?; cat /app/kegbay/upload.json; cat /app/kegbay/batch.tsv; od -An -tx1 -N4 /app/bin/clatter; sha256sum /app/kegbay/upload.json /app/kegbay/batch.tsv > /tmp/keg.hash; /app/bin/clatter tallow && /app/bin/clatter pour; sha256sum -c /tmp/keg.hash
+[?2004ltallow=0
+pour=0
+{"batch_count":3,"entries":[{"seq":1,"name":"old.clat","digest":"6727175f53e5a66f47bff49403667cfaf694b2f2e7b7729a399234cda98b67f5","guid":"01010101010101010101010101010101"},{"seq":2,"name":"b.clat","digest":"6df95a0e059a72605d5fb9b059a306e415029a909e0c08dc6eb9aa8f928f6d5b","guid":"02020202020202020202020202020202"},{"seq":3,"name":"d.clat","digest":"157d37e1dcfae2297edb4836bf331beee40e1621fe0a350cc1c7359d06b0caea","guid":"03030303030303030303030303030303"},{"seq":4,"name":"a.clat","digest":"224cbf56792e0184b9ad97ad92ad0a102631c7ef419cb9d25c1f25d649af4713","guid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},{"seq":5,"name":"a2.clat","digest":"57fecb62f4f4fc23bb7917c03a6c02c1c4be698144a61ebdc5a87a24612c61a3","guid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},{"seq":6,"name":"e.clat","digest":"f1694bc270e758e1c8cfd50bd6f1b043629c38ec2e32b4d0933a32f6743fdc46","guid":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"},{"seq":7,"name":"e2.clat","digest":"9af0e00cf837afe51af86ba105612013c528575571e198fbd2f60ed22cb91807","guid":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"}]}
+seq	name	digest	guid
+1	old.clat	6727175f53e5a66f47bff49403667cfaf694b2f2e7b7729a399234cda98b67f5	01010101010101010101010101010101
+2	b.clat	6df95a0e059a72605d5fb9b059a306e415029a909e0c08dc6eb9aa8f928f6d5b	02020202020202020202020202020202
+3	d.clat	157d37e1dcfae2297edb4836bf331beee40e1621fe0a350cc1c7359d06b0caea	03030303030303030303030303030303
+4	a.clat	224cbf56792e0184b9ad97ad92ad0a102631c7ef419cb9d25c1f25d649af4713	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+5	a2.clat	57fecb62f4f4fc23bb7917c03a6c02c1c4be698144a61ebdc5a87a24612c61a3	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+6	e.clat	f1694bc270e758e1c8cfd50bd6f1b043629c38ec2e32b4d0933a32f6743fdc46	eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+7	e2.clat	9af0e00cf837afe51af86ba105612013c528575571e198fbd2f60ed22cb91807	eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+ 7f 45 4c 46
+/app/kegbay/upload.json: OK
+/app/kegbay/batch.tsv: OK
+[?2004hroot@45f27bd7e5eb:/app# python3 - <<'PY'
+[?2004l[?2004h> p='/app/fold.rs'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> old='''    gs.sort_by(|a,b| {
+[?2004l[?2004h>         let ao = a.iter().filter_map(|r| r.old).min();
+[?2004l[?2004h>         let bo = b.iter().filter_map(|r| r.old).min();
+[?2004l[?2004h>         match (ao, bo) {
+[?2004l[?2004h>             (Some(x), Some(y)) => x.cmp(&y),
+[?2004l[?2004h>             _ => a[0].clock.cmp(&b[0].clock).then_with(|| a[0].guid.cmp(&b[0].guid)),
+[?2004l[?2004h>         }
+[?2004l[?2004h>     });
+[?2004l[?2004h>     Ok(gs.into_iter().flat_map(|g| g.into_iter().map(|r| r.path)).collect())
+[?2004l[?2004h> '''
+[?2004l[?2004h> new='''    let mut known: Vec<Vec<Row>> = gs.iter().filter(|g| g.iter().any(|r| r.old.is_some())).cloned().collect();
+[?2004l[?2004h>     let mut fresh: Vec<Vec<Row>> = gs.into_iter().filter(|g| g.iter().all(|r| r.old.is_none())).collect();
+[?2004l[?2004h>     known.sort_by_key(|g| g.iter().filter_map(|r| r.old).min().unwrap());
+[?2004l[?2004h>     fresh.sort_by(|a,b| a[0].clock.cmp(&b[0].clock).then_with(|| a[0].guid.cmp(&b[0].guid)));
+[?2004l[?2004h>     let mut buckets: Vec<Vec<Vec<Row>>> = (0..=known.len()).map(|_| Vec::new()).collect();
+[?2004l[?2004h>     for g in fresh {
+[?2004l[?2004h>         let pos = known.iter().take_while(|k| k[0].clock <= g[0].clock).count();
+[?2004l[?2004h>         buckets[pos].push(g);
+[?2004l[?2004h>     }
+[?2004l[?2004h>     let mut ordered = Vec::new();
+[?2004l[?2004h>     for i in 0..=known.len() {
+[?2004l[?2004h>         ordered.append(&mut buckets[i]);
+[?2004l[?2004h>         if i < known.len() { ordered.push(known[i].clone()); }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     Ok(ordered.into_iter().flat_map(|g| g.into_iter().map(|r| r.path)).collect())
+[?2004l[?2004h> '''
+[?2004l[?2004h> if old not in s: raise SystemExit('target block not found')
+[?2004l[?2004h> open(p,'w').write(s.replace(old,new))
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@45f27bd7e5eb:/app# /app/fat.sh
+[?2004l/app/bin/clatter tallow && /app/bin/clatter pour; test "$(cat /app/kegbay/MARK)" = ok; /app/bin/clatter pour /app/scratch >/dev/null 2>&1; rc=$?; echo outside_pour_status=$rc; test $rc -ne 0; test ! -e /app/kegbay/MARK
+[?2004hroot@45f27bd7e5eb:/app# /app/bin/clatter tallow && /app/bin/clatter pour; test "$(cat /app/kegbay/MARK)" = ok; /app/bin/clatter pour /app/scratch >/dev/null 2>&1; rc=$?; echo outside_pour_status=$rc; test $rc -ne 0; test ! -e /app/kegbay/MARK
+[?2004loutside_pour_status=1
+[?2004hroot@45f27bd7e5eb:/app# set -e; mkdir -p /tmp/wellhold; mv /app/dropwell/*.clat /tmp/wellhold/; set +e; /app/bin/clatter tallow >/dev/null 2>&1; rc=$?; set -e; echo empty_tallow_status=$rc; test $rc -ne 0; test ! -e /app/kegbay/MARK; mv /tmp/wellhold/*.clat /app/dropwell/; rmdir /tmp/wellhold; /app/bin/clatter tallow; /app/bin/clatter pour
+[?2004lempty_tallow_status=1
+[?2004hroot@45f27bd7e5eb:/app# python3 - <<'PY'
+[?2004l[?2004h> import json,hashlib,os
+[?2004l[?2004h> j=json.load(open('/app/kegbay/upload.json'))
+[?2004l[?2004h> assert j['batch_count']==(len(j['entries'])+2)//3==3
+[?2004l[?2004h> assert [x['seq'] for x in j['entries']]==list(range(1,8))
+[?2004l[?2004h> assert len({x['name'] for x in j['entries']})==7
+[?2004l[?2004h> assert {x['name'] for x in j['entries']}==set(os.listdir('/app/dropwell'))
+[?2004l[?2004h> for x in j['entries']:
+[?2004l[?2004h>  b=open('/app/dropwell/'+x['name'],'rb').read()
+[?2004l[?2004h>  assert x['digest']==hashlib.sha256(b).hexdigest()
+[?2004l[?2004h>  assert len(x['guid'])==32 and x['guid']==x['guid'].lower()
+[?2004l[?2004h> lines=open('/app/kegbay/batch.tsv').read().splitlines()
+[?2004l[?2004h> assert lines[0]=='seq\tname\tdigest\tguid' and len(lines)==8
+[?2004l[?2004h> for line,x in zip(lines[1:],j['entries']):
+[?2004l[?2004h>  assert line.split('\t')==[str(x['seq']),x['name'],x['digest'],x['guid']]
+[?2004l[?2004h> assert open('/app/kegbay/MARK').read()=='ok'
+[?2004l[?2004h> assert open('/app/bin/clatter','rb').read(4)==b'\x7fELF'
+[?2004l[?2004h> print('final validation: OK; order:', ', '.join(x['name'] for x in j['entries']))
+[?2004l[?2004h> PY
+[?2004lfinal validation: OK; order: old.clat, b.clat, d.clat, a.clat, a2.clat, e.clat, e2.clat
+[?2004hroot@45f27bd7e5eb:/app# 

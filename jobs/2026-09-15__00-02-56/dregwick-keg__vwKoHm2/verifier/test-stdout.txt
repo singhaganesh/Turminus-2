@@ -1,0 +1,214 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 14 items
+
+../tests/test_outputs.py FFFFFFFFFFFFFF                                  [100%]
+
+=================================== FAILURES ===================================
+______________________________ test_rk01_ring_hit ______________________________
+
+    def test_rk01_ring_hit():
+        """Packed taste of kmsg.card uses the own-handler rule."""
+        obj = _taste(KMSG)
+>       assert obj["booth"] == obj["note"]
+E       AssertionError: assert 'fallback' == 'kmsg'
+E         
+E         - kmsg
+E         + fallback
+
+/tests/test_outputs.py:55: AssertionError
+______________________________ test_rk02_trio_hit ______________________________
+
+    def test_rk02_trio_hit():
+        """Packed taste of json.card and syslog.card also claim own handlers."""
+        js = _taste(JS)
+        syso = _taste(SYS)
+        km = _taste(KMSG)
+        assert js["booth"] == js["note"] and js["kind"] != "fallback"
+        assert syso["booth"] == syso["note"] and syso["kind"] != "fallback"
+>       assert km["booth"] == km["note"] and km["kind"] != "fallback"
+E       AssertionError: assert ('fallback' == 'kmsg'
+E         
+E         - kmsg
+E         + fallback)
+
+/tests/test_outputs.py:66: AssertionError
+______________________________ test_rk03_husk_cap ______________________________
+
+    def test_rk03_husk_cap():
+        """Packed mill stays at or below the CAP.txt ceiling."""
+        assert JAR.is_file()
+>       assert JAR.stat().st_size <= _cap()
+E       AssertionError: assert 26381 <= 16000
+E        +  where 26381 = os.stat_result(st_mode=33188, st_ino=23885565, st_dev=59, st_nlink=1, st_uid=0, st_gid=0, st_size=26381, st_atime=1789410728, st_mtime=1789410728, st_ctime=1789410777).st_size
+E        +    where os.stat_result(st_mode=33188, st_ino=23885565, st_dev=59, st_nlink=1, st_uid=0, st_gid=0, st_size=26381, st_atime=1789410728, st_mtime=1789410728, st_ctime=1789410777) = stat()
+E        +      where stat = PosixPath('/app/jarwell/husk.jar').stat
+E        +  and   16000 = _cap()
+
+/tests/test_outputs.py:72: AssertionError
+______________________________ test_rk04_name_set ______________________________
+
+    def test_rk04_name_set():
+        """Live booth listing contains every roster name."""
+        names = set(_booth())
+        for n in _roster_names():
+>           assert n in names
+E           AssertionError: assert 'kmsg' in {'fallback', 'json', 'syslog'}
+
+/tests/test_outputs.py:79: AssertionError
+______________________________ test_rk05_ghost_rc ______________________________
+
+    def test_rk05_ghost_rc():
+        """Knit exits non-zero when the roster gains a name with no live booth."""
+        orig = ROSTER.read_text()
+        try:
+            ROSTER.write_text(orig + "ghost Nope\n")
+            r = subprocess.run(["/app/bin/dregwick", "knit"], capture_output=True, text=True)
+>           assert r.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/dregwick', 'knit'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:88: AssertionError
+______________________________ test_rk06_husk_len ______________________________
+
+    def test_rk06_husk_len():
+        """Packed mill length is a positive size still inside the ceiling."""
+        n = JAR.stat().st_size
+        assert n > 100
+>       assert n <= _cap()
+E       assert 26381 <= 16000
+E        +  where 16000 = _cap()
+
+/tests/test_outputs.py:98: AssertionError
+______________________________ test_rk07_tiny_cap ______________________________
+
+    def test_rk07_tiny_cap():
+        """Knit exits non-zero when CAP.txt is 1."""
+        orig = CAP.read_text()
+        try:
+            CAP.write_text("1\n")
+            r = subprocess.run(["/app/bin/dregwick", "knit"], capture_output=True, text=True)
+>           assert r.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/dregwick', 'knit'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:107: AssertionError
+_____________________________ test_rk08_side_slip ______________________________
+
+    def test_rk08_side_slip():
+        """Held-out kmsg card still claims own after knit."""
+        p = Path("/app/slipcards/held.kmsg")
+        p.write_text("token: kmsg\nbody: held\n")
+        obj = _taste(p)
+>       assert obj["booth"] == obj["note"]
+E       AssertionError: assert 'fallback' == 'kmsg'
+E         
+E         - kmsg
+E         + fallback
+
+/tests/test_outputs.py:118: AssertionError
+_____________________________ test_rk09_blank_json _____________________________
+
+    def test_rk09_blank_json():
+        """Corrupt taste.json then knit and taste recovers kmsg own."""
+        TASTE.write_text("{}\n")
+        r = subprocess.run(["/app/bin/dregwick", "knit"], capture_output=True, text=True)
+        assert r.returncode == 0
+        obj = _taste(KMSG)
+>       assert obj["booth"] == obj["note"]
+E       AssertionError: assert 'fallback' == 'kmsg'
+E         
+E         - kmsg
+E         + fallback
+
+/tests/test_outputs.py:128: AssertionError
+_______________________________ test_rk10_pad_rc _______________________________
+
+    def test_rk10_pad_rc():
+        """Roster name bound to HexDump is not a live booth, so knit exits non-zero."""
+        orig = ROSTER.read_text()
+        try:
+            ROSTER.write_text(orig + "pad HexDump\n")
+            r = subprocess.run(["/app/bin/dregwick", "knit"], capture_output=True, text=True)
+>           assert r.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/dregwick', 'knit'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:139: AssertionError
+______________________________ test_rk11_key_set _______________________________
+
+    def test_rk11_key_set():
+        """taste.json exposes booth, kind, and note on the kmsg card."""
+        obj = _taste(KMSG)
+        assert set(obj) >= {"booth", "kind", "note"}
+>       assert obj["booth"] == obj["note"]
+E       AssertionError: assert 'fallback' == 'kmsg'
+E         
+E         - kmsg
+E         + fallback
+
+/tests/test_outputs.py:149: AssertionError
+______________________________ test_rk12_sync_hit ______________________________
+
+    def test_rk12_sync_hit():
+        """loom and packed taste agree on kmsg after knit."""
+        r = subprocess.run(
+            ["/app/bin/dregwick", "loom", KMSG.as_posix()],
+            capture_output=True,
+            text=True,
+        )
+        assert r.returncode == 0
+        loom_obj = json.loads(TASTE.read_text())
+        packed = _taste(KMSG)
+>       assert loom_obj["booth"] == packed["booth"]
+E       AssertionError: assert 'kmsg' == 'fallback'
+E         
+E         - fallback
+E         + kmsg
+
+/tests/test_outputs.py:163: AssertionError
+______________________________ test_rk13_veil_hit ______________________________
+
+    def test_rk13_veil_hit():
+        """Packed taste of the extra slip under slipcards uses the own-handler rule."""
+        obj = _taste(VEIL)
+>       assert obj["booth"] == obj["note"]
+E       AssertionError: assert 'fallback' == 'audit'
+E         
+E         - audit
+E         + fallback
+
+/tests/test_outputs.py:171: AssertionError
+_____________________________ test_rk14_brine_hit ______________________________
+
+    def test_rk14_brine_hit():
+        """Packed taste of a grade-time slip uses the own-handler rule."""
+        src = Path(__file__).with_name("fixtures") / "brine.card"
+        p = Path("/app/slipcards/brine.card")
+        p.write_text(src.read_text())
+        obj = _taste(p)
+>       assert obj["booth"] == obj["note"]
+E       AssertionError: assert 'fallback' == 'brine'
+E         
+E         - brine
+E         + fallback
+
+/tests/test_outputs.py:181: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_rk01_ring_hit - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_rk02_trio_hit - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_rk03_husk_cap - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_rk04_name_set - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_rk05_ghost_rc - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_rk06_husk_len - assert 26381 <= 16000
+FAILED ../tests/test_outputs.py::test_rk07_tiny_cap - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_rk08_side_slip - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_rk09_blank_json - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_rk10_pad_rc - AssertionError: assert 0 ...
+FAILED ../tests/test_outputs.py::test_rk11_key_set - AssertionError: assert '...
+FAILED ../tests/test_outputs.py::test_rk12_sync_hit - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_rk13_veil_hit - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_rk14_brine_hit - AssertionError: assert...
+============================= 14 failed in 16.83s ==============================

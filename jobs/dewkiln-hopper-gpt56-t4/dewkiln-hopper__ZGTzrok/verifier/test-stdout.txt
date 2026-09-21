@@ -1,0 +1,114 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py ...FF.F.FF.F                                    [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_dk04_kind_word ______________________________
+
+    def test_dk04_kind_word():
+        """check.json probe is live after clasp."""
+        _restore()
+        assert _clasp().returncode == 0
+        data = _load_check()
+>       assert data["probe"] == "live"
+E       AssertionError: assert '/app/daywell/d20260913.tbl' == 'live'
+E         
+E         - live
+E         + /app/daywell/d20260913.tbl
+
+/tests/test_outputs.py:112: AssertionError
+_____________________________ test_dk05_solo_today _____________________________
+
+    def test_dk05_solo_today():
+        """A daywell that holds only the wall file still unpacks those rows."""
+        _restore()
+        keep = DAY / f"d{WALL:08d}.tbl"
+        blob = keep.read_bytes()
+        for p in DAY.glob("*.tbl"):
+            p.unlink()
+        keep.write_bytes(blob)
+        r = _clasp()
+>       assert r.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/app/bin/dewkiln', 'clasp'], returncode=1, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:124: AssertionError
+_____________________________ test_dk07_stamp_text _____________________________
+
+    def test_dk07_stamp_text():
+        """GUARD is ok on a live check; empty daywell leaves GUARD absent."""
+        _restore()
+        r = _clasp()
+        data = _load_check()
+        if data.get("probe") != "live":
+>           assert r.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/dewkiln', 'clasp'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:144: AssertionError
+______________________________ test_dk09_keys_obj ______________________________
+
+    def test_dk09_keys_obj():
+        """matched equals the live sum for days at or before the wall."""
+        _restore()
+        assert _clasp().returncode == 0
+        data = _load_check()
+>       assert data["probe"] == "live"
+E       AssertionError: assert '/app/daywell/d20260913.tbl' == 'live'
+E         
+E         - live
+E         + /app/daywell/d20260913.tbl
+
+/tests/test_outputs.py:172: AssertionError
+_____________________________ test_dk10_zz_corrupt _____________________________
+
+    def test_dk10_zz_corrupt():
+        """Hand-broken bloturn files are rebuilt by a later clasp."""
+        _restore()
+        assert _clasp().returncode == 0
+        CHECK.write_text("{}")
+        LEDGER.write_text("{}")
+        r = _clasp()
+        assert r.returncode == 0
+        data = _load_check()
+>       assert data["probe"] == "live"
+E       AssertionError: assert '/app/daywell/d20260913.tbl' == 'live'
+E         
+E         - live
+E         + /app/daywell/d20260913.tbl
+
+/tests/test_outputs.py:192: AssertionError
+___________________________ test_dk12_floor_ignored ____________________________
+
+    def test_dk12_floor_ignored():
+        """Newest-day parity holds even when taken already clears the CI floor."""
+        _restore()
+        floor = int(Path("/app/floorcue/MIN.txt").read_text().strip())
+        assert _clasp().returncode == 0
+        data = _load_check()
+>       assert data["probe"] == "live"
+E       AssertionError: assert '/app/daywell/d20260913.tbl' == 'live'
+E         
+E         - live
+E         + /app/daywell/d20260913.tbl
+
+/tests/test_outputs.py:215: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_dk01_twice_blob
+PASSED ../tests/test_outputs.py::test_dk02_held_extra
+PASSED ../tests/test_outputs.py::test_dk03_cur_pack
+PASSED ../tests/test_outputs.py::test_dk06_hdr_magic
+PASSED ../tests/test_outputs.py::test_dk08_ahead_omit
+PASSED ../tests/test_outputs.py::test_dk11_once_pass
+FAILED ../tests/test_outputs.py::test_dk04_kind_word - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_dk05_solo_today - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_dk07_stamp_text - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_dk09_keys_obj - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_dk10_zz_corrupt - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_dk12_floor_ignored - AssertionError: as...
+========================= 6 failed, 6 passed in 0.26s ==========================

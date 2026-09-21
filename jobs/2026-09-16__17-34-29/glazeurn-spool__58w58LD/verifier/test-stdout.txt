@@ -1,0 +1,212 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py FFFFFFFFFFFF                                    [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_gz01_first_list _____________________________
+
+    def test_gz01_first_list() -> None:
+        """live heat omits the pushed token from frost_bag."""
+        _restore()
+        proc = _pair()
+        assert proc.returncode == 0, proc.stderr
+        assert GUARD.read_text().strip() == "ok"
+        body = _load()
+        tick, mark, frost, live = _want(CANON.read_text())
+        assert body["live_bag"] == live
+>       assert body["frost_bag"] == frost
+E       AssertionError: assert ['oak', 'yew', 'ash', 'fir'] == ['oak', 'elm', 'ash']
+E         
+E         At index 1 diff: 'yew' != 'elm'
+E         Left contains one more item: 'fir'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:85: AssertionError
+____________________________ test_gz02_second_list _____________________________
+
+    def test_gz02_second_list() -> None:
+        """held-out heat omits its pushed token from frost_bag."""
+        _restore()
+        SPOOL.write_text(HOLD_SRC.read_text())
+        try:
+            proc = _pair()
+            assert proc.returncode == 0, proc.stderr
+            body = _load()
+            tick, mark, frost, live = _want(HOLD_SRC.read_text())
+            assert body["live_bag"] == live
+>           assert body["frost_bag"] == frost
+E           AssertionError: assert ['teak', 'ced...irch', 'moss'] == ['pine', 'ced...oak', 'birch']
+E             
+E             At index 0 diff: 'teak' != 'pine'
+E             Left contains one more item: 'moss'
+E             Use -v to get more diff
+
+/tests/test_outputs.py:101: AssertionError
+_____________________________ test_gz03_third_list _____________________________
+
+    def test_gz03_third_list() -> None:
+        """frost_bag length stays the pre-kiln count on the live spool."""
+        _restore()
+        DEST.write_text("{}\n")
+        proc = _pair()
+        assert proc.returncode == 0, proc.stderr
+        body = _load()
+        _, _, frost, live = _want(CANON.read_text())
+>       assert body["frost_bag"] == frost
+E       AssertionError: assert ['oak', 'yew', 'ash', 'fir'] == ['oak', 'elm', 'ash']
+E         
+E         At index 1 diff: 'yew' != 'elm'
+E         Left contains one more item: 'fir'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:117: AssertionError
+_____________________________ test_gz04_keep_list ______________________________
+
+    def test_gz04_keep_list() -> None:
+        """swap source token remains on frost_bag while live_bag takes the new token."""
+        _restore()
+        proc = _pair()
+        assert proc.returncode == 0, proc.stderr
+        body = _load()
+        _, _, frost, live = _want(CANON.read_text())
+>       assert frost[1] in body["frost_bag"]
+E       AssertionError: assert 'elm' in ['oak', 'yew', 'ash', 'fir']
+
+/tests/test_outputs.py:128: AssertionError
+_____________________________ test_gz05_late_list ______________________________
+
+    def test_gz05_late_list() -> None:
+        """held-out swap keeps the original token on frost_bag."""
+        _restore()
+        SPOOL.write_text(HOLD_SRC.read_text())
+        try:
+            proc = _pair()
+            assert proc.returncode == 0, proc.stderr
+            body = _load()
+            tick, _, frost, live = _want(HOLD_SRC.read_text())
+>           assert frost[0] in body["frost_bag"]
+E           AssertionError: assert 'pine' in ['teak', 'cedar', 'oak', 'birch', 'moss']
+
+/tests/test_outputs.py:142: AssertionError
+______________________________ test_gz06_mid_list ______________________________
+
+    def test_gz06_mid_list() -> None:
+        """tick and mark follow kiln pitch while intern tokens stay split."""
+        _restore()
+        proc = _pair()
+        assert proc.returncode == 0, proc.stderr
+        body = _load()
+        tick, mark, frost, live = _want(CANON.read_text())
+        assert body["tick"] == tick
+        assert body["mark"] == mark
+>       assert frost[1] in body["frost_bag"]
+E       AssertionError: assert 'elm' in ['oak', 'yew', 'ash', 'fir']
+
+/tests/test_outputs.py:159: AssertionError
+_____________________________ test_gz07_tiny_exit ______________________________
+
+    def test_gz07_tiny_exit() -> None:
+        """empty spool returns non-zero."""
+        _restore()
+        SPOOL.write_text("")
+        try:
+            proc = _pair()
+>           assert proc.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/glazeurn', 'pair'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:169: AssertionError
+______________________________ test_gz08_map_obj _______________________________
+
+    def test_gz08_map_obj() -> None:
+        """garbage spool returns non-zero."""
+        _restore()
+        SPOOL.write_text("nonesuch\n")
+        try:
+            proc = _pair()
+>           assert proc.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/glazeurn', 'pair'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:180: AssertionError
+______________________________ test_gz09_seal_bit ______________________________
+
+    def test_gz09_seal_bit() -> None:
+        """empty spool leaves GUARD absent."""
+        _restore()
+        SPOOL.write_text("")
+        try:
+            proc = _pair()
+>           assert proc.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/glazeurn', 'pair'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:191: AssertionError
+_____________________________ test_gz10_zz_restore _____________________________
+
+    def test_gz10_zz_restore() -> None:
+        """empty spool removes a leftover GUARD file."""
+        _restore()
+        GUARD.write_text("ok\n")
+        SPOOL.write_text("")
+        try:
+            proc = _pair()
+>           assert proc.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/glazeurn', 'pair'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:204: AssertionError
+_____________________________ test_gz11_hdr_magic ______________________________
+
+    def test_gz11_hdr_magic() -> None:
+        """mill is ELF and frost_bag omits the pushed token."""
+        _restore()
+        _assert_native()
+        proc = _pair()
+        assert proc.returncode == 0, proc.stderr
+        body = _load()
+        _, _, frost, _live = _want(CANON.read_text())
+>       assert body["frost_bag"] == frost
+E       AssertionError: assert ['oak', 'yew', 'ash', 'fir'] == ['oak', 'elm', 'ash']
+E         
+E         At index 1 diff: 'yew' != 'elm'
+E         Left contains one more item: 'fir'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:218: AssertionError
+____________________________ test_gz12_single_shot _____________________________
+
+    def test_gz12_single_shot() -> None:
+        """one pair subprocess splits intern tokens on the live spool."""
+        _restore()
+        proc = subprocess.run(
+            ["/app/bin/glazeurn", "pair"],
+            capture_output=True,
+            text=True,
+        )
+        assert BIN.read_bytes()[:4] == b"\x7fELF"
+        assert proc.returncode == 0, proc.stderr
+        body = json.loads(DEST.read_text())
+        _, _, frost, live = _want(CANON.read_text())
+>       assert frost[1] in body["frost_bag"]
+E       AssertionError: assert 'elm' in ['oak', 'yew', 'ash', 'fir']
+
+/tests/test_outputs.py:233: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_gz01_first_list - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_gz02_second_list - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_gz03_third_list - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_gz04_keep_list - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_gz05_late_list - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_gz06_mid_list - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_gz07_tiny_exit - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_gz08_map_obj - AssertionError: assert 0...
+FAILED ../tests/test_outputs.py::test_gz09_seal_bit - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_gz10_zz_restore - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_gz11_hdr_magic - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_gz12_single_shot - AssertionError: asse...
+============================== 12 failed in 0.23s ==============================

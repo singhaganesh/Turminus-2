@@ -1,0 +1,1060 @@
+[?2004hroot@25eb5a94f047:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@25eb5a94f047:/app# clear
+[?2004l[H[J[3J[?2004hroot@25eb5a94f047:/app# pwd; printf '\n== files ==\n'; find . -maxdepth 4 -type f -printf '%p\n' | sort
+[?2004l/app
+
+== files ==
+./bin/crumbark
+./blastcp/Crc.class
+./blastcp/CutRun.class
+./blastcp/DeskMain.class
+./blastcp/ForceSeq.class
+./blastcp/HueWalk.class
+./blastcp/LoomCue$Step.class
+./blastcp/LoomCue.class
+./blastcp/MistSpan.class
+./blastcp/PauseCue.class
+./blastcp/RibChan.class
+./blastcp/StirRun.class
+./blastcp/StowRun$CutErr.class
+./blastcp/StowRun.class
+./blastcp/YankRun.class
+./brimvat.sh
+./fieldslip/CARD.txt
+./fieldslip/LINKS.txt
+./fieldslip/NOTE.txt
+./fieldslip/TORN.txt
+./fieldslip/VERBS.txt
+./hitchbay/Crc.java
+./hitchbay/CutRun.java
+./hitchbay/DeskMain.java
+./hitchbay/RibChan.java
+./hitchbay/StirRun.java
+./hitchbay/StowRun.java
+./hitchbay/YankRun.java
+./inbox/oak-a.slip
+./inbox/oak-b.slip
+./inbox/oak-c.slip
+./inbox/oak-d.slip
+./inbox/oak-e.slip
+./inbox/prior.slip
+./inbox/seed.slip
+./markwell/HueWalk.java
+./recipit/ForceSeq.java
+./recipit/LoomCue.java
+./recipit/steps.loom
+./retrycue/PauseCue.java
+./silo/blob.bin
+./silo/pin.bin
+./silo/wake.json
+./siltpage/MistSpan.java
+[?2004hroot@25eb5a94f047:/app# printf '\n== LINKS ==\n'; cat /app/fieldslip/LINKS.txt; printf '\n== VERBS ==\n'; cat /app/fieldslip/VERBS.txt; printf '\n== CARD ==\n'; cat /app/fieldslip/CARD.txt; printf '\n== TORN ==\n'; cat /app/fieldslip/TORN.txt
+[?2004l
+== LINKS ==
+recipit
+markwell
+siltpage
+hitchbay
+retrycue
+
+== VERBS ==
+tamp
+lade
+wake
+pull
+nick
+
+== CARD ==
+held
+  JSON array of 32-character lowercase hex strings. Each held id is the sha256 digest of the slip, truncated to 16 bytes, lowercase hex.
+
+note
+  Use the token ok when kind is live.
+  Use the token gap when kind is void.
+
+kind
+  live means the wake pass exited 0.
+  void means the wake pass exited non-zero.
+
+A pin row is 48 bytes starting with ASCII PN01. Bytes after the magic are offset, length, checksum, then a 16-byte id.
+
+== TORN ==
+torn-pin-id-byte
+[?2004hroot@25eb5a94f047:/app# printf '\n== crumbark ==\n'; file /app/bin/crumbark; sed -n '1,240p' /app/bin/crumbark; printf '\n== source candidates ==\n'; find /app -type f \( -name '*.java' -o -name '*.sh' -o -name 'Makefile' \) -not -path '/app/bin/crumbark' -print
+[?2004l
+== crumbark ==
+/app/bin/crumbark: Bourne-Again shell script, ASCII text executable
+#!/bin/bash
+set -euo pipefail
+JAVA="${JAVA_HOME:-/opt/java/openjdk}/bin/java"
+if [ ! -x "$JAVA" ]; then
+  JAVA=java
+fi
+verb="${1:-}"
+shift || true
+case "$verb" in
+  tamp)
+    exec /app/brimvat.sh
+    ;;
+  lade|wake|pull|nick)
+    exec "$JAVA" -cp /app/blastcp DeskMain "$verb" "$@"
+    ;;
+  *)
+    exit 2
+    ;;
+esac
+
+== source candidates ==
+/app/recipit/LoomCue.java
+/app/recipit/ForceSeq.java
+/app/brimvat.sh
+/app/retrycue/PauseCue.java
+/app/hitchbay/CutRun.java
+/app/hitchbay/YankRun.java
+/app/hitchbay/DeskMain.java
+/app/hitchbay/Crc.java
+/app/hitchbay/StowRun.java
+/app/hitchbay/RibChan.java
+/app/hitchbay/StirRun.java
+/app/siltpage/MistSpan.java
+/app/markwell/HueWalk.java
+[?2004hroot@25eb5a94f047:/app# printf '\n== Java sources ==\n'; for f in $(find /app -type f -name '*.java' | sort); do echo "--- $f"; sed -n '1,260p' "$f"; done
+[?2004l
+== Java sources ==
+--- /app/hitchbay/Crc.java
+import java.util.zip.CRC32;
+
+public class Crc {
+    public static int of(byte[] a) {
+        CRC32 c = new CRC32();
+        c.update(a);
+        return (int) c.getValue();
+    }
+}
+--- /app/hitchbay/CutRun.java
+import java.nio.file.Paths;
+
+public class CutRun {
+    public static void main(String[] args) throws Exception {
+        if (args.length < 1) {
+            System.exit(2);
+        }
+        try {
+            StowRun.run(Paths.get(args[0]), true);
+        } catch (StowRun.CutErr e) {
+            System.exit(0);
+        }
+    }
+}
+--- /app/hitchbay/DeskMain.java
+public class DeskMain {
+    public static void main(String[] args) throws Exception {
+        if (args.length < 1) {
+            System.exit(2);
+        }
+        String verb = args[0];
+        String[] rest = new String[Math.max(0, args.length - 1)];
+        if (args.length > 1) {
+            System.arraycopy(args, 1, rest, 0, rest.length);
+        }
+        if ("lade".equals(verb)) {
+            StowRun.main(rest);
+        } else if ("wake".equals(verb)) {
+            StirRun.main(rest);
+        } else if ("pull".equals(verb)) {
+            YankRun.main(rest);
+        } else if ("nick".equals(verb)) {
+            CutRun.main(rest);
+        } else {
+            System.exit(2);
+        }
+    }
+}
+--- /app/hitchbay/RibChan.java
+import java.io.ByteArrayOutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+
+public class RibChan {
+    final Path file;
+    final ByteArrayOutputStream pending = new ByteArrayOutputStream();
+
+    RibChan(Path file) {
+        this.file = file;
+    }
+
+    void append(byte[] x) throws Exception {
+        pending.write(x);
+    }
+
+    void force() throws Exception {
+        byte[] out = pending.toByteArray();
+        if (out.length == 0) {
+            return;
+        }
+        Files.write(file, out, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        pending.reset();
+    }
+}
+--- /app/hitchbay/StirRun.java
+import java.nio.file.Path;
+
+public class StirRun {
+    public static void main(String[] args) throws Exception {
+        Path silo = Path.of("/app/silo");
+        int rc = HueWalk.orb_n(silo.resolve("blob.bin"), silo.resolve("pin.bin"), silo.resolve("wake.json"));
+        System.exit(rc);
+    }
+}
+--- /app/hitchbay/StowRun.java
+import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.security.MessageDigest;
+
+public class StowRun {
+    static final int ALIGN = 32;
+
+    public static class CutErr extends RuntimeException {
+    }
+
+    public static void run(Path slip, boolean cut) throws Exception {
+        byte[] payload = Files.readAllBytes(slip);
+        Path silo = Paths.get("/app/silo");
+        Files.createDirectories(silo);
+        Path blob = silo.resolve("blob.bin");
+        Path pin = silo.resolve("pin.bin");
+        if (!Files.exists(blob)) {
+            Files.write(blob, new byte[0]);
+        }
+        if (!Files.exists(pin)) {
+            Files.write(pin, new byte[0]);
+        }
+        long offset = Files.size(blob);
+        RibChan bch = new RibChan(blob);
+        RibChan pch = new RibChan(pin);
+        int len = payload.length;
+        int rec = 4 + len;
+        int pad = (ALIGN - (rec % ALIGN)) % ALIGN;
+        ByteBuffer recb = ByteBuffer.allocate(rec + pad);
+        recb.putInt(len);
+        recb.put(payload);
+        recb.put(new byte[pad]);
+        bch.append(recb.array());
+        byte[] id = idOf(payload);
+        ByteBuffer mk = ByteBuffer.allocate(48);
+        mk.put(new byte[] {'P', 'N', '0', '1'});
+        mk.putLong(offset);
+        mk.putInt(len);
+        mk.putInt(Crc.of(payload));
+        mk.put(id);
+        mk.put(new byte[12]);
+        pch.append(mk.array());
+        String[] order = ForceSeq.names();
+        int n = 0;
+        for (String ch : order) {
+            if ("blob".equals(ch)) {
+                bch.force();
+            } else {
+                pch.force();
+            }
+            n++;
+            if (cut && n == 1) {
+                throw new CutErr();
+            }
+        }
+    }
+
+    static byte[] idOf(byte[] payload) throws Exception {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        byte[] d = md.digest(payload);
+        byte[] id = new byte[16];
+        System.arraycopy(d, 0, id, 0, 16);
+        return id;
+    }
+
+    public static void main(String[] args) throws Exception {
+        if (args.length < 1) {
+            System.exit(2);
+        }
+        run(Paths.get(args[0]), false);
+    }
+}
+--- /app/hitchbay/YankRun.java
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
+public class YankRun {
+    public static void main(String[] args) throws Exception {
+        if (args.length < 1) {
+            System.exit(2);
+        }
+        byte[] id = hex(args[0]);
+        Path silo = Paths.get("/app/silo");
+        byte[] got = MistSpan.tint_k(silo, id);
+        if (got.length == 0 || allZero(got)) {
+            PauseCue.nap();
+            got = MistSpan.tint_k(silo, id);
+        }
+        Files.write(Paths.get("/tmp/crumbark-pull.bin"), got);
+        System.out.write(got);
+    }
+
+    static boolean allZero(byte[] a) {
+        for (byte v : a) {
+            if (v != 0) {
+                return false;
+            }
+        }
+        return a.length > 0;
+    }
+
+    static byte[] hex(String s) {
+        int n = s.length() / 2;
+        byte[] out = new byte[n];
+        for (int i = 0; i < n; i++) {
+            out[i] = (byte) Integer.parseInt(s.substring(i * 2, i * 2 + 2), 16);
+        }
+        return out;
+    }
+}
+--- /app/markwell/HueWalk.java
+import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+public class HueWalk {
+    public static int orb_n(Path a, Path b, Path c) throws Exception {
+        byte[] pins = Files.exists(b) ? Files.readAllBytes(b) : new byte[0];
+        List<String> held = new ArrayList<String>();
+        int i = 0;
+        while (i + 48 <= pins.length) {
+            ByteBuffer bb = ByteBuffer.wrap(pins, i, 48);
+            byte[] mag = new byte[4];
+            bb.get(mag);
+            long off = bb.getLong();
+            int len = bb.getInt();
+            int crc = bb.getInt();
+            byte[] id = new byte[16];
+            bb.get(id);
+            held.add(hex(id));
+            i += 48;
+        }
+        String json = "{\"held\":" + arr(held) + ",\"note\":\"ok\",\"kind\":\"live\"}";
+        Files.writeString(c, json);
+        return 0;
+    }
+
+    static String hex(byte[] id) {
+        StringBuilder sb = new StringBuilder();
+        for (byte v : id) {
+            sb.append(String.format("%02x", v & 0xff));
+        }
+        return sb.toString();
+    }
+
+    static String arr(List<String> held) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < held.size(); i++) {
+            if (i > 0) {
+                sb.append(",");
+            }
+            sb.append("\"");
+            sb.append(held.get(i));
+            sb.append("\"");
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+
+    public static void main(String[] args) throws Exception {
+        Path silo = Path.of("/app/silo");
+        int rc = orb_n(silo.resolve("blob.bin"), silo.resolve("pin.bin"), silo.resolve("wake.json"));
+        System.exit(rc);
+    }
+}
+--- /app/recipit/ForceSeq.java
+public class ForceSeq {
+    public static String[] names() {
+        return new String[] {"pin", "blob"};
+    }
+}
+--- /app/recipit/LoomCue.java
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
+public class LoomCue {
+    static final class Step {
+        String name;
+        int compute;
+        int durable;
+    }
+
+    public static List<String> rib_q(Path a) throws Exception {
+        List<Step> steps = new ArrayList<Step>();
+        for (String line : Files.readAllLines(a)) {
+            String s = line.trim();
+            if (s.isEmpty() || s.startsWith("#")) {
+                continue;
+            }
+            String[] p = s.split("\\s+");
+            if (p.length < 3) {
+                continue;
+            }
+            Step st = new Step();
+            st.name = p[0];
+            st.compute = Integer.parseInt(p[1]);
+            st.durable = Integer.parseInt(p[2]);
+            steps.add(st);
+        }
+        steps.sort(Comparator.comparingInt(x -> x.compute));
+        List<String> names = new ArrayList<String>();
+        for (Step st : steps) {
+            names.add(st.name);
+        }
+        return names;
+    }
+
+    public static void main(String[] args) throws Exception {
+        Path recipe = Paths.get("/app/recipit/steps.loom");
+        List<String> names = rib_q(recipe);
+        StringBuilder sb = new StringBuilder();
+        sb.append("public class ForceSeq {\n");
+        sb.append("    public static String[] names() {\n");
+        sb.append("        return new String[] {");
+        for (int i = 0; i < names.size(); i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            sb.append("\"");
+            sb.append(names.get(i));
+            sb.append("\"");
+        }
+        sb.append("};\n");
+        sb.append("    }\n");
+        sb.append("}\n");
+        Files.writeString(Paths.get("/app/recipit/ForceSeq.java"), sb.toString());
+    }
+}
+--- /app/retrycue/PauseCue.java
+public class PauseCue {
+    public static void nap() {
+        try {
+            Thread.sleep(20L);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+}
+--- /app/siltpage/MistSpan.java
+import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+public class MistSpan {
+    static final int ALIGN = 32;
+
+    public static byte[] tint_k(Path a, byte[] b) throws Exception {
+        byte[] pins = Files.exists(a.resolve("pin.bin")) ? Files.readAllBytes(a.resolve("pin.bin")) : new byte[0];
+        byte[] blob = Files.exists(a.resolve("blob.bin")) ? Files.readAllBytes(a.resolve("blob.bin")) : new byte[0];
+        int i = 0;
+        while (i + 48 <= pins.length) {
+            ByteBuffer bb = ByteBuffer.wrap(pins, i, 48);
+            byte[] mag = new byte[4];
+            bb.get(mag);
+            long off = bb.getLong();
+            int len = bb.getInt();
+            bb.getInt();
+            byte[] id = new byte[16];
+            bb.get(id);
+            if (same(id, b)) {
+                int rec = 4 + len;
+                int pad = (ALIGN - (rec % ALIGN)) % ALIGN;
+                int take = rec + pad;
+                if (blob.length < off + take) {
+                    byte[] z = new byte[take];
+                    int have = Math.max(0, blob.length - (int) off);
+                    if (have > 0) {
+                        System.arraycopy(blob, (int) off, z, 0, Math.min(have, take));
+                    }
+                    return z;
+                }
+                byte[] out = new byte[take];
+                System.arraycopy(blob, (int) off, out, 0, take);
+                return out;
+            }
+            i += 48;
+        }
+        return new byte[0];
+    }
+
+    static boolean same(byte[] x, byte[] y) {
+        if (x.length != y.length) {
+            return false;
+        }
+        for (int i = 0; i < x.length; i++) {
+            if (x[i] != y[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+[?2004hroot@25eb5a94f047:/app# echo '== brimvat =='; cat /app/brimvat.sh; echo '== recipe =='; cat /app/recipit/steps.loom; echo '== StowRun =='; cat /app/hitchbay/StowRun.java; echo '== StirRun =='; cat /app/hitchbay/StirRun.java
+[?2004l== brimvat ==
+#!/bin/bash
+set -euo pipefail
+JAVAC="${JAVA_HOME:-/opt/java/openjdk}/bin/javac"
+JAVA="${JAVA_HOME:-/opt/java/openjdk}/bin/java"
+if [ ! -x "$JAVAC" ]; then
+  JAVAC=javac
+  JAVA=java
+fi
+mkdir -p /app/blastcp /app/silo /app/bin
+"$JAVAC" -d /app/blastcp /app/recipit/LoomCue.java
+"$JAVA" -cp /app/blastcp LoomCue
+mapfile -t SRC < <(find /app/recipit /app/markwell /app/siltpage /app/hitchbay /app/retrycue -name '*.java' | sort)
+"$JAVAC" -d /app/blastcp "${SRC[@]}"
+cat > /app/bin/crumbark << 'EOF'
+#!/bin/bash
+set -euo pipefail
+JAVA="${JAVA_HOME:-/opt/java/openjdk}/bin/java"
+if [ ! -x "$JAVA" ]; then
+  JAVA=java
+fi
+verb="${1:-}"
+shift || true
+case "$verb" in
+  tamp)
+    exec /app/brimvat.sh
+    ;;
+  lade|wake|pull|nick)
+    exec "$JAVA" -cp /app/blastcp DeskMain "$verb" "$@"
+    ;;
+  *)
+    exit 2
+    ;;
+esac
+EOF
+chmod +x /app/bin/crumbark /app/brimvat.sh
+== recipe ==
+pin 1 2
+blob 2 1
+== StowRun ==
+import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.security.MessageDigest;
+
+public class StowRun {
+    static final int ALIGN = 32;
+
+    public static class CutErr extends RuntimeException {
+    }
+
+    public static void run(Path slip, boolean cut) throws Exception {
+        byte[] payload = Files.readAllBytes(slip);
+        Path silo = Paths.get("/app/silo");
+        Files.createDirectories(silo);
+        Path blob = silo.resolve("blob.bin");
+        Path pin = silo.resolve("pin.bin");
+        if (!Files.exists(blob)) {
+            Files.write(blob, new byte[0]);
+        }
+        if (!Files.exists(pin)) {
+            Files.write(pin, new byte[0]);
+        }
+        long offset = Files.size(blob);
+        RibChan bch = new RibChan(blob);
+        RibChan pch = new RibChan(pin);
+        int len = payload.length;
+        int rec = 4 + len;
+        int pad = (ALIGN - (rec % ALIGN)) % ALIGN;
+        ByteBuffer recb = ByteBuffer.allocate(rec + pad);
+        recb.putInt(len);
+        recb.put(payload);
+        recb.put(new byte[pad]);
+        bch.append(recb.array());
+        byte[] id = idOf(payload);
+        ByteBuffer mk = ByteBuffer.allocate(48);
+        mk.put(new byte[] {'P', 'N', '0', '1'});
+        mk.putLong(offset);
+        mk.putInt(len);
+        mk.putInt(Crc.of(payload));
+        mk.put(id);
+        mk.put(new byte[12]);
+        pch.append(mk.array());
+        String[] order = ForceSeq.names();
+        int n = 0;
+        for (String ch : order) {
+            if ("blob".equals(ch)) {
+                bch.force();
+            } else {
+                pch.force();
+            }
+            n++;
+            if (cut && n == 1) {
+                throw new CutErr();
+            }
+        }
+    }
+
+    static byte[] idOf(byte[] payload) throws Exception {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        byte[] d = md.digest(payload);
+        byte[] id = new byte[16];
+        System.arraycopy(d, 0, id, 0, 16);
+        return id;
+    }
+
+    public static void main(String[] args) throws Exception {
+        if (args.length < 1) {
+            System.exit(2);
+        }
+        run(Paths.get(args[0]), false);
+    }
+}
+== StirRun ==
+import java.nio.file.Path;
+
+public class StirRun {
+    public static void main(String[] args) throws Exception {
+        Path silo = Path.of("/app/silo");
+        int rc = HueWalk.orb_n(silo.resolve("blob.bin"), silo.resolve("pin.bin"), silo.resolve("wake.json"));
+        System.exit(rc);
+    }
+}
+[?2004hroot@25eb5a94f047:/app# echo '== YankRun =='; cat /app/hitchbay/YankRun.java; echo '== RibChan =='; cat /app/hitchbay/RibChan.java; echo '== HueWalk =='; cat /app/markwell/HueWalk.java
+[?2004l== YankRun ==
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
+public class YankRun {
+    public static void main(String[] args) throws Exception {
+        if (args.length < 1) {
+            System.exit(2);
+        }
+        byte[] id = hex(args[0]);
+        Path silo = Paths.get("/app/silo");
+        byte[] got = MistSpan.tint_k(silo, id);
+        if (got.length == 0 || allZero(got)) {
+            PauseCue.nap();
+            got = MistSpan.tint_k(silo, id);
+        }
+        Files.write(Paths.get("/tmp/crumbark-pull.bin"), got);
+        System.out.write(got);
+    }
+
+    static boolean allZero(byte[] a) {
+        for (byte v : a) {
+            if (v != 0) {
+                return false;
+            }
+        }
+        return a.length > 0;
+    }
+
+    static byte[] hex(String s) {
+        int n = s.length() / 2;
+        byte[] out = new byte[n];
+        for (int i = 0; i < n; i++) {
+            out[i] = (byte) Integer.parseInt(s.substring(i * 2, i * 2 + 2), 16);
+        }
+        return out;
+    }
+}
+== RibChan ==
+import java.io.ByteArrayOutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+
+public class RibChan {
+    final Path file;
+    final ByteArrayOutputStream pending = new ByteArrayOutputStream();
+
+    RibChan(Path file) {
+        this.file = file;
+    }
+
+    void append(byte[] x) throws Exception {
+        pending.write(x);
+    }
+
+    void force() throws Exception {
+        byte[] out = pending.toByteArray();
+        if (out.length == 0) {
+            return;
+        }
+        Files.write(file, out, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        pending.reset();
+    }
+}
+== HueWalk ==
+import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+public class HueWalk {
+    public static int orb_n(Path a, Path b, Path c) throws Exception {
+        byte[] pins = Files.exists(b) ? Files.readAllBytes(b) : new byte[0];
+        List<String> held = new ArrayList<String>();
+        int i = 0;
+        while (i + 48 <= pins.length) {
+            ByteBuffer bb = ByteBuffer.wrap(pins, i, 48);
+            byte[] mag = new byte[4];
+            bb.get(mag);
+            long off = bb.getLong();
+            int len = bb.getInt();
+            int crc = bb.getInt();
+            byte[] id = new byte[16];
+            bb.get(id);
+            held.add(hex(id));
+            i += 48;
+        }
+        String json = "{\"held\":" + arr(held) + ",\"note\":\"ok\",\"kind\":\"live\"}";
+        Files.writeString(c, json);
+        return 0;
+    }
+
+    static String hex(byte[] id) {
+        StringBuilder sb = new StringBuilder();
+        for (byte v : id) {
+            sb.append(String.format("%02x", v & 0xff));
+        }
+        return sb.toString();
+    }
+
+    static String arr(List<String> held) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < held.size(); i++) {
+            if (i > 0) {
+                sb.append(",");
+            }
+            sb.append("\"");
+            sb.append(held.get(i));
+            sb.append("\"");
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+
+    public static void main(String[] args) throws Exception {
+        Path silo = Path.of("/app/silo");
+        int rc = orb_n(silo.resolve("blob.bin"), silo.resolve("pin.bin"), silo.resolve("wake.json"));
+        System.exit(rc);
+    }
+}
+[?2004hroot@25eb5a94f047:/app# echo '== slips =='; for f in /app/inbox/*.slip; do echo "--- $f ($(stat -c%s "$f") bytes)"; xxd -g1 "$f" | head -8; done; echo '== wake json =='; cat /app/silo/wake.json; echo; echo '== silo sizes =='; stat -c '%n %s' /app/silo/*; echo '== pins =='; xxd -g1 /app/silo/pin.bin
+[?2004l== slips ==
+--- /app/inbox/oak-a.slip (18 bytes)
+bash: xxd: command not found
+--- /app/inbox/oak-b.slip (18 bytes)
+bash: xxd: command not found
+--- /app/inbox/oak-c.slip (26 bytes)
+bash: xxd: command not found
+--- /app/inbox/oak-d.slip (20 bytes)
+bash: xxd: command not found
+--- /app/inbox/oak-e.slip (14 bytes)
+bash: xxd: command not found
+--- /app/inbox/prior.slip (23 bytes)
+bash: xxd: command not found
+--- /app/inbox/seed.slip (22 bytes)
+bash: xxd: command not found
+== wake json ==
+{"held":["7131d883b9a11835fa6ed471b7f1c1b4","f3c1bcfb3c2f1490f89470a03c83b152"],"note":"ok","kind":"live"}
+== silo sizes ==
+/app/silo/blob.bin 64
+/app/silo/pin.bin 96
+/app/silo/wake.json 106
+== pins ==
+bash: xxd: command not found
+[?2004hroot@25eb5a94f047:/app# echo '== rebuild =='; /app/bin/crumbark tamp; echo "tamp_rc=$?"; echo '== baseline wake =='; /app/bin/crumbark wake; echo "wake_rc=$?"; cat /app/silo/wake.json; echo
+[?2004l== rebuild ==
+tamp_rc=0
+== baseline wake ==
+wake_rc=0
+{"held":["7131d883b9a11835fa6ed471b7f1c1b4","f3c1bcfb3c2f1490f89470a03c83b152"],"note":"ok","kind":"live"}
+[?2004hroot@25eb5a94f047:/app# echo '== silo bytes =='; od -Ax -tx1z -v /app/silo/pin.bin; od -Ax -tx1z -v /app/silo/blob.bin; echo '== slip ids =='; sha256sum /app/inbox/*.slip | awk '{print substr($1,1,32),$2}'; echo '== slip content =='; for f in /app/inbox/*.slip; do printf '%s: ' "$f"; od -An -tc -v "$f"; done
+[?2004l== silo bytes ==
+000000 50 4e 30 31 00 00 00 00 00 00 00 00 00 00 00 17  >PN01............<
+000010 92 dd 36 17 71 31 d8 83 b9 a1 18 35 fa 6e d4 71  >..6.q1.....5.n.q<
+000020 b7 f1 c1 b4 00 00 00 00 00 00 00 00 00 00 00 00  >................<
+000030 50 4e 30 31 00 00 00 00 00 00 00 20 00 00 00 16  >PN01....... ....<
+000040 a3 e5 28 f4 f3 c1 bc fb 3c 2f 14 90 f8 94 70 a0  >..(.....</....p.<
+000050 3c 83 b1 52 00 00 00 00 00 00 00 00 00 00 00 00  ><..R............<
+000060
+000000 00 00 00 17 70 72 69 6f 72 2d 62 72 61 76 6f 2d  >....prior-bravo-<
+000010 70 61 79 6c 6f 61 64 2d 30 32 0a 00 00 00 00 00  >payload-02......<
+000020 00 00 00 16 73 65 65 64 2d 61 6c 70 68 61 2d 70  >....seed-alpha-p<
+000030 61 79 6c 6f 61 64 2d 30 31 0a 00 00 00 00 00 00  >ayload-01.......<
+000040
+== slip ids ==
+4738eb28248a7f98e0ac9b455d74c028 /app/inbox/oak-a.slip
+5420306e8fee1e9b20d0cf7e5ddb0913 /app/inbox/oak-b.slip
+f7411056ca6c95c92daf9728124aef95 /app/inbox/oak-c.slip
+226378e7492c208a1059374c40eca879 /app/inbox/oak-d.slip
+8cf648a433e52c050d11fd14efd71c53 /app/inbox/oak-e.slip
+7131d883b9a11835fa6ed471b7f1c1b4 /app/inbox/prior.slip
+f3c1bcfb3c2f1490f89470a03c83b152 /app/inbox/seed.slip
+== slip content ==
+/app/inbox/oak-a.slip:    o   a   k   -   a   l   p   h   a   -   p   a   y   l   o   a
+   d  \n
+/app/inbox/oak-b.slip:    o   a   k   -   b   r   a   v   o   -   p   a   y   l   o   a
+   d  \n
+/app/inbox/oak-c.slip:    o   a   k   -   c   h   a   r   l   i   e   -   p   a   y   l
+   o   a   d   -   g   r   a   d   e  \n
+/app/inbox/oak-d.slip:    o   a   k   -   d   e   l   t   a   -   l   e   n   -   c   h
+   e   c   k  \n
+/app/inbox/oak-e.slip:    o   a   k   -   e   c   h   o   -   n   i   c   k  \n
+/app/inbox/prior.slip:    p   r   i   o   r   -   b   r   a   v   o   -   p   a   y   l
+   o   a   d   -   0   2  \n
+/app/inbox/seed.slip:    s   e   e   d   -   a   l   p   h   a   -   p   a   y   l   o
+   a   d   -   0   1  \n
+[?2004hroot@25eb5a94f047:/app# python3 - <<'PY'
+[?2004l[?2004h> p='/app/recipit/LoomCue.java'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> s=s.replace('steps.sort(Comparator.comparingInt(x -> x.compute));', 'steps.sort(Comparator.comparingInt(x -> x.durable));')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@25eb5a94f047:/app# cat > /app/siltpage/MistSpan.java <<'EOF'
+[?2004l[?2004h> import java.nio.ByteBuffer;
+[?2004l[?2004h> import java.nio.file.Files;
+[?2004l[?2004h> import java.nio.file.Path;
+[?2004l[?2004h> import java.security.MessageDigest;
+[?2004l[?2004h> 
+[?2004l[?2004h> public class MistSpan {
+[?2004l[?2004h>     static final int ALIGN = 32;
+[?2004l[?2004h>     static final int PIN_SIZE = 48;
+[?2004l[?2004h> 
+[?2004l[?2004h>     public static byte[] tint_k(Path silo, byte[] wanted) throws Exception {
+[?2004l[?2004h>         byte[] pins = Files.exists(silo.resolve("pin.bin"))
+[?2004l[?2004h>                 ? Files.readAllBytes(silo.resolve("pin.bin")) : new byte[0];
+[?2004l[?2004h>         byte[] blob = Files.exists(silo.resolve("blob.bin"))
+[?2004l[?2004h>                 ? Files.readAllBytes(silo.resolve("blob.bin")) : new byte[0];
+[?2004l[?2004h>         for (int i = 0; i + PIN_SIZE <= pins.length; i += PIN_SIZE) {
+[?2004l[?2004h>             ByteBuffer bb = ByteBuffer.wrap(pins, i, PIN_SIZE);
+[?2004l[?2004h>             byte[] magic = new byte[4];
+[?2004l[?2004h>             bb.get(magic);
+[?2004l[?2004h>             long off = bb.getLong();
+[?2004l[?2004h>             int len = bb.getInt();
+[?2004l[?2004h>             int crc = bb.getInt();
+[?2004l[?2004h>             byte[] id = new byte[16];
+[?2004l[?2004h>             bb.get(id);
+[?2004l[?2004h>             if (isMagic(magic) && same(id, wanted)) {
+[?2004l[?2004h>                 byte[] payload = validPayload(blob, off, len, crc, id);
+[?2004l[?2004h>                 if (payload != null) {
+[?2004l[?2004h>                     return payload;
+[?2004l[?2004h>                 }
+[?2004l[?2004h>             }
+[?2004l[?2004h>         }
+[?2004l[?2004h>         return new byte[0];
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     static byte[] validPayload(byte[] blob, long off, int len, int crc, byte[] id) throws Exception {
+[?2004l[?2004h>         if (off < 0 || off > Integer.MAX_VALUE || len < 0) return null;
+[?2004l[?2004h>         long rec = 4L + len;
+[?2004l[?2004h>         long pad = (ALIGN - (rec % ALIGN)) % ALIGN;
+[?2004l[?2004h>         long end = off + rec + pad;
+[?2004l[?2004h>         if (end < off || end > blob.length || off + 4L > blob.length) return null;
+[?2004l[?2004h>         int pos = (int) off;
+[?2004l[?2004h>         if (ByteBuffer.wrap(blob, pos, 4).getInt() != len) return null;
+[?2004l[?2004h>         byte[] payload = new byte[len];
+[?2004l[?2004h>         System.arraycopy(blob, pos + 4, payload, 0, len);
+[?2004l[?2004h>         if (allZero(payload) || Crc.of(payload) != crc || !same(idOf(payload), id)) return null;
+[?2004l[?2004h>         return payload;
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     static byte[] idOf(byte[] payload) throws Exception {
+[?2004l[?2004h>         byte[] digest = MessageDigest.getInstance("SHA-256").digest(payload);
+[?2004l[?2004h>         byte[] id = new byte[16];
+[?2004l[?2004h>         System.arraycopy(digest, 0, id, 0, id.length);
+[?2004l[?2004h>         return id;
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     static boolean isMagic(byte[] x) {
+[?2004l[?2004h>         return x.length == 4 && x[0] == 'P' && x[1] == 'N' && x[2] == '0' && x[3] == '1';
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     static boolean allZero(byte[] x) {
+[?2004l[?2004h>         if (x.length == 0) return false;
+[?2004l[?2004h>         for (byte b : x) if (b != 0) return false;
+[?2004l[?2004h>         return true;
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     static boolean same(byte[] x, byte[] y) {
+[?2004l[?2004h>         if (x.length != y.length) return false;
+[?2004l[?2004h>         for (int i = 0; i < x.length; i++) if (x[i] != y[i]) return false;
+[?2004l[?2004h>         return true;
+[?2004l[?2004h>     }
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@25eb5a94f047:/app# cat > /app/markwell/HueWalk.java <<'EOF'
+[?2004l[?2004h> import java.nio.ByteBuffer;
+[?2004l[?2004h> import java.nio.file.Files;
+[?2004l[?2004h> import java.nio.file.Path;
+[?2004l[?2004h> import java.util.ArrayList;
+[?2004l[?2004h> import java.util.List;
+[?2004l[?2004h> 
+[?2004l[?2004h> public class HueWalk {
+[?2004l[?2004h>     public static int orb_n(Path blobPath, Path pinPath, Path cardPath) throws Exception {
+[?2004l[?2004h>         byte[] pins = Files.exists(pinPath) ? Files.readAllBytes(pinPath) : new byte[0];
+[?2004l[?2004h>         byte[] blob = Files.exists(blobPath) ? Files.readAllBytes(blobPath) : new byte[0];
+[?2004l[?2004h>         List<String> held = new ArrayList<String>();
+[?2004l[?2004h>         boolean sound = pins.length % MistSpan.PIN_SIZE == 0;
+[?2004l[?2004h> 
+[?2004l[?2004h>         for (int i = 0; i + MistSpan.PIN_SIZE <= pins.length; i += MistSpan.PIN_SIZE) {
+[?2004l[?2004h>             ByteBuffer bb = ByteBuffer.wrap(pins, i, MistSpan.PIN_SIZE);
+[?2004l[?2004h>             byte[] magic = new byte[4];
+[?2004l[?2004h>             bb.get(magic);
+[?2004l[?2004h>             long off = bb.getLong();
+[?2004l[?2004h>             int len = bb.getInt();
+[?2004l[?2004h>             int crc = bb.getInt();
+[?2004l[?2004h>             byte[] id = new byte[16];
+[?2004l[?2004h>             bb.get(id);
+[?2004l[?2004h>             boolean valid = MistSpan.isMagic(magic)
+[?2004l[?2004h>                     && MistSpan.validPayload(blob, off, len, crc, id) != null;
+[?2004l[?2004h>             if (valid) held.add(hex(id));
+[?2004l[?2004h>             else sound = false;
+[?2004l[?2004h>         }
+[?2004l[?2004h> 
+[?2004l[?2004h>         String note = sound ? "ok" : "gap";
+[?2004l[?2004h>         String kind = sound ? "live" : "void";
+[?2004l[?2004h>         String json = "{\"held\":" + arr(held) + ",\"note\":\"" + note
+[?2004l[?2004h>                 + "\",\"kind\":\"" + kind + "\"}";
+[?2004l[?2004h>         Files.writeString(cardPath, json);
+[?2004l[?2004h>         return sound ? 0 : 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     static String hex(byte[] id) {
+[?2004l[?2004h>         StringBuilder sb = new StringBuilder();
+[?2004l[?2004h>         for (byte v : id) sb.append(String.format("%02x", v & 0xff));
+[?2004l[?2004h>         return sb.toString();
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     static String arr(List<String> held) {
+[?2004l[?2004h>         StringBuilder sb = new StringBuilder("[");
+[?2004l[?2004h>         for (int i = 0; i < held.size(); i++) {
+[?2004l[?2004h>             if (i > 0) sb.append(',');
+[?2004l[?2004h>             sb.append('"').append(held.get(i)).append('"');
+[?2004l[?2004h>         }
+[?2004l[?2004h>         return sb.append(']').toString();
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     public static void main(String[] args) throws Exception {
+[?2004l[?2004h>         Path silo = Path.of("/app/silo");
+[?2004l[?2004h>         System.exit(orb_n(silo.resolve("blob.bin"), silo.resolve("pin.bin"), silo.resolve("wake.json")));
+[?2004l[?2004h>     }
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@25eb5a94f047:/app# python3 - <<'PY'
+[?2004l[?2004h> p='/app/hitchbay/YankRun.java'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> s=s.replace('''    static byte[] hex(String s) {
+[?2004l[?2004h>         int n = s.length() / 2;
+[?2004l[?2004h>         byte[] out = new byte[n];
+[?2004l[?2004h>         for (int i = 0; i < n; i++) {
+[?2004l[?2004h>             out[i] = (byte) Integer.parseInt(s.substring(i * 2, i * 2 + 2), 16);
+[?2004l[?2004h>         }
+[?2004l[?2004h>         return out;
+[?2004l[?2004h>     }''','''    static byte[] hex(String s) {
+[?2004l[?2004h>         if (!s.matches("[0-9a-f]{32}")) {
+[?2004l[?2004h>             throw new IllegalArgumentException("id must be 32 lowercase hex characters");
+[?2004l[?2004h>         }
+[?2004l[?2004h>         byte[] out = new byte[16];
+[?2004l[?2004h>         for (int i = 0; i < out.length; i++) {
+[?2004l[?2004h>             out[i] = (byte) Integer.parseInt(s.substring(i * 2, i * 2 + 2), 16);
+[?2004l[?2004h>         }
+[?2004l[?2004h>         return out;
+[?2004l[?2004h>     }''')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@25eb5a94f047:/app# /app/bin/crumbark tamp
+[?2004l[?2004hroot@25eb5a94f047:/app# cat /app/recipit/ForceSeq.java
+[?2004lpublic class ForceSeq {
+    public static String[] names() {
+        return new String[] {"blob", "pin"};
+    }
+}
+[?2004hroot@25eb5a94f047:/app# set -e
+[?2004l[?2004hroot@25eb5a94f047:/app# cp -a /app/silo /tmp/silo-fixed-test-backup
+[?2004l[?2004hroot@25eb5a94f047:/app# /app/bin/crumbark wake
+[?2004l[?2004hroot@25eb5a94f047:/app# python3 - <<'PY'
+[?2004l[?2004h> import json,subprocess,pathlib
+[?2004l[?2004h> card=json.load(open('/app/silo/wake.json'))
+[?2004l[?2004h> assert card['kind']=='live' and card['note']=='ok'
+[?2004l[?2004h> for ident,name in [('7131d883b9a11835fa6ed471b7f1c1b4','prior.slip'),('f3c1bcfb3c2f1490f89470a03c83b152','seed.slip')]:
+[?2004l[?2004h>     got=subprocess.check_output(['/app/bin/crumbark','pull',ident])
+[?2004l[?2004h>     assert got==pathlib.Path('/app/inbox/'+name).read_bytes(), (ident,len(got))
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@25eb5a94f047:/app# /app/bin/crumbark lade /app/inbox/oak-a.slip
+[?2004l[?2004hroot@25eb5a94f047:/app# /app/bin/crumbark wake
+[?2004l[?2004hroot@25eb5a94f047:/app# id=$(sha256sum /app/inbox/oak-a.slip | cut -c1-32)
+[?2004l[?2004hroot@25eb5a94f047:/app# /app/bin/crumbark pull "$id" > /tmp/pulled && cmp /tmp/pulled /app/inbox/oak-a.slip
+[?2004l[?2004hroot@25eb5a94f047:/app# /app/bin/crumbark nick /app/inbox/oak-e.slip
+[?2004l[?2004hroot@25eb5a94f047:/app# /app/bin/crumbark wake
+[?2004l[?2004hroot@25eb5a94f047:/app# python3 - <<'PY'
+[?2004l[?2004h> import json,subprocess
+[?2004l[?2004h> c=json.load(open('/app/silo/wake.json'))
+[?2004l[?2004h> assert c['kind']=='live'
+[?2004l[?2004h> for i in c['held']:
+[?2004l[?2004h>     assert subprocess.check_output(['/app/bin/crumbark','pull',i])
+[?2004l[?2004h> print(c)
+[?2004l[?2004h> PY
+[?2004l{'held': ['7131d883b9a11835fa6ed471b7f1c1b4', 'f3c1bcfb3c2f1490f89470a03c83b152', '4738eb28248a7f98e0ac9b455d74c028'], 'note': 'ok', 'kind': 'live'}
+[?2004hroot@25eb5a94f047:/app# set -e
+[?2004l[?2004hroot@25eb5a94f047:/app# rm -rf /app/silo; cp -a /tmp/silo-fixed-test-backup /app/silo
+[?2004l[?2004hroot@25eb5a94f047:/app# # Append a valid pin whose blob record is absent; wake must fail and omit its id.
+[?2004l[?2004hroot@25eb5a94f047:/app# /app/bin/crumbark lade /app/inbox/oak-b.slip
+[?2004l[?2004hroot@25eb5a94f047:/app# truncate -s 64 /app/silo/blob.bin
+[?2004l[?2004hroot@25eb5a94f047:/app# if /app/bin/crumbark wake; then echo 'ERROR short blob accepted'; exit 1; fi
+[?2004l[?2004hroot@25eb5a94f047:/app# cat /app/silo/wake.json
+[?2004l{"held":["7131d883b9a11835fa6ed471b7f1c1b4","f3c1bcfb3c2f1490f89470a03c83b152"],"note":"gap","kind":"void"}[?2004hroot@25eb5a94f047:/app# id=$(sha256sum /app/inbox/oak-b.slip | cut -c1-32)
+[?2004l[?2004hroot@25eb5a94f047:/app# test -z "$(/app/bin/crumbark pull "$id")"
+[?2004l[?2004hroot@25eb5a94f047:/app# # Restore pristine supplied records after tests.
+[?2004l[?2004hroot@25eb5a94f047:/app# rm -rf /app/silo; cp -a /tmp/silo-fixed-test-backup /app/silo
+[?2004l[?2004hroot@25eb5a94f047:/app# /app/bin/crumbark wake
+[?2004l[?2004hroot@25eb5a94f047:/app# cat /app/silo/wake.json; echo
+[?2004l{"held":["7131d883b9a11835fa6ed471b7f1c1b4","f3c1bcfb3c2f1490f89470a03c83b152"],"note":"ok","kind":"live"}
+[?2004hroot@25eb5a94f047:/app# set -e
+[?2004l[?2004hroot@25eb5a94f047:/app# cp -a /app/silo /tmp/silo-final-valid
+[?2004l[?2004hroot@25eb5a94f047:/app# # Zero the first stored payload while retaining its pin row.
+[?2004l[?2004hroot@25eb5a94f047:/app# dd if=/dev/zero of=/app/silo/blob.bin bs=1 seek=4 count=23 conv=notrunc status=none
+[?2004l[?2004hroot@25eb5a94f047:/app# if /app/bin/crumbark wake; then echo 'ERROR zero body accepted'; exit 1; fi
+[?2004l[?2004hroot@25eb5a94f047:/app# python3 - <<'PY'
+[?2004l[?2004h> import json,subprocess
+[?2004l[?2004h> c=json.load(open('/app/silo/wake.json'))
+[?2004l[?2004h> assert c['kind']=='void' and c['note']=='gap'
+[?2004l[?2004h> assert '7131d883b9a11835fa6ed471b7f1c1b4' not in c['held']
+[?2004l[?2004h> assert subprocess.check_output(['/app/bin/crumbark','pull','7131d883b9a11835fa6ed471b7f1c1b4']) == b''
+[?2004l[?2004h> print('zero-body rejection: ok')
+[?2004l[?2004h> PY
+[?2004lzero-body rejection: ok
+[?2004hroot@25eb5a94f047:/app# rm -rf /app/silo; cp -a /tmp/silo-final-valid /app/silo
+[?2004l[?2004hroot@25eb5a94f047:/app# /app/bin/crumbark tamp
+[?2004l[?2004hroot@25eb5a94f047:/app# /app/bin/crumbark wake
+[?2004l[?2004hroot@25eb5a94f047:/app# python3 - <<'PY'
+[?2004l[?2004h> import json,pathlib,subprocess
+[?2004l[?2004h> c=json.load(open('/app/silo/wake.json'))
+[?2004l[?2004h> assert c == {'held':['7131d883b9a11835fa6ed471b7f1c1b4','f3c1bcfb3c2f1490f89470a03c83b152'],'note':'ok','kind':'live'}
+[?2004l[?2004h> for ident,slip in [('7131d883b9a11835fa6ed471b7f1c1b4','prior.slip'),('f3c1bcfb3c2f1490f89470a03c83b152','seed.slip')]:
+[?2004l[?2004h>     assert subprocess.check_output(['/app/bin/crumbark','pull',ident]) == pathlib.Path('/app/inbox',slip).read_bytes()
+[?2004l[?2004h> print('final validation: ok')
+[?2004l[?2004h> PY
+[?2004lfinal validation: ok
+[?2004hroot@25eb5a94f047:/app# 

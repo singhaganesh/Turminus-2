@@ -1,0 +1,227 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 13 items
+
+../tests/test_outputs.py FFFFFFFFFFFFF                                   [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_wq01_first_num ______________________________
+
+    def test_wq01_first_num() -> None:
+        """live capture welt integer matches an independent take of the shipped body."""
+        _restore()
+        proc = _pour()
+        assert proc.returncode == 0, proc.stderr
+        body = _load()
+>       assert body["welt"] == _get(LIVE, 12, 9)
+E       AssertionError: assert 61 == 423
+E        +  where 423 = _get(b'\xb4\xdd=\xa5', 12, 9)
+
+/tests/test_outputs.py:86: AssertionError
+_____________________________ test_wq02_second_num _____________________________
+
+    def test_wq02_second_num() -> None:
+        """a held-out body with a large welt integer matches the independent take."""
+        _restore()
+        packed = _pack(1, 45, 2, 300, 1, 17)
+        CAP.write_bytes(packed)
+        try:
+            proc = _pour()
+            assert proc.returncode == 0, proc.stderr
+            body = _load()
+            want = _get(packed, 12, 9)
+>           assert body["welt"] == want
+E           assert 97 == 300
+
+/tests/test_outputs.py:99: AssertionError
+_____________________________ test_wq03_third_num ______________________________
+
+    def test_wq03_third_num() -> None:
+        """a second held-out spanning welt integer matches the independent take."""
+        _restore()
+        packed = _pack(2, 33, 3, 511, 5, 200)
+        CAP.write_bytes(packed)
+        try:
+            proc = _pour()
+            assert proc.returncode == 0, proc.stderr
+            body = _load()
+            want = _get(packed, 12, 9)
+>           assert body["welt"] == want
+E           assert 253 == 511
+
+/tests/test_outputs.py:115: AssertionError
+______________________________ test_wq04_mid_num _______________________________
+
+    def test_wq04_mid_num() -> None:
+        """live kind stays aligned with the independent take while welt matches."""
+        _restore()
+        proc = _pour()
+        assert proc.returncode == 0, proc.stderr
+        body = _load()
+        assert body["kind"] == _get(LIVE, 0, 3)
+>       assert body["lane"] == _get(LIVE, 3, 6)
+E       AssertionError: assert 20 == 41
+E        +  where 41 = _get(b'\xb4\xdd=\xa5', 3, 6)
+
+/tests/test_outputs.py:128: AssertionError
+______________________________ test_wq05_late_num ______________________________
+
+    def test_wq05_late_num() -> None:
+        """live mark stays aligned with the independent take while welt matches."""
+        _restore()
+        proc = _pour()
+        assert proc.returncode == 0, proc.stderr
+        body = _load()
+        assert body["mark"] == _get(LIVE, 24, 8)
+>       assert body["welt"] == _get(LIVE, 12, 9)
+E       AssertionError: assert 61 == 423
+E        +  where 423 = _get(b'\xb4\xdd=\xa5', 12, 9)
+
+/tests/test_outputs.py:140: AssertionError
+______________________________ test_wq06_hold_num ______________________________
+
+    def test_wq06_hold_num() -> None:
+        """a third held-out spanning welt integer matches the independent take."""
+        _restore()
+        packed = _pack(4, 47, 5, 256, 7, 9)
+        CAP.write_bytes(packed)
+        try:
+            proc = _pour()
+            assert proc.returncode == 0, proc.stderr
+            body = _load()
+            want = _get(packed, 12, 9)
+>           assert body["welt"] == want
+E           assert 7 == 256
+
+/tests/test_outputs.py:153: AssertionError
+_____________________________ test_wq07_tiny_exit ______________________________
+
+    def test_wq07_tiny_exit() -> None:
+        """a one-octet body exits non-zero and leaves rows.json absent."""
+        _restore()
+        ROWS.write_text("{}\n")
+        CAP.write_bytes(b"\x00")
+        try:
+            proc = _pour()
+>           assert proc.returncode != 0
+E           AssertionError: assert 0 != 0
+E            +  where 0 = CompletedProcess(args=['/app/bin/weltquay', 'pour'], returncode=0, stdout='', stderr='').returncode
+
+/tests/test_outputs.py:166: AssertionError
+______________________________ test_wq08_map_doc _______________________________
+
+    def test_wq08_map_doc() -> None:
+        """rows.json carries the six named integers and welt matches the live body."""
+        _restore()
+        proc = _pour()
+        assert proc.returncode == 0, proc.stderr
+        body = _load()
+        for name in ("kind", "lane", "mode", "welt", "tail", "mark"):
+            assert name in body
+            assert isinstance(body[name], int)
+>       assert body["welt"] == _get(LIVE, 12, 9)
+E       AssertionError: assert 61 == 423
+E        +  where 423 = _get(b'\xb4\xdd=\xa5', 12, 9)
+
+/tests/test_outputs.py:181: AssertionError
+______________________________ test_wq09_pair_num ______________________________
+
+    def test_wq09_pair_num() -> None:
+        """live lane and tail stay aligned while welt matches."""
+        _restore()
+        proc = _pour()
+        assert proc.returncode == 0, proc.stderr
+        body = _load()
+>       assert body["lane"] == _get(LIVE, 3, 6)
+E       AssertionError: assert 20 == 41
+E        +  where 41 = _get(b'\xb4\xdd=\xa5', 3, 6)
+
+/tests/test_outputs.py:190: AssertionError
+_____________________________ test_wq10_zz_restore _____________________________
+
+    def test_wq10_zz_restore() -> None:
+        """pour rewrites a corrupt rows object from the running mill."""
+        _restore()
+        ROWS.write_text('{"kind":0,"lane":0,"mode":0,"welt":0,"tail":0,"mark":0}\n')
+        proc = _pour()
+        assert proc.returncode == 0, proc.stderr
+        body = _load()
+>       assert body["welt"] == _get(LIVE, 12, 9)
+E       AssertionError: assert 61 == 423
+E        +  where 423 = _get(b'\xb4\xdd=\xa5', 12, 9)
+
+/tests/test_outputs.py:202: AssertionError
+_____________________________ test_wq11_hdr_magic ______________________________
+
+    def test_wq11_hdr_magic() -> None:
+        """mill is ELF and the live welt integer matches the independent take."""
+        _restore()
+        _assert_native()
+        proc = _pour()
+        assert proc.returncode == 0, proc.stderr
+        body = _load()
+>       assert body["welt"] == _get(LIVE, 12, 9)
+E       AssertionError: assert 61 == 423
+E        +  where 423 = _get(b'\xb4\xdd=\xa5', 12, 9)
+
+/tests/test_outputs.py:213: AssertionError
+____________________________ test_wq12_single_shot _____________________________
+
+    def test_wq12_single_shot() -> None:
+        """one pour subprocess writes the live welt integer."""
+        _restore()
+        proc = subprocess.run(
+            ["/app/bin/weltquay", "pour"],
+            capture_output=True,
+            text=True,
+        )
+        assert BIN.read_bytes()[:4] == b"\x7fELF"
+        assert proc.returncode == 0, proc.stderr
+        body = json.loads(ROWS.read_text())
+>       assert body["welt"] == _get(LIVE, 12, 9)
+E       AssertionError: assert 61 == 423
+E        +  where 423 = _get(b'\xb4\xdd=\xa5', 12, 9)
+
+/tests/test_outputs.py:227: AssertionError
+______________________________ test_wq13_hold_all ______________________________
+
+    def test_wq13_hold_all() -> None:
+        """held-out capture integers match LAYOUT.txt positions via the independent take."""
+        _restore()
+        packed = _pack(3, 37, 6, 400, 2, 88)
+        CAP.write_bytes(packed)
+        try:
+            proc = _pour()
+            assert proc.returncode == 0, proc.stderr
+>           _assert_layout(_load(), packed)
+
+/tests/test_outputs.py:238: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+body = {'kind': 3, 'lane': 18, 'mark': 88, 'mode': 6, ...}
+packed = b'r\xec\x82X'
+
+    def _assert_layout(body: dict, packed: bytes) -> None:
+        assert body["kind"] == _get(packed, 0, 3)
+>       assert body["lane"] == _get(packed, 3, 6)
+E       AssertionError: assert 18 == 37
+E        +  where 37 = _get(b'r\xec\x82X', 3, 6)
+
+/tests/test_outputs.py:73: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_wq01_first_num - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_wq02_second_num - assert 97 == 300
+FAILED ../tests/test_outputs.py::test_wq03_third_num - assert 253 == 511
+FAILED ../tests/test_outputs.py::test_wq04_mid_num - AssertionError: assert 2...
+FAILED ../tests/test_outputs.py::test_wq05_late_num - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_wq06_hold_num - assert 7 == 256
+FAILED ../tests/test_outputs.py::test_wq07_tiny_exit - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_wq08_map_doc - AssertionError: assert 6...
+FAILED ../tests/test_outputs.py::test_wq09_pair_num - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_wq10_zz_restore - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_wq11_hdr_magic - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_wq12_single_shot - AssertionError: asse...
+FAILED ../tests/test_outputs.py::test_wq13_hold_all - AssertionError: assert ...
+============================== 13 failed in 0.32s ==============================

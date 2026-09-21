@@ -1,0 +1,169 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 16 items
+
+../tests/test_outputs.py FF.FFF.F..FFFFF.                                [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_vx01_full_copy ______________________________
+
+    def test_vx01_full_copy() -> None:
+        """After nick, wake exits 0 and no new held id appears."""
+        slip = INBOX / "oak-a.slip"
+        before = set(_held())
+        _cli("nick", str(slip))
+        r = _wake()
+>       assert r.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/app/bin/crumbark', 'wake'], returncode=1, stdout=b'', stderr=b'').returncode
+
+/tests/test_outputs.py:76: AssertionError
+______________________________ test_vx02_tide_gap ______________________________
+
+    def test_vx02_tide_gap() -> None:
+        """After nick, every remaining held id pulls a non-empty non-zero body."""
+        slip = INBOX / "oak-b.slip"
+        before = set(_held())
+        _cli("nick", str(slip))
+        r = _wake()
+>       assert r.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/app/bin/crumbark', 'wake'], returncode=1, stdout=b'', stderr=b'').returncode
+
+/tests/test_outputs.py:86: AssertionError
+______________________________ test_vx04_pack_len ______________________________
+
+    def test_vx04_pack_len() -> None:
+        """Some held pull matches the seed slip length."""
+        payload = SEED.read_bytes()
+        _wake()
+        lengths = [len(_pull(hid)) for hid in _held()]
+>       assert len(payload) in lengths
+E       AssertionError: assert 22 in []
+E        +  where 22 = len(b'seed-alpha-payload-01\n')
+
+/tests/test_outputs.py:113: AssertionError
+_____________________________ test_vx05_seed_keep ______________________________
+
+    def test_vx05_seed_keep() -> None:
+        """Some held pull returns the prior slip bytes."""
+        payload = PRIOR.read_bytes()
+        _wake()
+>       assert any(_pull(hid) == payload for hid in _held())
+E       assert False
+E        +  where False = any(<generator object test_vx05_seed_keep.<locals>.<genexpr> at 0x7b1dc838eb20>)
+
+/tests/test_outputs.py:120: AssertionError
+______________________________ test_vx06_tag_set _______________________________
+
+    def test_vx06_tag_set() -> None:
+        """wake.json kind and note match CARD.txt on a clean pass, and seed/prior pulls match."""
+        r = _wake()
+>       assert r.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/app/bin/crumbark', 'wake'], returncode=1, stdout=b'', stderr=b'').returncode
+
+/tests/test_outputs.py:126: AssertionError
+_____________________________ test_vx08_extra_oak ______________________________
+
+    def test_vx08_extra_oak() -> None:
+        """Grade-time oak-c nick leaves wake at 0 without growing held."""
+        slip = INBOX / "oak-c.slip"
+        before = set(_held())
+        _cli("nick", str(slip))
+        r = _wake()
+>       assert r.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/app/bin/crumbark', 'wake'], returncode=1, stdout=b'', stderr=b'').returncode
+
+/tests/test_outputs.py:151: AssertionError
+______________________________ test_vx11_hue_gap _______________________________
+
+    def test_vx11_hue_gap() -> None:
+        """Short blob for a pin row is absent from held and wake is non-zero."""
+        hid = _plant_torn()
+        try:
+            r = _wake()
+            assert hid not in _held()
+            assert r.returncode != 0
+>           assert _load_wake()["kind"] == "void"
+E           AssertionError: assert 'live' == 'void'
+E             
+E             - void
+E             + live
+
+/tests/test_outputs.py:188: AssertionError
+______________________________ test_vx12_keep_old ______________________________
+
+    def test_vx12_keep_old() -> None:
+        """Older seed and prior bodies stay pullable after nick."""
+        slip = INBOX / "oak-e.slip"
+        before = set(_held())
+        _cli("nick", str(slip))
+        r = _wake()
+>       assert r.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/app/bin/crumbark', 'wake'], returncode=1, stdout=b'', stderr=b'').returncode
+
+/tests/test_outputs.py:199: AssertionError
+_____________________________ test_vx13_void_span ______________________________
+
+    def test_vx13_void_span() -> None:
+        """held pull of seed equals the seed slip bytes."""
+        payload = SEED.read_bytes()
+        _wake()
+>       assert any(_pull(hid) == payload for hid in _held())
+E       assert False
+E        +  where False = any(<generator object test_vx13_void_span.<locals>.<genexpr> at 0x7b1dc84603c0>)
+
+/tests/test_outputs.py:211: AssertionError
+______________________________ test_vx14_card_id _______________________________
+
+    def test_vx14_card_id() -> None:
+        """A laded inbox slip is listed under the CARD held-id encoding and that id pulls the slip."""
+        slip = INBOX / "oak-d.slip"
+        payload = slip.read_bytes()
+        hid = _card_id(payload)
+        _cli("lade", str(slip))
+        r = _wake()
+>       assert r.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/app/bin/crumbark', 'wake'], returncode=1, stdout=b'', stderr=b'').returncode
+
+/tests/test_outputs.py:221: AssertionError
+_____________________________ test_vx15_hold_span ______________________________
+
+    def test_vx15_hold_span() -> None:
+        """A slip the inbox never shipped still lades live and pulls byte-complete under the CARD id."""
+        payload = _hold_payload()
+        hid = _card_id(payload)
+        path = Path("/tmp/lade.bin")
+        path.write_bytes(payload)
+        _cli("lade", str(path))
+        r = _wake()
+>       assert r.returncode == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/app/bin/crumbark', 'wake'], returncode=1, stdout=b'', stderr=b'').returncode
+
+/tests/test_outputs.py:234: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_vx03_short_rc
+PASSED ../tests/test_outputs.py::test_vx07_omit_bad
+PASSED ../tests/test_outputs.py::test_vx09_obj_keys
+PASSED ../tests/test_outputs.py::test_vx10_span_len
+PASSED ../tests/test_outputs.py::test_zz_rewrites_wake
+FAILED ../tests/test_outputs.py::test_vx01_full_copy - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_vx02_tide_gap - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_vx04_pack_len - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_vx05_seed_keep - assert False
+FAILED ../tests/test_outputs.py::test_vx06_tag_set - AssertionError: assert 1...
+FAILED ../tests/test_outputs.py::test_vx08_extra_oak - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_vx11_hue_gap - AssertionError: assert '...
+FAILED ../tests/test_outputs.py::test_vx12_keep_old - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_vx13_void_span - assert False
+FAILED ../tests/test_outputs.py::test_vx14_card_id - AssertionError: assert 1...
+FAILED ../tests/test_outputs.py::test_vx15_hold_span - AssertionError: assert...
+========================= 11 failed, 5 passed in 5.36s =========================

@@ -1,0 +1,104 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py .FF.FFFF....                                    [100%]
+
+=================================== FAILURES ===================================
+_______________________________ test_sc_walk_hex _______________________________
+
+    def test_sc_walk_hex():
+        """walk_sig matches the digest of regular-file names in archive apply order."""
+        left, _ = _pair()
+        expect = _expect(KITH.read_bytes())
+>       assert left["walk_sig"] == expect["walk_sig"]
+E       AssertionError: assert '5b240ea8c8f9...0f893e23c0419' == 'e8c60dff99d1...164566a787b60'
+E         
+E         - e8c60dff99d1c59bed02f52d0215444f736284d0b7a05d1b6fc164566a787b60
+E         + 5b240ea8c8f9b5f32f5e93e77376daeb5bf6e6930d836d9dc0b0f893e23c0419
+
+/tests/test_outputs.py:156: AssertionError
+_____________________________ test_sc_idx_recover ______________________________
+
+    def test_sc_idx_recover():
+        """A corrupt ledger is rebuilt by quarry before brief succeeds."""
+        _restore()
+        assert _quarry().returncode == 0
+        IDX.write_bytes(b"xxxx")
+        assert _quarry().returncode == 0
+        assert _brief(A).returncode == 0
+        data = json.loads(A.read_text())
+        expect = _expect(KITH.read_bytes())
+>       assert data["walk_sig"] == expect["walk_sig"]
+E       AssertionError: assert '5b240ea8c8f9...0f893e23c0419' == 'e8c60dff99d1...164566a787b60'
+E         
+E         - e8c60dff99d1c59bed02f52d0215444f736284d0b7a05d1b6fc164566a787b60
+E         + 5b240ea8c8f9b5f32f5e93e77376daeb5bf6e6930d836d9dc0b0f893e23c0419
+
+/tests/test_outputs.py:168: AssertionError
+______________________________ test_sc_cfg_string ______________________________
+
+    def test_sc_cfg_string():
+        """timezone comes from the later sys.conf payload in the sealed archive."""
+        left, _ = _pair()
+        expect = _expect(KITH.read_bytes())
+>       assert left["timezone"] == expect["timezone"]
+E       AssertionError: assert 'Etc/UTC' == 'America/Chicago'
+E         
+E         - America/Chicago
+E         + Etc/UTC
+
+/tests/test_outputs.py:187: AssertionError
+_____________________________ test_sc_later_group ______________________________
+
+    def test_sc_later_group():
+        """cluster stays the string from the later sys.conf payload."""
+        left, _ = _pair()
+        expect = _expect(KITH.read_bytes())
+>       assert left["cluster"] == expect["cluster"]
+E       AssertionError: assert 'staging' == 'alpha'
+E         
+E         - alpha
+E         + staging
+
+/tests/test_outputs.py:194: AssertionError
+______________________________ test_sc_event_join ______________________________
+
+    def test_sc_event_join():
+        """log_events lists every distinct line from every app.log payload."""
+        left, _ = _pair()
+        expect = _expect(KITH.read_bytes())
+>       assert left["log_events"] == expect["log_events"]
+E       AssertionError: assert ['EVT_BOOT'] == ['EVT_BOOT', 'EVT_RELOAD']
+E         
+E         Right contains one more item: 'EVT_RELOAD'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:202: AssertionError
+______________________________ test_sc_count_reg _______________________________
+
+    def test_sc_count_reg():
+        """member_count equals the number of regular-file payloads applied."""
+        left, _ = _pair()
+        expect = _expect(KITH.read_bytes())
+>       assert left["member_count"] == expect["member_count"]
+E       assert 2 == 6
+
+/tests/test_outputs.py:209: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_sc_twice_ident
+PASSED ../tests/test_outputs.py::test_sc_trunc_exit
+PASSED ../tests/test_outputs.py::test_sc_guard_line
+PASSED ../tests/test_outputs.py::test_sc_path_reject
+PASSED ../tests/test_outputs.py::test_sc_schema_keys
+PASSED ../tests/test_outputs.py::test_sc_sig_len
+FAILED ../tests/test_outputs.py::test_sc_walk_hex - AssertionError: assert '5...
+FAILED ../tests/test_outputs.py::test_sc_idx_recover - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_sc_cfg_string - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_sc_later_group - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_sc_event_join - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_sc_count_reg - assert 2 == 6
+========================= 6 failed, 6 passed in 0.86s ==========================

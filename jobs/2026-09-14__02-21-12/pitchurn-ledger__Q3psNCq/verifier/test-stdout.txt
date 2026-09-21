@@ -1,0 +1,169 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py FFFFFFFFFFFF                                    [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_pu01_twice_blob _____________________________
+
+    def test_pu01_twice_blob():
+        """Second stow of stable.bin keeps reuse_frac at or above 0.80."""
+        _prepare()
+        r = _stow(STABLE)
+>       assert float(json.loads(TALLY.read_text())["reuse_frac"]) >= 0.80
+E       AssertionError: assert 0.0 >= 0.8
+E        +  where 0.0 = float('0.0000')
+
+/tests/test_outputs.py:81: AssertionError
+_____________________________ test_pu02_held_frac ______________________________
+
+    def test_pu02_held_frac():
+        """Second stow of plain.bin keeps reuse_frac at or above 0.80."""
+        _prepare()
+        _stow(PLAIN)
+        t = _tally()
+>       assert float(t["reuse_frac"]) >= 0.80
+E       AssertionError: assert 0.0 >= 0.8
+E        +  where 0.0 = float('0.0000')
+
+/tests/test_outputs.py:90: AssertionError
+_____________________________ test_pu03_fresh_span _____________________________
+
+    def test_pu03_fresh_span():
+        """Never-seen mixed reel has mean_piece at or below 2048."""
+        _prepare()
+        p = _mixed()
+        _stow(p)
+        t = _tally()
+>       assert float(t["mean_piece"]) <= 2048.0
+E       AssertionError: assert 4000.0 <= 2048.0
+E        +  where 4000.0 = float('4000.0000')
+
+/tests/test_outputs.py:99: AssertionError
+_____________________________ test_pu04_sink_match _____________________________
+
+    def test_pu04_sink_match():
+        """draw of plain.bin matches source bytes after a reuse stow."""
+        _prepare()
+        _stow(PLAIN)
+>       assert float(_tally()["reuse_frac"]) >= 0.80
+E       AssertionError: assert 0.0 >= 0.8
+E        +  where 0.0 = float('0.0000')
+
+/tests/test_outputs.py:106: AssertionError
+_____________________________ test_pu05_dirty_exit _____________________________
+
+    def test_pu05_dirty_exit():
+        """Already-siloed stable.bin restow exits 0 only when reuse stays high."""
+        _prepare()
+        _stow(STABLE)
+        t = _tally()
+>       assert float(t["reuse_frac"]) >= 0.80
+E       AssertionError: assert 0.0 >= 0.8
+E        +  where 0.0 = float('0.0000')
+
+/tests/test_outputs.py:118: AssertionError
+_____________________________ test_pu06_card_keys ______________________________
+
+    def test_pu06_card_keys():
+        """tally.json exposes the six named keys as strings after brine stow."""
+        _prepare()
+        _stow(BRINE)
+        t = _tally()
+        for k in ("reel", "bytes_in", "bytes_stored", "reuse_frac", "mean_piece", "piece_count"):
+            assert k in t
+            assert isinstance(t[k], str)
+>       assert float(t["reuse_frac"]) >= 0.80
+E       AssertionError: assert 0.0 >= 0.8
+E        +  where 0.0 = float('0.0000')
+
+/tests/test_outputs.py:145: AssertionError
+_______________________________ test_pu07_hi_bit _______________________________
+
+    def test_pu07_hi_bit():
+        """Second stow of brine.bin keeps reuse_frac at or above 0.80."""
+        _prepare()
+        _stow(BRINE)
+        t = _tally()
+>       assert float(t["reuse_frac"]) >= 0.80
+E       AssertionError: assert 0.0 >= 0.8
+E        +  where 0.0 = float('0.0000')
+
+/tests/test_outputs.py:153: AssertionError
+_____________________________ test_pu08_cold_keep ______________________________
+
+    def test_pu08_cold_keep():
+        """stable.bin restow stores far fewer bytes than bytes_in."""
+        _prepare()
+        _stow(STABLE)
+        t = _tally()
+>       assert int(t["bytes_stored"]) < int(t["bytes_in"])
+E       AssertionError: assert 24000 < 24000
+E        +  where 24000 = int('24000')
+E        +  and   24000 = int('24000')
+
+/tests/test_outputs.py:161: AssertionError
+_____________________________ test_pu09_once_pass ______________________________
+
+    def test_pu09_once_pass():
+        """One stow process of plain.bin is enough for reuse_frac."""
+        _prepare()
+        _stow(PLAIN)
+>       assert float(_tally()["reuse_frac"]) >= 0.80
+E       AssertionError: assert 0.0 >= 0.8
+E        +  where 0.0 = float('0.0000')
+
+/tests/test_outputs.py:168: AssertionError
+_____________________________ test_pu10_zz_corrupt _____________________________
+
+    def test_pu10_zz_corrupt():
+        """Corrupt tally then stow stable.bin still recovers reuse."""
+        _prepare()
+        TALLY.write_text("{}\n")
+        _stow(STABLE)
+        t = _tally()
+        assert "reuse_frac" in t
+>       assert float(t["reuse_frac"]) >= 0.80
+E       AssertionError: assert 0.0 >= 0.8
+E        +  where 0.0 = float('0.0000')
+
+/tests/test_outputs.py:178: AssertionError
+______________________________ test_pu11_card_obj ______________________________
+
+    def test_pu11_card_obj():
+        """census rewrites tally.json after a reuse stow of plain.bin."""
+        _prepare()
+        _stow(PLAIN)
+>       assert float(_tally()["reuse_frac"]) >= 0.80
+E       AssertionError: assert 0.0 >= 0.8
+E        +  where 0.0 = float('0.0000')
+
+/tests/test_outputs.py:185: AssertionError
+___________________________ test_pu12_floor_ignored ____________________________
+
+    def test_pu12_floor_ignored():
+        """MIN.txt floor 0.00 is not enough; brine reuse_frac still needs 0.80."""
+        _prepare()
+        _stow(BRINE)
+>       assert float(_tally()["reuse_frac"]) >= 0.80
+E       AssertionError: assert 0.0 >= 0.8
+E        +  where 0.0 = float('0.0000')
+
+/tests/test_outputs.py:198: AssertionError
+=========================== short test summary info ============================
+FAILED ../tests/test_outputs.py::test_pu01_twice_blob - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_pu02_held_frac - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_pu03_fresh_span - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_pu04_sink_match - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_pu05_dirty_exit - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_pu06_card_keys - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_pu07_hi_bit - AssertionError: assert 0....
+FAILED ../tests/test_outputs.py::test_pu08_cold_keep - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_pu09_once_pass - AssertionError: assert...
+FAILED ../tests/test_outputs.py::test_pu10_zz_corrupt - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_pu11_card_obj - AssertionError: assert ...
+FAILED ../tests/test_outputs.py::test_pu12_floor_ignored - AssertionError: as...
+============================== 12 failed in 3.82s ==============================
