@@ -1,0 +1,5 @@
+Lanternix on this image exposes /app/bin/lanternix. That mill is a native ELF Go program; the file begins with 7fELF. A script or interpreter at that path is not enough. Cast and readout usage plus JSON field rules live in /app/notes/ROUTE.txt and /app/notes/GRAMMAR.txt. Cast writes generated units under /app/packbay/units and /app/packbay/reg.go. Repair the Go pipeline modules named in /app/notes/ROUTE.txt. Source edits under /app are required. Hand-written readout JSON is not enough.
+
+On this image lanternix cast exits 0. readout of /app/lamps/flash9c.lamp exits 2 and does not write /app/glowbank/readout.json. A correct mill decodes any recipe lamp whose card the mill carries; readout slots must be the lamp file values as strings using the names from that card as written.
+
+A recipe card whose id the mill does not carry makes readout exit non-zero and must not replace a success readout.json. A lamp whose code is absent from /app/cardwell still reports void and exits non-zero. The verifier reruns readout only.

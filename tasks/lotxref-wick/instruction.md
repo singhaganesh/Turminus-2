@@ -1,0 +1,5 @@
+Opening `/app/lotbay/shift.dmp` through `/app/bin/lotxref clip` fills `/app/inkwell/clip.out` with a neighbouring function, while the dump's origin path and line sit inside a different body. `/app/bin/lotxref reknit` still returns success and rewrites `/app/inkwell/span.atlas`. Line grammar lives in `/app/baycard/forms.txt`; directory map in `/app/baycard/BAY_NOTES.txt`. `/app/bin/lotxref` starts with the four-byte ELF header.
+
+`/app/inkwell/span.atlas` begins with `SPAN1`. Each atlas row has 4 fields: name, absolute path, lo, hi. Every atlas row must point at a file that still exists under `/app/unitpit`. Shared helper names in two live files must clip from the dump origin file only. reknit must return a non-zero status if a dump origin or an atlas row would name a missing path. After a successful reknit, clip.out must contain the origin function's own source lines.
+
+C modules listed in `/app/baycard/BAY_NOTES.txt` need source updates under `/app`. Static or hand-written inkwell products are insufficient; reknit must regenerate span.atlas. The verifier reruns `/app/bin/lotxref reknit` and `/app/bin/lotxref clip`.

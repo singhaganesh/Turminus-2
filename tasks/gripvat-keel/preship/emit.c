@@ -1,0 +1,24 @@
+#include "emit.h"
+
+void cfg_emit(FILE *fp)
+{
+	fputs("#include <string.h>\n", fp);
+	fputs("static int nbor_ord(const void *x, const void *y)\n", fp);
+	fputs("{\n", fp);
+	fputs("\tconst Edge *a = *(const Edge * const *)x;\n", fp);
+	fputs("\tconst Edge *b = *(const Edge * const *)y;\n", fp);
+	fputs("\tint c = strcmp(node_cls(a->to), node_cls(b->to));\n", fp);
+	fputs("\tif (c)\n", fp);
+	fputs("\t\treturn c;\n", fp);
+	fputs("\tc = strcmp(a->field, b->field);\n", fp);
+	fputs("\tif (c)\n", fp);
+	fputs("\t\treturn c;\n", fp);
+	fputs("\tif (a->kind != b->kind)\n", fp);
+	fputs("\t\treturn a->kind - b->kind;\n", fp);
+	fputs("\tif (a->to < b->to)\n", fp);
+	fputs("\t\treturn -1;\n", fp);
+	fputs("\tif (a->to > b->to)\n", fp);
+	fputs("\t\treturn 1;\n", fp);
+	fputs("\treturn 0;\n", fp);
+	fputs("}\n", fp);
+}

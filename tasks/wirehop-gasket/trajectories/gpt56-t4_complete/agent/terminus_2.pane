@@ -1,0 +1,672 @@
+[?2004hroot@b40afb518a0b:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@b40afb518a0b:/app# clear
+[?2004l[H[J[3J[?2004hroot@b40afb518a0b:/app# pwd; file /app/bin/gasketd; find /app -maxdepth 3 -type f -printf '%p\n' | sort
+[?2004l/app
+bash: file: command not found
+/app/bin/gasketd
+/app/buscards/a_fan.card
+/app/buscards/b_pump.card
+/app/buscards/c_valve.card
+/app/buscards/d_temp.card
+/app/buscards/e_press.card
+/app/buscards/f_latch.card
+/app/buscards/g_bias.card
+/app/buscards/h_watch.card
+/app/buscards/i_vent.card
+/app/cardbak/buscards/a_fan.card
+/app/cardbak/buscards/b_pump.card
+/app/cardbak/buscards/c_valve.card
+/app/cardbak/buscards/d_temp.card
+/app/cardbak/buscards/e_press.card
+/app/cardbak/buscards/f_latch.card
+/app/cardbak/buscards/g_bias.card
+/app/cardbak/buscards/h_watch.card
+/app/cardbak/buscards/i_vent.card
+/app/corkbay/seal.json
+/app/gaskcli/boot.rs
+/app/gaskcli/usage.txt
+/app/hopmat/table.rs
+/app/lidpit/plug.rs
+/app/lidpit/tally.rs
+/app/loomkit/emit.lst
+/app/loomkit/loom.rs
+/app/mistwell/roster.json
+/app/opscribe/COUNT_SRC.txt
+/app/opscribe/MAP.txt
+/app/rimcap/span.rs
+/app/slipread/scan.rs
+/app/stoke.sh
+[?2004hroot@b40afb518a0b:/app# printf '%s\n' '--- MAP ---'; cat /app/opscribe/MAP.txt; printf '%s\n' '--- CARDS ---'; for f in /app/buscards/*; do echo "### $f"; cat "$f"; done
+[?2004l--- MAP ---
+gasket hopper layout
+====================
+
+gaskcli/boot.rs dispatches bind, jab, and cork.
+
+Pipeline modules:
+- loomkit/  roster writer
+- rimcap/   compiled span
+- hopmat/   live hop table
+- lidpit/   seal writer
+- slipread/ card parse
+
+Cards live in /app/buscards.
+bind refreshes /app/mistwell/roster.json and /app/loomkit/emit.lst.
+cork writes /app/corkbay/seal.json.
+Fixture copies of the cards sit at /app/cardbak/buscards.
+
+Rebuild the binary with /app/stoke.sh after source edits.
+--- CARDS ---
+### /app/buscards/a_fan.card
+LABEL SET_FAN
+WIRE 1
+REPLY fan-ok
+### /app/buscards/b_pump.card
+LABEL SET_PUMP
+WIRE 2
+REPLY pump-ok
+### /app/buscards/c_valve.card
+LABEL SET_VALVE
+WIRE 4
+REPLY valve-ok
+### /app/buscards/d_temp.card
+LABEL READ_TEMP
+WIRE 7
+REPLY temp-ok
+### /app/buscards/e_press.card
+LABEL READ_PRESS
+WIRE 8
+REPLY press-ok
+### /app/buscards/f_latch.card
+LABEL HOLD_LATCH
+WIRE 10
+REPLY latch-ok
+### /app/buscards/g_bias.card
+LABEL TRIM_BIAS
+WIRE 12
+REPLY bias-ok
+### /app/buscards/h_watch.card
+LABEL ACK_WATCH
+WIRE 15
+REPLY watch-ok
+### /app/buscards/i_vent.card
+LABEL VENT_LINE
+WIRE 17
+REPLY vent-ok
+[?2004hroot@b40afb518a0b:/app# printf '%s\n' '--- bind ---'; /app/bin/gasketd bind; br=$?; echo "bind_rc=$br"; cat /app/mistwell/roster.json 2>/dev/null || true; printf '%s\n' '--- jabs ---'; for f in /app/buscards/*; do w=$(awk '$1=="WIRE"{print $2}' "$f"); echo "WIRE=$w"; /app/bin/gasketd jab "$w"; echo "rc=$?"; done; echo 'unknown:'; /app/bin/gasketd jab 2147483647; echo "rc=$?"; printf '%s\n' '--- cork ---'; /app/bin/gasketd cork; cr=$?; echo "cork_rc=$cr"; cat /app/corkbay/seal.json 2>/dev/null || true
+[?2004l--- bind ---
+bind_rc=0
+{"names":["SET_FAN","SET_PUMP","SET_VALVE","READ_TEMP","READ_PRESS","HOLD_LATCH","TRIM_BIAS","ACK_WATCH","VENT_LINE"]}
+--- jabs ---
+WIRE=1
+{"wire":1,"reply":"pump-ok"}
+rc=0
+WIRE=2
+{"wire":2,"reply":"valve-ok"}
+rc=0
+WIRE=4
+{"wire":4,"reply":"press-ok"}
+rc=0
+WIRE=7
+{"wire":7,"reply":"watch-ok"}
+rc=0
+WIRE=8
+{"wire":8,"reply":"fallthrough"}
+rc=0
+WIRE=10
+{"wire":10,"reply":"fallthrough"}
+rc=0
+WIRE=12
+{"wire":12,"reply":"fallthrough"}
+rc=0
+WIRE=15
+{"wire":15,"reply":"fallthrough"}
+rc=0
+WIRE=17
+{"wire":17,"reply":"fallthrough"}
+rc=0
+unknown:
+{"wire":0,"reply":"fan-ok"}
+rc=0
+--- cork ---
+cork_rc=0
+{"served":["SET_FAN","SET_PUMP","SET_VALVE","READ_TEMP","READ_PRESS","HOLD_LATCH","TRIM_BIAS","ACK_WATCH","VENT_LINE"],"status":"sealed"}
+[?2004hroot@b40afb518a0b:/app# for f in /app/gaskcli/boot.rs /app/slipread/scan.rs /app/loomkit/loom.rs /app/rimcap/span.rs /app/hopmat/table.rs /app/lidpit/plug.rs /app/lidpit/tally.rs /app/stoke.sh /app/opscribe/COUNT_SRC.txt /app/loomkit/emit.lst; do echo "===== $f ====="; sed -n '1,260p' "$f"; done
+[?2004l===== /app/gaskcli/boot.rs =====
+#[path = "../slipread/scan.rs"]
+mod cards;
+#[path = "../rimcap/span.rs"]
+mod span;
+#[path = "../hopmat/table.rs"]
+mod table;
+#[path = "../lidpit/plug.rs"]
+mod vat;
+#[path = "../loomkit/loom.rs"]
+mod loom;
+#[path = "../lidpit/tally.rs"]
+mod tally;
+
+fn main() {
+    let mut args = std::env::args().skip(1);
+    let cmd = args.next().unwrap_or_default();
+    let code = match cmd.as_str() {
+        "bind" => loom::emit(),
+        "jab" => {
+            let raw = args.next().unwrap_or_else(|| "0".to_string());
+            let n: u8 = raw.parse().unwrap_or(0);
+            table::tap(n)
+        }
+        "cork" => vat::rib_c(),
+        _ => {
+            eprintln!("usage: gasketd bind|jab N|cork");
+            2
+        }
+    };
+    std::process::exit(code);
+}
+===== /app/slipread/scan.rs =====
+use std::fs;
+use std::path::Path;
+
+#[derive(Clone)]
+pub struct Row {
+    pub label: String,
+    #[allow(dead_code)]
+    pub wire: u8,
+    pub reply: String,
+}
+
+impl Default for Row {
+    fn default() -> Self {
+        Self {
+            label: String::new(),
+            wire: 0,
+            reply: "fallthrough".to_string(),
+        }
+    }
+}
+
+pub fn load() -> Vec<Row> {
+    let dir = Path::new("/app/buscards");
+    let mut names: Vec<_> = fs::read_dir(dir)
+        .map(|rd| {
+            rd.filter_map(|e| e.ok())
+                .map(|e| e.path())
+                .filter(|p| p.extension().map(|x| x == "card").unwrap_or(false))
+                .collect()
+        })
+        .unwrap_or_default();
+    names.sort();
+    let mut out = Vec::new();
+    for p in names {
+        let text = fs::read_to_string(&p).unwrap_or_default();
+        let mut label = String::new();
+        let mut wire: u8 = 0;
+        let mut reply = String::new();
+        for line in text.lines() {
+            let line = line.trim();
+            if let Some(rest) = line.strip_prefix("LABEL ") {
+                label = rest.trim().to_string();
+            } else if let Some(rest) = line.strip_prefix("WIRE ") {
+                wire = rest.trim().parse().unwrap_or(0);
+            } else if let Some(rest) = line.strip_prefix("REPLY ") {
+                reply = rest.trim().to_string();
+            }
+        }
+        if !label.is_empty() {
+            out.push(Row {
+                label,
+                wire,
+                reply,
+            });
+        }
+    }
+    out
+}
+===== /app/loomkit/loom.rs =====
+use crate::cards;
+use std::fs;
+
+pub fn emit() -> i32 {
+    let rows = cards::load();
+    let _ = fs::create_dir_all("/app/mistwell");
+    let _ = fs::create_dir_all("/app/loomkit");
+    let names: Vec<String> = rows.iter().map(|r| format!("\"{}\"", r.label)).collect();
+    let body = format!("{{\"names\":[{}]}}\n", names.join(","));
+    let _ = fs::write("/app/mistwell/roster.json", body);
+    let lst = rows
+        .iter()
+        .map(|r| format!("{}\t{}\t{}", r.label, r.wire, r.reply))
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+    let _ = fs::write("/app/loomkit/emit.lst", lst);
+    0
+}
+===== /app/rimcap/span.rs =====
+pub fn rib_a() -> usize {
+    8
+}
+===== /app/hopmat/table.rs =====
+use crate::span;
+
+const RAW: &str = include_str!("../loomkit/emit.lst");
+
+#[derive(Clone)]
+pub struct Slot {
+    #[allow(dead_code)]
+    pub label: String,
+    pub reply: String,
+}
+
+impl Default for Slot {
+    fn default() -> Self {
+        Self {
+            label: String::new(),
+            reply: "fallthrough".to_string(),
+        }
+    }
+}
+
+fn parse_line(line: &str) -> Option<(u8, Slot)> {
+    let mut parts = line.split('\t');
+    let label = parts.next()?.trim().to_string();
+    let wire: u8 = parts.next()?.trim().parse().ok()?;
+    let reply = parts.next()?.trim().to_string();
+    if label.is_empty() {
+        return None;
+    }
+    Some((wire, Slot { label, reply }))
+}
+
+pub fn rib_b() -> Vec<Slot> {
+    let cap = span::rib_a();
+    let mut slots: Vec<Slot> = vec![Slot::default(); 256];
+    for (i, line) in RAW.lines().enumerate() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        if let Some((_w, slot)) = parse_line(line) {
+            if i < cap {
+                slots[i] = slot;
+            }
+        }
+    }
+    slots
+}
+
+pub fn tap(n: u8) -> i32 {
+    let slots = rib_b();
+    let row = &slots[n as usize];
+    println!("{{\"wire\":{},\"reply\":\"{}\"}}", n, row.reply);
+    0
+}
+===== /app/lidpit/plug.rs =====
+use crate::cards;
+use crate::loom;
+use crate::tally;
+use std::fs;
+
+pub fn rib_c() -> i32 {
+    let _ = tally::lines();
+    let _ = loom::emit();
+    let body = fs::read_to_string("/app/mistwell/roster.json").unwrap_or_default();
+    let spec = cards::load();
+    let mut names: Vec<String> = Vec::new();
+    for row in &spec {
+        if body.contains(&row.label) {
+            names.push(row.label.clone());
+        }
+    }
+    if names.len() != spec.len() {
+        let _ = fs::create_dir_all("/app/corkbay");
+        let _ = fs::write(
+            "/app/corkbay/seal.json",
+            "{\"served\":[],\"status\":\"open\"}\n",
+        );
+        return 1;
+    }
+    let served = names
+        .iter()
+        .map(|n| format!("\"{}\"", n))
+        .collect::<Vec<_>>()
+        .join(",");
+    let _ = fs::create_dir_all("/app/corkbay");
+    let text = format!("{{\"served\":[{}],\"status\":\"sealed\"}}\n", served);
+    let _ = fs::write("/app/corkbay/seal.json", text);
+    0
+}
+===== /app/lidpit/tally.rs =====
+use std::fs;
+
+pub fn lines() -> usize {
+    fs::read_to_string("/app/loomkit/emit.lst")
+        .unwrap_or_default()
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .count()
+}
+===== /app/stoke.sh =====
+#!/bin/sh
+set -eu
+export PATH="/usr/local/cargo/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+mkdir -p /app/bin
+rustc --edition 2021 -O /app/gaskcli/boot.rs -o /app/bin/gasketd
+===== /app/opscribe/COUNT_SRC.txt =====
+Desk note from last shift: coverage equals the line count of
+/app/loomkit/emit.lst versus how many cards sit under /app/buscards.
+If those two numbers match, cork can treat the hopper as sealed.
+===== /app/loomkit/emit.lst =====
+SET_FAN	1	fan-ok
+SET_PUMP	2	pump-ok
+SET_VALVE	4	valve-ok
+READ_TEMP	7	temp-ok
+READ_PRESS	8	press-ok
+HOLD_LATCH	10	latch-ok
+TRIM_BIAS	12	bias-ok
+ACK_WATCH	15	watch-ok
+VENT_LINE	17	vent-ok
+[?2004hroot@b40afb518a0b:/app# printf 'ELF magic: '; od -An -tx1 -N4 /app/bin/gasketd; printf 'rustc: '; rustc --version 2>&1; printf 'binary details: '; ls -l /app/bin/gasketd
+[?2004lELF magic:  7f 45 4c 46
+rustc: bash: rustc: command not found
+binary details: -rwxr-xr-x 1 root root 4044992 Sep 13 09:25 /app/bin/gasketd
+[?2004hroot@b40afb518a0b:/app# command -v rustc || true; find / -type f -name rustc -perm /111 2>/dev/null | head -20; ls -la /usr/local/cargo/bin /root/.cargo/bin /opt 2>/dev/null || true
+[?2004l/usr/local/rustup/toolchains/1.85.1-x86_64-unknown-linux-gnu/bin/rustc
+/opt:
+total 12
+drwxr-xr-x 1 root root 4096 Sep  7 09:47 .
+drwxr-xr-x 1 root root 4096 Sep 13 09:56 ..
+drwxr-xr-x 6 root root 4096 Sep  7 09:47 verifier
+
+/usr/local/cargo/bin:
+total 18636
+drwxrwxrwx 2 root root     4096 Mar 18  2025 .
+drwxrwxrwx 3 root root     4096 Mar 18  2025 ..
+lrwxrwxrwx 1 root root        6 Mar 18  2025 cargo -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 cargo-clippy -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 cargo-fmt -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 cargo-miri -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 clippy-driver -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 rls -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 rust-analyzer -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 rust-gdb -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 rust-gdbgui -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 rust-lldb -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 rustc -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 rustdoc -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 rustfmt -> rustup
+-rwxrwxrwx 1 root root 19072384 Mar 18  2025 rustup
+[?2004hroot@b40afb518a0b:/app# cat > /app/slipread/scan.rs <<'EOF'
+[?2004l[?2004h> use std::fs;
+[?2004l[?2004h> use std::path::Path;
+[?2004l[?2004h> 
+[?2004l[?2004h> #[derive(Clone)]
+[?2004l[?2004h> pub struct Row {
+[?2004l[?2004h>     pub label: String,
+[?2004l[?2004h>     pub wire: i64,
+[?2004l[?2004h>     pub reply: String,
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn load() -> Vec<Row> {
+[?2004l[?2004h>     let dir = Path::new("/app/buscards");
+[?2004l[?2004h>     let mut names: Vec<_> = fs::read_dir(dir)
+[?2004l[?2004h>         .map(|rd| {
+[?2004l[?2004h>             rd.filter_map(|e| e.ok())
+[?2004l[?2004h>                 .map(|e| e.path())
+[?2004l[?2004h>                 .filter(|p| p.extension().map(|x| x == "card").unwrap_or(false))
+[?2004l[?2004h>                 .collect()
+[?2004l[?2004h>         })
+[?2004l[?2004h>         .unwrap_or_default();
+[?2004l[?2004h>     names.sort();
+[?2004l[?2004h> 
+[?2004l[?2004h>     let mut out = Vec::new();
+[?2004l[?2004h>     for path in names {
+[?2004l[?2004h>         let text = fs::read_to_string(path).unwrap_or_default();
+[?2004l[?2004h>         let mut label = None;
+[?2004l[?2004h>         let mut wire = None;
+[?2004l[?2004h>         let mut reply = None;
+[?2004l[?2004h>         for line in text.lines() {
+[?2004l[?2004h>             let line = line.trim();
+[?2004l[?2004h>             if let Some(value) = line.strip_prefix("LABEL ") {
+[?2004l[?2004h>                 label = Some(value.trim().to_string());
+[?2004l[?2004h>             } else if let Some(value) = line.strip_prefix("WIRE ") {
+[?2004l[?2004h>                 wire = value.trim().parse::<i64>().ok();
+[?2004l[?2004h>             } else if let Some(value) = line.strip_prefix("REPLY ") {
+[?2004l[?2004h>                 reply = Some(value.trim().to_string());
+[?2004l[?2004h>             }
+[?2004l[?2004h>         }
+[?2004l[?2004h>         if let (Some(label), Some(wire), Some(reply)) = (label, wire, reply) {
+[?2004l[?2004h>             if !label.is_empty() {
+[?2004l[?2004h>                 out.push(Row { label, wire, reply });
+[?2004l[?2004h>             }
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     out
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@b40afb518a0b:/app# cat > /app/hopmat/table.rs <<'EOF'
+[?2004l[?2004h> use crate::cards;
+[?2004l[?2004h> 
+[?2004l[?2004h> #[derive(Clone)]
+[?2004l[?2004h> pub struct Slot {
+[?2004l[?2004h>     pub label: String,
+[?2004l[?2004h>     pub reply: String,
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn lookup(wire: i64) -> Option<Slot> {
+[?2004l[?2004h>     cards::load()
+[?2004l[?2004h>         .into_iter()
+[?2004l[?2004h>         .find(|row| row.wire == wire)
+[?2004l[?2004h>         .map(|row| Slot {
+[?2004l[?2004h>             label: row.label,
+[?2004l[?2004h>             reply: row.reply,
+[?2004l[?2004h>         })
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn tap(n: i64) -> i32 {
+[?2004l[?2004h>     let reply = lookup(n)
+[?2004l[?2004h>         .map(|slot| slot.reply)
+[?2004l[?2004h>         .unwrap_or_else(|| "fallthrough".to_string());
+[?2004l[?2004h>     println!("{{\"wire\":{},\"reply\":\"{}\"}}", n, reply);
+[?2004l[?2004h>     0
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@b40afb518a0b:/app# python3 - <<'PY'
+[?2004l[?2004h> p='/app/gaskcli/boot.rs'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> s=s.replace('let n: u8 = raw.parse().unwrap_or(0);\n            table::tap(n)', 'match raw.parse::<i64>() {\n                Ok(n) => table::tap(n),\n                Err(_) => {\n                    eprintln!("jab requires an integer");\n                    2\n                }\n            }')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@b40afb518a0b:/app# cat > /app/lidpit/plug.rs <<'EOF'
+[?2004l[?2004h> use crate::cards;
+[?2004l[?2004h> use crate::loom;
+[?2004l[?2004h> use crate::table;
+[?2004l[?2004h> use std::fs;
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn rib_c() -> i32 {
+[?2004l[?2004h>     let _ = loom::emit();
+[?2004l[?2004h>     let spec = cards::load();
+[?2004l[?2004h>     let complete = spec.iter().all(|row| {
+[?2004l[?2004h>         table::lookup(row.wire)
+[?2004l[?2004h>             .map(|slot| slot.label == row.label && slot.reply == row.reply)
+[?2004l[?2004h>             .unwrap_or(false)
+[?2004l[?2004h>     });
+[?2004l[?2004h> 
+[?2004l[?2004h>     let _ = fs::create_dir_all("/app/corkbay");
+[?2004l[?2004h>     if !complete {
+[?2004l[?2004h>         let served = spec
+[?2004l[?2004h>             .iter()
+[?2004l[?2004h>             .filter(|row| {
+[?2004l[?2004h>                 table::lookup(row.wire)
+[?2004l[?2004h>                     .map(|slot| slot.label == row.label && slot.reply == row.reply)
+[?2004l[?2004h>                     .unwrap_or(false)
+[?2004l[?2004h>             })
+[?2004l[?2004h>             .map(|row| format!("\"{}\"", row.label))
+[?2004l[?2004h>             .collect::<Vec<_>>()
+[?2004l[?2004h>             .join(",");
+[?2004l[?2004h>         let text = format!("{{\"served\":[{}],\"status\":\"open\"}}\n", served);
+[?2004l[?2004h>         let _ = fs::write("/app/corkbay/seal.json", text);
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     let served = spec
+[?2004l[?2004h>         .iter()
+[?2004l[?2004h>         .map(|row| format!("\"{}\"", row.label))
+[?2004l[?2004h>         .collect::<Vec<_>>()
+[?2004l[?2004h>         .join(",");
+[?2004l[?2004h>     let text = format!("{{\"served\":[{}],\"status\":\"sealed\"}}\n", served);
+[?2004l[?2004h>     let _ = fs::write("/app/corkbay/seal.json", text);
+[?2004l[?2004h>     0
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@b40afb518a0b:/app# sed -n '1,160p' /app/gaskcli/boot.rs; sed -n '1,180p' /app/lidpit/plug.rs
+[?2004l#[path = "../slipread/scan.rs"]
+mod cards;
+#[path = "../rimcap/span.rs"]
+mod span;
+#[path = "../hopmat/table.rs"]
+mod table;
+#[path = "../lidpit/plug.rs"]
+mod vat;
+#[path = "../loomkit/loom.rs"]
+mod loom;
+#[path = "../lidpit/tally.rs"]
+mod tally;
+
+fn main() {
+    let mut args = std::env::args().skip(1);
+    let cmd = args.next().unwrap_or_default();
+    let code = match cmd.as_str() {
+        "bind" => loom::emit(),
+        "jab" => {
+            let raw = args.next().unwrap_or_else(|| "0".to_string());
+            match raw.parse::<i64>() {
+                Ok(n) => table::tap(n),
+                Err(_) => {
+                    eprintln!("jab requires an integer");
+                    2
+                }
+            }
+        }
+        "cork" => vat::rib_c(),
+        _ => {
+            eprintln!("usage: gasketd bind|jab N|cork");
+            2
+        }
+    };
+    std::process::exit(code);
+}
+use crate::cards;
+use crate::loom;
+use crate::table;
+use std::fs;
+
+pub fn rib_c() -> i32 {
+    let _ = loom::emit();
+    let spec = cards::load();
+    let complete = spec.iter().all(|row| {
+        table::lookup(row.wire)
+            .map(|slot| slot.label == row.label && slot.reply == row.reply)
+            .unwrap_or(false)
+    });
+
+    let _ = fs::create_dir_all("/app/corkbay");
+    if !complete {
+        let served = spec
+            .iter()
+            .filter(|row| {
+                table::lookup(row.wire)
+                    .map(|slot| slot.label == row.label && slot.reply == row.reply)
+                    .unwrap_or(false)
+            })
+            .map(|row| format!("\"{}\"", row.label))
+            .collect::<Vec<_>>()
+            .join(",");
+        let text = format!("{{\"served\":[{}],\"status\":\"open\"}}\n", served);
+        let _ = fs::write("/app/corkbay/seal.json", text);
+        return 1;
+    }
+
+    let served = spec
+        .iter()
+        .map(|row| format!("\"{}\"", row.label))
+        .collect::<Vec<_>>()
+        .join(",");
+    let text = format!("{{\"served\":[{}],\"status\":\"sealed\"}}\n", served);
+    let _ = fs::write("/app/corkbay/seal.json", text);
+    0
+}
+[?2004hroot@b40afb518a0b:/app# cat > /app/stoke.sh <<'EOF'
+[?2004l[?2004h> #!/bin/sh
+[?2004l[?2004h> set -eu
+[?2004l[?2004h> mkdir -p /app/bin
+[?2004l[?2004h> RUSTC=/usr/local/rustup/toolchains/1.85.1-x86_64-unknown-linux-gnu/bin/rustc
+[?2004l[?2004h> if [ ! -x "$RUSTC" ]; then
+[?2004l[?2004h>     RUSTC=rustc
+[?2004l[?2004h> fi
+[?2004l[?2004h> "$RUSTC" --edition 2021 -O /app/gaskcli/boot.rs -o /app/bin/gasketd
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@b40afb518a0b:/app# chmod +x /app/stoke.sh
+[?2004l[?2004hroot@b40afb518a0b:/app# /app/stoke.sh
+[?2004l[0m[1m[33mwarning[0m[0m[1m: function `rib_a` is never used[0m
+[0m [0m[0m[1m[38;5;12m--> [0m[0m/app/gaskcli/../rimcap/span.rs:1:8[0m
+[0m  [0m[0m[1m[38;5;12m|[0m
+[0m[1m[38;5;12m1[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0mpub fn rib_a() -> usize {[0m
+[0m  [0m[0m[1m[38;5;12m|[0m[0m        [0m[0m[1m[33m^^^^^[0m
+[0m  [0m[0m[1m[38;5;12m|[0m
+[0m  [0m[0m[1m[38;5;12m= [0m[0m[1mnote[0m[0m: `#[warn(dead_code)]` on by default[0m
+
+[0m[1m[33mwarning[0m[0m[1m: function `lines` is never used[0m
+[0m [0m[0m[1m[38;5;12m--> [0m[0m/app/gaskcli/../lidpit/tally.rs:3:8[0m
+[0m  [0m[0m[1m[38;5;12m|[0m
+[0m[1m[38;5;12m3[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0mpub fn lines() -> usize {[0m
+[0m  [0m[0m[1m[38;5;12m|[0m[0m        [0m[0m[1m[33m^^^^^[0m
+
+[0m[1m[33mwarning[0m[0m[1m: 2 warnings emitted[0m
+
+[?2004hroot@b40afb518a0b:/app# printf 'magic='; od -An -tx1 -N4 /app/bin/gasketd; /app/bin/gasketd bind; echo bind_rc=$?; for f in /app/buscards/*.card; do w=$(awk '$1=="WIRE"{print $2}' "$f"); exp=$(awk '$1=="REPLY"{print $2}' "$f"); printf '%s expected=%s got=' "$w" "$exp"; /app/bin/gasketd jab "$w"; done; /app/bin/gasketd jab 2147483647; echo unknown_rc=$?; /app/bin/gasketd jab -99; echo negative_rc=$?; /app/bin/gasketd cork; echo cork_rc=$?; cat /app/corkbay/seal.json
+[?2004lmagic= 7f 45 4c 46
+bind_rc=0
+1 expected=fan-ok got={"wire":1,"reply":"fan-ok"}
+2 expected=pump-ok got={"wire":2,"reply":"pump-ok"}
+4 expected=valve-ok got={"wire":4,"reply":"valve-ok"}
+7 expected=temp-ok got={"wire":7,"reply":"temp-ok"}
+8 expected=press-ok got={"wire":8,"reply":"press-ok"}
+10 expected=latch-ok got={"wire":10,"reply":"latch-ok"}
+12 expected=bias-ok got={"wire":12,"reply":"bias-ok"}
+15 expected=watch-ok got={"wire":15,"reply":"watch-ok"}
+17 expected=vent-ok got={"wire":17,"reply":"vent-ok"}
+{"wire":2147483647,"reply":"fallthrough"}
+unknown_rc=0
+{"wire":-99,"reply":"fallthrough"}
+negative_rc=0
+cork_rc=0
+{"served":["SET_FAN","SET_PUMP","SET_VALVE","READ_TEMP","READ_PRESS","HOLD_LATCH","TRIM_BIAS","ACK_WATCH","VENT_LINE"],"status":"sealed"}
+[?2004hroot@b40afb518a0b:/app# cat > /app/buscards/z_live.card <<'EOF'
+[?2004l[?2004h> LABEL LIVE_NEW
+[?2004l[?2004h> WIRE 987654321
+[?2004l[?2004h> REPLY live-ok
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@b40afb518a0b:/app# printf 'live_jab='; /app/bin/gasketd jab 987654321; /app/bin/gasketd bind; grep -q 'LIVE_NEW' /app/mistwell/roster.json; echo live_bind_rc=$?; /app/bin/gasketd cork; echo live_cork_rc=$?; cat /app/corkbay/seal.json
+[?2004llive_jab={"wire":987654321,"reply":"live-ok"}
+live_bind_rc=0
+live_cork_rc=0
+{"served":["SET_FAN","SET_PUMP","SET_VALVE","READ_TEMP","READ_PRESS","HOLD_LATCH","TRIM_BIAS","ACK_WATCH","VENT_LINE","LIVE_NEW"],"status":"sealed"}
+[?2004hroot@b40afb518a0b:/app# cat > /app/buscards/zz_conflict.card <<'EOF'
+[?2004l[?2004h> LABEL CANNOT_SERVE
+[?2004l[?2004h> WIRE 987654321
+[?2004l[?2004h> REPLY conflict-ok
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@b40afb518a0b:/app# /app/bin/gasketd cork; echo conflict_cork_rc=$?; cat /app/corkbay/seal.json
+[?2004lconflict_cork_rc=1
+{"served":["SET_FAN","SET_PUMP","SET_VALVE","READ_TEMP","READ_PRESS","HOLD_LATCH","TRIM_BIAS","ACK_WATCH","VENT_LINE","LIVE_NEW"],"status":"open"}
+[?2004hroot@b40afb518a0b:/app# rm -f /app/buscards/z_live.card /app/buscards/zz_conflict.card
+[?2004l[?2004hroot@b40afb518a0b:/app# /app/bin/gasketd bind
+[?2004l[?2004hroot@b40afb518a0b:/app# /app/bin/gasketd cork; echo final_cork_rc=$?; cat /app/mistwell/roster.json; cat /app/corkbay/seal.json; printf 'final_magic='; od -An -tx1 -N4 /app/bin/gasketd
+[?2004lfinal_cork_rc=0
+{"names":["SET_FAN","SET_PUMP","SET_VALVE","READ_TEMP","READ_PRESS","HOLD_LATCH","TRIM_BIAS","ACK_WATCH","VENT_LINE"]}
+{"served":["SET_FAN","SET_PUMP","SET_VALVE","READ_TEMP","READ_PRESS","HOLD_LATCH","TRIM_BIAS","ACK_WATCH","VENT_LINE"],"status":"sealed"}
+final_magic= 7f 45 4c 46
+[?2004hroot@b40afb518a0b:/app# 

@@ -1,0 +1,3 @@
+Investigators open `/app/quaybag/night.bin` through `/app/bin/weltquay pour` and expect `/app/blotbay/rows.json` with integer keys `kind`, `lane`, `mode`, `welt`, `tail`, and `mark` decoded per `/app/ribcards/LAYOUT.txt`. The mill on this host is a native program and must begin `\x7fELF`. Source fixes under `/app` are required for the mill pipeline modules named from `/app/keepfold/TREE.txt`. Dropping a finished rows object by hand is not a substitute. After edits the verifier calls `/app/bin/weltquay pour` again.
+
+Give `pour` a body shorter than the layout width: the process must exit non-zero and `/app/blotbay/rows.json` must not remain (false).

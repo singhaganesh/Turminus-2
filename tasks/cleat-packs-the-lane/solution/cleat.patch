@@ -1,0 +1,351 @@
+diff -ruN a/environment/apron.go b/environment/apron.go
+--- a/environment/apron.go	2026-09-18 16:42:04.557350646 +0530
++++ b/environment/apron.go	2026-09-18 17:02:36.190469211 +0530
+@@ -1,6 +1,8 @@
+ package main
+ 
+ func rampApron(haz int) int {
+-	_ = haz
++	if haz == 1 {
++		return 100
++	}
+ 	return 0
+ }
+diff -ruN a/environment/board.go b/environment/board.go
+--- a/environment/board.go	2026-09-18 16:41:59.937042377 +0530
++++ b/environment/board.go	2026-09-18 17:02:36.185550905 +0530
+@@ -4,17 +4,15 @@
+ 
+ func arrange(cars []Car) []Car {
+ 	out := append([]Car(nil), cars...)
+-	sort.Slice(out, func(i, j int) bool {
++	sort.SliceStable(out, func(i, j int) bool {
+ 		if out[i].Board == out[j].Board {
+-			return out[i].Plate > out[j].Plate
++			return out[i].Plate < out[j].Plate
+ 		}
+-		return out[i].Board > out[j].Board
++		return out[i].Board < out[j].Board
+ 	})
+ 	return out
+ }
+ 
+ func stationOf(cursor int, car Car, gap int) int {
+-	_ = car
+-	_ = gap
+-	return cursor - 10
++	return cursor - gap - car.Len
+ }
+diff -ruN a/environment/fold.go b/environment/fold.go
+--- a/environment/fold.go	2026-09-18 16:42:09.158720571 +0530
++++ b/environment/fold.go	2026-09-18 17:02:36.192164533 +0530
+@@ -1,6 +1,9 @@
+ package main
+ 
+-import "strings"
++import (
++	"strconv"
++	"strings"
++)
+ 
+ func fold(sheet string) (int, string) {
+ 	cars, rc := parseRoll(sheet)
+@@ -8,40 +11,61 @@
+ 		return rc, ""
+ 	}
+ 	if len(cars) == 0 {
+-		return 0, "{\"i\":1,\"verb\":\"stow\",\"ok\":\"empty\"}\n"
++		return 0, ""
+ 	}
+-	ordered := arrange(cars)
+ 	fill := map[string]*occ{}
+ 	deckKg := map[string]int{}
++	choice := map[string]Lane{}
++	rejected := map[string]bool{}
++	laneCars := map[string][]Car{}
++	for _, car := range arrange(cars) {
++		lane, ok := pickLane(car, fill, deckKg)
++		if !ok {
++			rejected[car.Plate] = true
++			continue
++		}
++		slot := fill[lane.Name]
++		if slot == nil {
++			slot = &occ{}
++			fill[lane.Name] = slot
++		}
++		gap := 0
++		if slot.has {
++			gap = neighbourGap(slot.lastHaz, car.Haz)
++		}
++		slot.used += gap + car.Len
++		slot.mass += car.Mass
++		slot.lastHaz = car.Haz
++		slot.has = true
++		deckKg[lane.Deck] += car.Mass
++		choice[car.Plate] = lane
++		laneCars[lane.Name] = append(laneCars[lane.Name], car)
++	}
++	station := map[string]int{}
++	for _, lane := range allLanes() {
++		cursor := lane.Span
++		prevHaz := 0
++		has := false
++		for _, car := range laneCars[lane.Name] {
++			gap := 0
++			if has {
++				gap = neighbourGap(prevHaz, car.Haz)
++			}
++			cursor = stationOf(cursor, car, gap)
++			station[car.Plate] = cursor
++			prevHaz = car.Haz
++			has = true
++		}
++	}
+ 	var lines []string
+ 	n := 0
+-	for i, car := range ordered {
+-		lane := pickLane(car, fill, deckKg)
+-		station := stationOf(2000, car, 0)
+-		_ = i
+-		emit(&lines, &n, car.Plate, lane.Deck, lane.Name, fmtInt(station), "yes")
+-		if fill[lane.Name] == nil {
+-			fill[lane.Name] = &occ{}
++	for _, car := range cars {
++		if rejected[car.Plate] {
++			emit(&lines, &n, car.Plate, "", "", "", "no")
++			continue
+ 		}
+-		fill[lane.Name].used += car.Len
+-		fill[lane.Name].has = true
++		ln := choice[car.Plate]
++		emit(&lines, &n, car.Plate, ln.Deck, ln.Name, strconv.Itoa(station[car.Plate]), "yes")
+ 	}
+ 	return 0, strings.Join(lines, "")
+ }
+-
+-func fmtInt(n int) string {
+-	if n == 0 {
+-		return "0"
+-	}
+-	sign := ""
+-	if n < 0 {
+-		sign = "-"
+-		n = -n
+-	}
+-	var d []byte
+-	for n > 0 {
+-		d = append([]byte{byte('0' + n%10)}, d...)
+-		n /= 10
+-	}
+-	return sign + string(d)
+-}
+diff -ruN a/environment/kilo.go b/environment/kilo.go
+--- a/environment/kilo.go	2026-09-18 16:42:00.952586747 +0530
++++ b/environment/kilo.go	2026-09-18 17:02:36.185968825 +0530
+@@ -1,9 +1,11 @@
+ package main
+ 
+ func massFits(lane Lane, slot *occ, car Car, deckUsed int) bool {
+-	_ = lane
+-	_ = slot
+-	_ = car
+-	_ = deckUsed
++	if slot.mass+car.Mass > lane.MassCap {
++		return false
++	}
++	if deckUsed+car.Mass > lane.DeckCap {
++		return false
++	}
+ 	return true
+ }
+diff -ruN a/environment/offer.go b/environment/offer.go
+--- a/environment/offer.go	2026-09-18 16:41:58.745046941 +0530
++++ b/environment/offer.go	2026-09-18 17:02:36.183780675 +0530
+@@ -7,9 +7,23 @@
+ 	has     bool
+ }
+ 
+-func pickLane(car Car, fill map[string]*occ, deckKg map[string]int) Lane {
+-	_ = car
+-	_ = fill
+-	_ = deckKg
+-	return Lane{Deck: "B", Name: "B1", Lid: 420, Span: 2000}
++func pickLane(car Car, fill map[string]*occ, deckKg map[string]int) (Lane, bool) {
++	for _, lane := range allLanes() {
++		if car.Ht > lane.Lid {
++			continue
++		}
++		slot := fill[lane.Name]
++		if slot == nil {
++			slot = &occ{}
++			fill[lane.Name] = slot
++		}
++		gap := 0
++		if slot.has {
++			gap = neighbourGap(slot.lastHaz, car.Haz)
++		}
++		if slot.used+gap+car.Len+rampApron(car.Haz) <= lane.Span && massFits(lane, slot, car, deckKg[lane.Deck]) && trimFits(lane, fill, car.Mass) {
++			return lane, true
++		}
++	}
++	return Lane{}, false
+ }
+diff -ruN a/environment/parse.go b/environment/parse.go
+--- a/environment/parse.go	2026-09-18 16:41:54.932964454 +0530
++++ b/environment/parse.go	2026-09-18 17:02:36.180331581 +0530
+@@ -26,37 +26,41 @@
+ 			continue
+ 		}
+ 		words := strings.Fields(line)
+-		if len(words) < 10 {
+-			continue
++		if len(words) != 12 {
++			return nil, -2
+ 		}
+-		if words[0] != "PLATE" || words[2] != "LEN" || words[4] != "HT" || words[6] != "HAZ" || words[8] != "BOARD" {
+-			continue
++		if words[0] != "PLATE" || words[2] != "LEN" || words[4] != "HT" || words[6] != "MASS" || words[8] != "HAZ" || words[10] != "BOARD" {
++			return nil, -2
+ 		}
+ 		if !safeName(words[1]) {
+-			continue
++			return nil, -2
+ 		}
+-		length := atoiLoose(words[3])
+-		ht := atoiLoose(words[5])
+-		haz := atoiLoose(words[7])
+-		board := atoiLoose(words[9])
+-		if ht < 0 || board < 0 {
+-			continue
++		length, okLen := atoiStrict(words[3])
++		ht, okHt := atoiStrict(words[5])
++		mass, okMass := atoiStrict(words[7])
++		haz, okHaz := atoiStrict(words[9])
++		board, okBoard := atoiStrict(words[11])
++		if !okLen || !okHt || !okMass || !okHaz || !okBoard {
++			return nil, -2
++		}
++		if length <= 0 || ht <= 0 || mass <= 0 || board <= 0 || (haz != 0 && haz != 1) {
++			return nil, -2
+ 		}
+-		cars = append(cars, Car{Plate: words[1], Len: length, Ht: ht, Haz: haz, Board: board})
++		cars = append(cars, Car{Plate: words[1], Len: length, Ht: ht, Mass: mass, Haz: haz, Board: board})
+ 	}
+ 	return cars, 0
+ }
+ 
+-func atoiLoose(text string) int {
++func atoiStrict(text string) (int, bool) {
+ 	if text == "" {
+-		return 0
++		return 0, false
+ 	}
+ 	n := 0
+ 	for _, r := range text {
+ 		if r < '0' || r > '9' {
+-			return 0
++			return 0, false
+ 		}
+ 		n = n*10 + int(r-'0')
+ 	}
+-	return n
++	return n, true
+ }
+diff -ruN a/environment/spacing.go b/environment/spacing.go
+--- a/environment/spacing.go	2026-09-18 17:01:59.489047553 +0530
++++ b/environment/spacing.go	2026-09-18 17:02:36.188440138 +0530
+@@ -1,7 +1,11 @@
+ package main
+ 
+ func neighbourGap(prevHaz, haz int) int {
+-	_ = prevHaz
+-	_ = haz
++	if prevHaz == 1 && haz == 1 {
++		return 200
++	}
++	if prevHaz == 1 || haz == 1 {
++		return 100
++	}
+ 	return 0
+ }
+diff -ruN a/environment/trim.go b/environment/trim.go
+--- a/environment/trim.go	2026-09-18 17:02:28.493638507 +0530
++++ b/environment/trim.go	2026-09-18 17:02:36.193603941 +0530
+@@ -1,8 +1,41 @@
+ package main
+ 
++func sisterOf(name string) string {
++	switch name {
++	case "A1":
++		return "A2"
++	case "A2":
++		return "A1"
++	case "B1":
++		return "B2"
++	case "B2":
++		return "B1"
++	default:
++		return ""
++	}
++}
++
+ func trimFits(lane Lane, fill map[string]*occ, extra int) bool {
+-	_ = lane
+-	_ = fill
+-	_ = extra
+-	return true
++	sibName := sisterOf(lane.Name)
++	mine := fill[lane.Name]
++	sib := fill[sibName]
++	sibHas := sib != nil && sib.has
++	myHas := mine != nil && mine.has
++	if !sibHas {
++		return true
++	}
++	if !myHas {
++		return true
++	}
++	myMass := 0
++	if mine != nil {
++		myMass = mine.mass
++	}
++	sibMass := sib.mass
++	next := myMass + extra
++	diff := next - sibMass
++	if diff < 0 {
++		diff = -diff
++	}
++	return diff <= 3000
+ }
+diff -ruN a/environment/vault.go b/environment/vault.go
+--- a/environment/vault.go	2026-09-18 16:41:56.656368829 +0530
++++ b/environment/vault.go	2026-09-18 17:02:36.181878534 +0530
+@@ -1,17 +1,19 @@
+ package main
+ 
+ type Lane struct {
+-	Deck string
+-	Name string
+-	Lid  int
+-	Span int
++	Deck    string
++	Name    string
++	Lid     int
++	Span    int
++	MassCap int
++	DeckCap int
+ }
+ 
+ func allLanes() []Lane {
+ 	return []Lane{
+-		{Deck: "A", Name: "A1", Lid: 180, Span: 2000},
+-		{Deck: "A", Name: "A2", Lid: 180, Span: 2000},
+-		{Deck: "B", Name: "B1", Lid: 420, Span: 2000},
+-		{Deck: "B", Name: "B2", Lid: 420, Span: 2000},
++		{Deck: "A", Name: "A1", Lid: 180, Span: 2000, MassCap: 8000, DeckCap: 11000},
++		{Deck: "A", Name: "A2", Lid: 180, Span: 2000, MassCap: 8000, DeckCap: 11000},
++		{Deck: "B", Name: "B1", Lid: 420, Span: 2000, MassCap: 18000, DeckCap: 28000},
++		{Deck: "B", Name: "B2", Lid: 420, Span: 2000, MassCap: 18000, DeckCap: 28000},
+ 	}
+ }

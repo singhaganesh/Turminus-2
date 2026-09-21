@@ -1,0 +1,2 @@
+module Fee
+end

@@ -1,0 +1,46 @@
+--- ribvat/n_credit.c
++++ ribvat/n_credit.c
+@@ -30,6 +30,7 @@
+   char first[64];
+   FILE *f;
+   int i, j;
++  int n = 0;
+   Sel tmp[8];
+   if (!a || c < 0) {
+     return 1;
+@@ -40,9 +41,19 @@
+     return 1;
+   }
+   read_first(first, 64);
+-  memcpy(tmp, b, (size_t)c * sizeof(Sel));
+   for (i = 0; i < c; i++) {
+-    for (j = i + 1; j < c; j++) {
++    if (b[i].bid[0] == 0) {
++      continue;
++    }
++    tmp[n] = b[i];
++    if (tmp[n].host[0] == 0) {
++      strncpy(tmp[n].host, first, 63);
++      tmp[n].host[63] = 0;
++    }
++    n++;
++  }
++  for (i = 0; i < n; i++) {
++    for (j = i + 1; j < n; j++) {
+       if (strcmp(tmp[j].bid, tmp[i].bid) < 0) {
+         Sel t = tmp[i];
+         tmp[i] = tmp[j];
+@@ -51,11 +62,11 @@
+     }
+   }
+   fprintf(f, "{\"objects\":[");
+-  for (i = 0; i < c; i++) {
++  for (i = 0; i < n; i++) {
+     if (i) {
+       fputc(',', f);
+     }
+-    fprintf(f, "{\"build_id\":\"%s\",\"host\":\"%s\"}", tmp[i].bid, first);
++    fprintf(f, "{\"build_id\":\"%s\",\"host\":\"%s\"}", tmp[i].bid, tmp[i].host);
+   }
+   fprintf(f, "]}\n");
+   fclose(f);

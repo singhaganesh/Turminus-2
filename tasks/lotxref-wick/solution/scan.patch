@@ -1,0 +1,136 @@
+--- slitmill/scan.c
++++ slitmill/scan.c
+@@ -1,16 +1,94 @@
+ #include "scan.h"
+ #include "token.h"
+ #include "gap.h"
++#include <dirent.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+ #include <sys/stat.h>
+ 
+-static int find_name(Row *rows, int n, const char *name) {
+-    for (int i = 0; i < n; i++) {
+-        if (strcmp(rows[i].name, name) == 0) return i;
++static int cmp_path(const void *a, const void *b) {
++    const char *pa = (const char *)a;
++    const char *pb = (const char *)b;
++    return strcmp(pa, pb);
++}
++
++static int cmp_row(const void *a, const void *b) {
++    const Row *ra = (const Row *)a;
++    const Row *rb = (const Row *)b;
++    int c = strcmp(ra->path, rb->path);
++    if (c != 0) return c;
++    return strcmp(ra->name, rb->name);
++}
++
++static int row_ok(const Row *r) {
++    if (!r || !r->name[0] || !r->path[0]) return 0;
++    if (!file_here(r->path)) return 0;
++    if (r->lo < 1 || r->hi < r->lo) return 0;
++    return 1;
++}
++
++static int harvest(Row *rows, int max) {
++    char paths[ROW_MAX][PATH_MAX_X];
++    int np = walk_units("/app/unitpit", paths, ROW_MAX);
++    qsort(paths, (size_t)np, PATH_MAX_X, cmp_path);
++    int n = 0;
++    for (int i = 0; i < np; i++) {
++        Row got[32];
++        int k = parse_unit(paths[i], got, 32);
++        for (int j = 0; j < k && n < max; j++) {
++            if (!row_ok(&got[j])) continue;
++            rows[n++] = got[j];
++        }
+     }
+-    return -1;
++    return n;
++}
++
++static int bind_lot(Row *rows, int n) {
++    DIR *d = opendir("/app/lotbay");
++    if (!d) return 1;
++    struct dirent *ent;
++    while ((ent = readdir(d)) != NULL) {
++        size_t L = strlen(ent->d_name);
++        if (L < 5 || strcmp(ent->d_name + L - 4, ".dmp") != 0) continue;
++        char pth[PATH_MAX_X];
++        snprintf(pth, sizeof pth, "/app/lotbay/%s", ent->d_name);
++        char name[NAME_MAX], orig[PATH_MAX_X];
++        int line = 0;
++        if (parse_lot(pth, name, orig, &line) != 0) {
++            closedir(d);
++            return 1;
++        }
++        if (!file_here(orig)) {
++            closedir(d);
++            return 1;
++        }
++        int hit = 0;
++        for (int i = 0; i < n; i++) {
++            if (strcmp(rows[i].name, name) == 0 && strcmp(rows[i].path, orig) == 0) {
++                hit = 1;
++                break;
++            }
++        }
++        if (!hit) {
++            Row got[32];
++            int k = parse_unit(orig, got, 32);
++            for (int j = 0; j < k && n < ROW_MAX; j++) {
++                if (strcmp(got[j].name, name) == 0 && row_ok(&got[j])) {
++                    rows[n++] = got[j];
++                    hit = 1;
++                    break;
++                }
++            }
++        }
++        if (!hit) {
++            closedir(d);
++            return 1;
++        }
++        (void)line;
++    }
++    closedir(d);
++    return 0;
+ }
+ 
+ int op_a(void) {
+@@ -18,25 +96,16 @@
+     if (n_miss() != 0) return 1;
+ 
+     Row rows[ROW_MAX];
+-    int n = load_tbl("/app/inkwell/span.atlas", rows, ROW_MAX);
++    int n = harvest(rows, ROW_MAX);
++    if (bind_lot(rows, n) != 0) return 1;
++    n = harvest(rows, ROW_MAX);
++    if (bind_lot(rows, n) != 0) return 1;
++    qsort(rows, (size_t)n, sizeof(Row), cmp_row);
+ 
+-    FILE *df = fopen("/app/touchbay/delta.lst", "r");
+-    if (df) {
+-        char pth[PATH_MAX_X];
+-        while (fgets(pth, sizeof pth, df)) {
+-            size_t L = strlen(pth);
+-            while (L && (pth[L - 1] == '\n' || pth[L - 1] == '\r')) pth[--L] = 0;
+-            if (!L) continue;
+-            Row got[32];
+-            int k = parse_unit(pth, got, 32);
+-            for (int i = 0; i < k; i++) {
+-                int idx = find_name(rows, n, got[i].name);
+-                if (idx >= 0) continue;
+-                if (n < ROW_MAX) rows[n++] = got[i];
+-            }
+-        }
+-        fclose(df);
++    for (int i = 0; i < n; i++) {
++        if (!row_ok(&rows[i])) return 1;
+     }
+-    save_tbl("/app/inkwell/span.atlas", rows, n);
++    if (n < 1) return 1;
++    if (save_tbl("/app/inkwell/span.atlas", rows, n) != 0) return 1;
+     return n_miss();
+ }

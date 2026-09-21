@@ -1,0 +1,141 @@
+--- /app/emitbay/pour.c	2026-09-08 23:41:24.860898554 +0530
++++ /app/emitbay/pour.c	2026-09-08 23:44:28.897630697 +0530
+@@ -2,8 +2,8 @@
+ 
+ #include <stdint.h>
+ #include <stdio.h>
++#include <stdlib.h>
+ #include <string.h>
+-#include <time.h>
+ 
+ #include "../cordspin/bag.h"
+ #include "../chunkvat/walk.h"
+@@ -39,32 +39,79 @@
+ 	fwrite(b, 1, 8, fp);
+ }
+ 
++static void join_path(const struct samp *s, char *out, int cap)
++{
++	int j;
++
++	out[0] = 0;
++	for (j = 0; j < s->depth; j++) {
++		if (j)
++			strncat(out, ">", (size_t)cap - 1);
++		strncat(out, s->fr[j], (size_t)cap - 1);
++	}
++}
++
++static int cmp_path(const void *x, const void *y)
++{
++	char pa[512], pb[512];
++	const struct samp *a = x;
++	const struct samp *b = y;
++	int c;
++
++	join_path(a, pa, 512);
++	join_path(b, pb, 512);
++	c = strcmp(pa, pb);
++	if (c)
++		return c;
++	if (a->seq < b->seq)
++		return -1;
++	if (a->seq > b->seq)
++		return 1;
++	return 0;
++}
++
++static int cmp_lab_seq(const void *x, const void *y)
++{
++	const struct samp *a = x;
++	const struct samp *b = y;
++
++	if (a->seq < b->seq)
++		return -1;
++	if (a->seq > b->seq)
++		return 1;
++	return strcmp(a->lab, b->lab);
++}
++
+ int n_pour(const char *a)
+ {
+ 	FILE *fp;
+-	struct timespec ts;
+-	uint64_t stamp;
+ 	int i, j;
+-	uint32_t ns, nlab;
++	uint32_t ns;
++	struct samp *copy;
++	int n;
+ 
+ 	if (!a)
+ 		return -1;
++	n = walk_n();
++	copy = calloc((size_t)n + 1, sizeof(*copy));
++	if (!copy)
++		return -1;
++	for (i = 0; i < n; i++)
++		copy[i] = *walk_at(i);
+ 	bag_reset();
+-	for (i = 0; i < walk_n(); i++) {
+-		struct samp *s = walk_at(i);
+-		if (!s)
+-			continue;
+-		for (j = 0; j < s->depth; j++)
+-			op_bag(s->fr[j]);
++	for (i = 0; i < n; i++) {
++		for (j = 0; j < copy[i].depth; j++)
++			op_bag(copy[i].fr[j]);
+ 	}
+ 	bag_freeze();
+-	clock_gettime(CLOCK_REALTIME, &ts);
+-	stamp = (uint64_t)ts.tv_sec * 1000000ull + (uint64_t)(ts.tv_nsec / 1000);
++	qsort(copy, (size_t)n, sizeof(*copy), cmp_path);
+ 	fp = fopen(a, "wb");
+-	if (!fp)
++	if (!fp) {
++		free(copy);
+ 		return -1;
++	}
+ 	fwrite(MAGIC, 1, 4, fp);
+-	wr64(fp, stamp);
++	wr64(fp, 0);
+ 	ns = bag_n();
+ 	wr32(fp, ns);
+ 	for (i = 0; i < (int)ns; i++) {
+@@ -73,22 +120,21 @@
+ 		wr16(fp, ln);
+ 		fwrite(nm ? nm : "", 1, ln, fp);
+ 	}
+-	wr32(fp, (uint32_t)walk_n());
+-	for (i = 0; i < walk_n(); i++) {
+-		struct samp *s = walk_at(i);
+-		wr16(fp, (uint16_t)s->depth);
+-		for (j = 0; j < s->depth; j++)
+-			wr32(fp, op_bag(s->fr[j]));
+-		wr32(fp, s->hits);
+-	}
+-	nlab = (uint32_t)walk_n();
+-	wr32(fp, nlab);
+-	for (i = 0; i < walk_n(); i++) {
+-		struct samp *s = walk_at(i);
+-		uint16_t ln = (uint16_t)strlen(s->lab);
++	wr32(fp, (uint32_t)n);
++	for (i = 0; i < n; i++) {
++		wr16(fp, (uint16_t)copy[i].depth);
++		for (j = 0; j < copy[i].depth; j++)
++			wr32(fp, op_bag(copy[i].fr[j]));
++		wr32(fp, copy[i].hits);
++	}
++	qsort(copy, (size_t)n, sizeof(*copy), cmp_lab_seq);
++	wr32(fp, (uint32_t)n);
++	for (i = 0; i < n; i++) {
++		uint16_t ln = (uint16_t)strlen(copy[i].lab);
+ 		wr16(fp, ln);
+-		fwrite(s->lab, 1, ln, fp);
++		fwrite(copy[i].lab, 1, ln, fp);
+ 	}
+ 	fclose(fp);
++	free(copy);
+ 	return 0;
+ }

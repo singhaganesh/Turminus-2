@@ -1,0 +1,22 @@
+CLAT dump (little-endian):
+
+  magic     4 bytes  "CLAT"
+  version   u16
+  write_stamp u32   dump-write unix seconds
+  nstreams  u16
+  then n directory entries: stype u32, rva u32, size u32
+
+The header before the directory is 12 bytes; nstreams sits at byte offset 10.
+
+Stream type 3 (exception): two u32 clock halves (8 bytes), then code u32.
+
+Stream type 15 (misc): 16-byte guid, then one flag byte.
+
+Digest on the keg is SHA-256 (sha256) of the dump file, written as lowercase hex.
+
+Sequence uses dump contents even when last-good is not present.
+
+Extra dumps added under the well use this same layout.
+Fixture copies of the well live at /app/seed/dropwell.
+
+Keg upload.json shape: {"batch_count":N,"entries":[{"seq":1,"name":"<file>","digest":"<hex>","guid":"<hex>"}]} with seq beginning at 1. batch_count is how many groups of three entries the upload splits into (the last group may be shorter). batch.tsv header is seq	name	digest	guid then matching rows. Success writes /app/kegbay/MARK as ok. Empty well, or /app/bin/clatter pour /app/scratch outside /app/dropwell, exits nonzero. On those failures /app/kegbay/MARK must not exist; a false body is not the failure signal.

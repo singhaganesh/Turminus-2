@@ -1,0 +1,5 @@
+Rivetbay turns event descriptions under `/app/rivetbay/evd` into field decoders. `/app/bin/rivetbay mill` refreshes `/app/rivetbay/intake/current.ledger` and writes decoder files under `/app/rivetbay/emitters`. Ledger lines use name|relpath|field:kind with u8 and u16 kinds. `/app/bin/rivetbay decode` prints JSON for a packed sample under `/app/rivetbay/frames`. Remaining decoder, JSON, and frame grammar live in `/app/rivetbay/notes/forms.txt`.
+
+After one mill, every on-disk description must have a working decoder. A description added since the last pass must decode to its fields on the next single mill subprocess. Some mill runs currently succeed while at least one description still has no decoder; mill must exit non-zero whenever emitters are fewer than descriptions.
+
+Update the C code in the mill pipeline under `/app/rivetbay`, then rebuild `/app/bin/rivetbay`. Hand-written ledger or decoder files are not enough. The verifier reruns `/app/bin/rivetbay mill` and `/app/bin/rivetbay decode` on fresh descriptions and frames. Mill keeps prior ledger row order and appends new descriptions after existing rows.

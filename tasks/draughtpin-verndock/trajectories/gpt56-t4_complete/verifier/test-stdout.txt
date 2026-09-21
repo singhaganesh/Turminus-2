@@ -1,0 +1,55 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py .F.........F                                    [100%]
+
+=================================== FAILURES ===================================
+_______________________________ test_vn02_ws_run _______________________________
+
+    def test_vn02_ws_run():
+        """Held-out whitespace and control bytes follow the RULES fold."""
+        held = Path("/tmp/held.raw")
+        held.write_bytes(b"A\x01B\tC/")
+        r = _sip(held)
+        assert r.returncode == 0
+        data = _card()
+        assert data["text"] == _fold(b"A\x01B\tC/").decode()
+>       assert _dl(b"fold_frame", None, b"A\x01B\tC/") == _fold(b"A\x01B\tC/")
+E       AssertionError: assert b'a\x01b\tc/' == b'ab c'
+E         
+E         At index 1 diff: b'\x01' != b'b'
+E         Use -v to get more diff
+
+/tests/test_outputs.py:135: AssertionError
+______________________________ test_vn12_min_skip ______________________________
+
+    def test_vn12_min_skip():
+        """DROP.txt deletion note is ignored; compatibility fold remains after sip."""
+        r = _sip(ALPHA)
+        assert r.returncode == 0
+        blob = ALPHA.read_bytes()
+>       assert _dl(b"fold_frame", None, blob) == _fold(blob)
+E       AssertionError: assert b'foo\tbar/' == b'foo bar'
+E         
+E         At index 3 diff: b'\t' != b' '
+E         Use -v to get more diff
+
+/tests/test_outputs.py:239: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_vn01_reread_lib
+PASSED ../tests/test_outputs.py::test_vn03_tail_cut
+PASSED ../tests/test_outputs.py::test_vn04_json_tag
+PASSED ../tests/test_outputs.py::test_vn05_void_n
+PASSED ../tests/test_outputs.py::test_vn06_magic4
+PASSED ../tests/test_outputs.py::test_vn07_alt_tag
+PASSED ../tests/test_outputs.py::test_vn08_ghost_id
+PASSED ../tests/test_outputs.py::test_vn09_fields
+PASSED ../tests/test_outputs.py::test_vn10_rewait
+PASSED ../tests/test_outputs.py::test_vn11_old_keep
+FAILED ../tests/test_outputs.py::test_vn02_ws_run - AssertionError: assert b'...
+FAILED ../tests/test_outputs.py::test_vn12_min_skip - AssertionError: assert ...
+========================= 2 failed, 10 passed in 0.21s =========================

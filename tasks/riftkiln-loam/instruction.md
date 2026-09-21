@@ -1,0 +1,5 @@
+Drive `/app/bin/riftkiln` from this host. The mill must start with `\x7fELF`. Subcommand `sift` takes a quern file and a destination object file. Source fixes under `/app` are required; mill pipeline modules live in directories listed in `/app/routenote/MAP.txt`. Object layout for `sift` (yard, members, kind, peg, pen, clip, tag, mark, stem) is in `/app/drawbin/usage.txt`. A static destination object is not enough. The verifier reruns `/app/bin/riftkiln sift`.
+
+Flat cards under `/app/flatpit` already return status 0. A yard that opens a pen, opens a second pen inside it, closes that inner pen, then writes a clip ident before the outer pen closes, still returns 0, yet that ident hangs on the inner pen instead of appearing as the next members item of the outer pen. The mill's own walk that only reads `/app/flatpit` stays green.
+
+When `/app/tblwell/quarrel.lst` is nonempty and the mill would still emit tables, the helper named in `/app/routenote/MAP.txt` must return nonzero and existence of `/app/markcue/brew.ok` is false. After a clean mill, `/app/markcue/brew.ok` exists and `/app/tblwell/action.tbl` is what the running driver loads.

@@ -1,0 +1,111 @@
+{
+  "task": "trykiln-plaster",
+  "reference_pattern": {
+    "justification_if_none": "no promoted reference for plaster-vat clone lagging ledger impress"
+  },
+  "symbol_table": [
+    {
+      "path": "environment/hopsrc/imprint/imprint.go",
+      "symbol": "Imprint",
+      "kind": "function",
+      "signature": "func Imprint(vatPath string) error",
+      "purpose": "Applies ledger sql onto a vat",
+      "allowed_top_level_symbols": ["Imprint"]
+    },
+    {
+      "path": "environment/claybin/emit.go",
+      "symbol": "EmitWorker",
+      "kind": "function",
+      "signature": "func EmitWorker() error",
+      "purpose": "Copies plaster vat onto the worker vat",
+      "allowed_top_level_symbols": ["EmitWorker"]
+    },
+    {
+      "path": "environment/scorepit/score.go",
+      "symbol": "ScoreWorker",
+      "kind": "function",
+      "signature": "func ScoreWorker() int",
+      "purpose": "Scores worker vat and writes assay.ok",
+      "allowed_top_level_symbols": ["ScoreWorker"]
+    }
+  ],
+  "oracle_frontier": [
+    {
+      "path": "hopsrc/imprint/imprint.go",
+      "fix_symbols": ["Imprint"],
+      "co_resident_helpers": ["applyAll", "runSQL", "parseCreate", "listSQL", "requireApplied"],
+      "allowed_top_level_symbols": ["Imprint"]
+    },
+    {
+      "path": "claybin/emit.go",
+      "fix_symbols": ["EmitWorker"],
+      "co_resident_helpers": ["headsAlign", "sourceHead", "ledgerHead"],
+      "allowed_top_level_symbols": ["EmitWorker"]
+    },
+    {
+      "path": "scorepit/score.go",
+      "fix_symbols": ["ScoreWorker"],
+      "co_resident_helpers": ["headOK"],
+      "allowed_top_level_symbols": ["ScoreWorker"]
+    }
+  ],
+  "flipping_point_contract": {
+    "locations": [
+      {
+        "id": "A",
+        "path": "environment/hopsrc/imprint/imprint.go",
+        "controls_tests": [
+          "test_k01_plaster_column",
+          "test_k03_applied_head",
+          "test_k04_column_parity"
+        ]
+      },
+      {
+        "id": "B",
+        "path": "environment/claybin/emit.go",
+        "controls_tests": [
+          "test_k02_worker_column",
+          "test_k05_lag_copy_exit",
+          "test_k06_lag_copy_untouched",
+          "test_k07_holdout_sql_head",
+          "test_k08_zz_recover_worker"
+        ]
+      },
+      {
+        "id": "C",
+        "path": "environment/scorepit/score.go",
+        "controls_tests": [
+          "test_k09_ok_marker",
+          "test_k10_version_print",
+          "test_k11_version_matches_head",
+          "test_k12_second_run",
+          "test_k13_clean_exit",
+          "test_k14_lag_worker_refuses"
+        ]
+      }
+    ],
+    "no_single_location_flips_majority": true,
+    "concentration_cap": 0.5
+  },
+  "decoy_manifest": [
+    {
+      "path": "environment/scorepit/shim.go",
+      "kind": "helper",
+      "rhymes_with": "ScoreWorker",
+      "non_fix_purpose": "Unused PadSlot that adds a column without an applied stem"
+    },
+    {
+      "path": "environment/claybin/borrow.go",
+      "kind": "helper",
+      "rhymes_with": "EmitWorker",
+      "non_fix_purpose": "Copies bench vat onto worker without plaster head checks"
+    },
+    {
+      "path": "environment/vats/mold.vat",
+      "kind": "fixture",
+      "rhymes_with": "EmitWorker",
+      "non_fix_purpose": "Baked worker fill source that is not the plaster operators impress"
+    }
+  ],
+  "code_forbidden_tokens": ["template", "clone", "stale", "migrate"]
+}

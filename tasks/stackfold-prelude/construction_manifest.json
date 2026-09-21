@@ -1,0 +1,96 @@
+{
+  "symbol_table": [
+    {
+      "path": "environment/symmill/mk/foldlink.dep",
+      "symbol": "symmap_rule",
+      "kind": "makefile",
+      "signature": "$(SYMAP): $(TARGET)",
+      "purpose": "Binds symmap generation to the linked runtime artifact.",
+      "allowed_top_level_symbols": ["SYMAP", "TARGET", "PCFOLD"]
+    },
+    {
+      "path": "environment/symmill/Makefile",
+      "symbol": "emitmap_gate",
+      "kind": "makefile",
+      "signature": "emitmap: $(PROFILE)",
+      "purpose": "Runs pcfold check after profile render so stale symmaps fail emitmap.",
+      "allowed_top_level_symbols": ["emitmap", "PCFOLD", "TARGET", "SYMAP"]
+    },
+    {
+      "path": "environment/pcfold/src/parity.c",
+      "symbol": "sf_check",
+      "kind": "source",
+      "signature": "sf_check(elf, symmap)",
+      "purpose": "Enforces linked symmap identity without guard bypass.",
+      "allowed_top_level_symbols": ["sf_check", "load_map"]
+    },
+    {
+      "path": "environment/pcfold/conf/latch.env",
+      "symbol": "symmap_guard",
+      "kind": "config",
+      "signature": "FOLD_LATCH",
+      "purpose": "Enables strict symmap validation in pcfold check.",
+      "allowed_top_level_symbols": ["FOLD_LATCH"]
+    },
+    {
+      "path": "environment/pcfold/src/index.c",
+      "symbol": "sf_index_linked",
+      "kind": "source",
+      "signature": "sf_index_linked(elf, out)",
+      "purpose": "Writes linked ELF addresses and ELF-derived spans into the symmap.",
+      "allowed_top_level_symbols": ["sf_index_linked", "write_symmap"]
+    }
+  ],
+  "flipping_point_contract": {
+    "locations": [
+      {
+        "id": "A",
+        "path": "environment/symmill/mk/foldlink.dep",
+        "controls_tests": [
+          "test_premap01_symmap_covers_runtime",
+          "test_premap02_symmap_mode_linked",
+          "test_premap10_ring_dispatch_linked_address",
+          "test_premap19_symmap_index_origin"
+        ]
+      },
+      {
+        "id": "B",
+        "path": "environment/symmill/Makefile",
+        "controls_tests": [
+          "test_premap18_emitmap_rejects_object_map",
+          "test_premap21_pipeline_restores_linked_map"
+        ]
+      },
+      {
+        "id": "C",
+        "path": "environment/pcfold/conf/latch.env",
+        "controls_tests": [
+          "test_premap12_pcfold_rejects_tampered_symmap",
+          "test_premap03_buildid_present"
+        ]
+      },
+      {
+        "id": "D",
+        "path": "environment/pcfold/src/parity.c",
+        "controls_tests": [
+          "test_premap13_pcfold_check_on_disk_pair",
+          "test_premap04_buildid_matches_readelf"
+        ]
+      },
+      {
+        "id": "E",
+        "path": "environment/pcfold/src/index.c",
+        "controls_tests": [
+          "test_premap15_no_object_index_placeholder_sizes",
+          "test_premap16_symmap_sizes_match_runtime_nm"
+        ]
+      }
+    ],
+    "no_single_location_flips_majority": true,
+    "concentration_cap": 0.5
+  },
+  "code_forbidden_tokens": ["object-merge", "prelink", "race"],
+  "reference_pattern": {
+    "justification_if_none": "no promoted reference for symmap-before-link parallel build race"
+  }
+}

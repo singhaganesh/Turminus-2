@@ -1,0 +1,62 @@
+--- rivetbay/forgekit/snapshot.c	2026-09-06 12:03:01.981478156 +0530
++++ rivetbay/forgekit/snapshot.c	2026-09-06 12:03:02.617737659 +0530
+@@ -30,6 +30,28 @@
+     fclose(f);
+ }
+ 
++static void sync_emit_sheet_from_ledger(void) {
++    FILE *f = fopen("/app/rivetbay/intake/current.ledger", "r");
++    char line[1024];
++    size_t used = 0;
++    g_emit[0] = 0;
++    if (!f) return;
++    while (fgets(line, sizeof(line), f)) {
++        char *s = line;
++        while (*s == ' ' || *s == '\t') s++;
++        if (*s == 0 || *s == '\n') continue;
++        size_t L = strlen(s);
++        if (used + L + 1 >= sizeof(g_emit)) break;
++        memcpy(g_emit + used, s, L);
++        used += L;
++        if (g_emit[used - 1] != '\n') {
++            g_emit[used++] = '\n';
++            g_emit[used] = 0;
++        }
++    }
++    fclose(f);
++}
++
+ void prime_intake_sheet(void) {
+     load_mill_open_into(g_primed, sizeof(g_primed));
+     g_emit_cap = count_nonempty_lines(g_primed);
+@@ -41,28 +63,8 @@
+ }
+ 
+ void pour_sheet(void) {
+-    char buf[65536];
+-    char out[65536];
+-    strncpy(buf, g_primed, sizeof(buf) - 1);
+-    buf[sizeof(buf) - 1] = 0;
+-    size_t w = 0;
+-    char *save = NULL;
+-    char *line = strtok_r(buf, "\n", &save);
+-    while (line) {
+-        while (*line == ' ' || *line == '\t') line++;
+-        if (*line == 0) {
+-            line = strtok_r(NULL, "\n", &save);
+-            continue;
+-        }
+-        size_t L = strlen(line);
+-        if (w + L + 1 >= sizeof(out)) break;
+-        memcpy(out + w, line, L);
+-        w += L;
+-        out[w++] = '\n';
+-        line = strtok_r(NULL, "\n", &save);
+-    }
+-    out[w] = 0;
+-    memcpy(g_emit, out, w + 1);
++    sync_emit_sheet_from_ledger();
++    g_emit_cap = count_nonempty_lines(g_emit);
+ }
+ 
+ const char *sheet_view(void) {

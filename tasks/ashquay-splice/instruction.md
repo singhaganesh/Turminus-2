@@ -1,0 +1,5 @@
+Night shift left two kegs from the same dump. Function names already match. provenance.json host rows wander between kegs, and one listing grows extra source suffixes. Desk mill is /app/bin/ashquay (native ELF). splice CORE OUTDIR reads a dump under /app/dumpit, wells under /app/dbgwells, cards under /app/cardurn, then writes backtrace.txt and provenance.json under the OUTDIR argument. Grade kegs: /app/outkeg/runA and /app/outkeg/runB. That means /app/outkeg/runA/backtrace.txt, /app/outkeg/runA/provenance.json, /app/outkeg/runA/ok.mark, /app/outkeg/runB/backtrace.txt, /app/outkeg/runB/provenance.json, and /app/outkeg/runB/ok.mark. Line grammar: /app/vatnotes/forms.txt. Desk notes: /app/vatnotes/BAYMAP.txt. Provenance objects rows carry build_id and host.
+
+Do /app/dumpit/shift.core twice, once into each keg. Trees must be byte-identical. Clean splice writes ok.mark. A dump whose id no well holds exits non-zero and leaves ok.mark missing.
+
+C pipeline modules named in /app/vatnotes/BAYMAP.txt require source code fixes under /app. Static copies of the outkeg files are not enough. The verifier reruns /app/bin/ashquay splice /app/dumpit/shift.core /app/outkeg/runA.

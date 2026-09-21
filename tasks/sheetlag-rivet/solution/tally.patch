@@ -1,0 +1,40 @@
+--- millscore/tally.c	2026-09-06 00:10:18.437231873 +0530
++++ millscore/tally.c	2026-09-06 10:37:14.219851446 +0530
+@@ -1,5 +1,4 @@
+ #include "tally.h"
+-#include "sheet.h"
+ #include <dirent.h>
+ #include <stdio.h>
+ #include <string.h>
+@@ -17,22 +16,21 @@
+     return n;
+ }
+ 
+-static int count_sheet_lines(void) {
+-    const char *s = sheet_view();
++static int count_evd(void) {
++    DIR *d = opendir("/app/rivetbay/evd");
+     int n = 0;
+-    int nonempty = 0;
+-    for (; *s; s++) {
+-        if (*s == '\n') {
+-            if (nonempty) n++;
+-            nonempty = 0;
+-        } else if (*s != ' ' && *s != '\r') nonempty = 1;
++    struct dirent *ent;
++    if (!d) return 0;
++    while ((ent = readdir(d)) != NULL) {
++        size_t L = strlen(ent->d_name);
++        if (L > 4 && strcmp(ent->d_name + L - 4, ".evd") == 0) n++;
+     }
+-    if (nonempty) n++;
++    closedir(d);
+     return n;
+ }
+ 
+ int count_gap(void) {
+-    int a = count_sheet_lines();
++    int a = count_evd();
+     int b = count_emitters();
+     return (b < a) ? 1 : 0;
+ }

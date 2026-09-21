@@ -1,0 +1,109 @@
+--- dayfold/n_fold.cpp
++++ dayfold/n_fold.cpp
+@@ -1,57 +1,70 @@
+ #include "fold.hpp"
+ 
++#include <cctype>
+ #include <dirent.h>
+ #include <fstream>
++#include <map>
++#include <sstream>
+ #include <string>
++#include <vector>
+ 
+ int n_fold(void) {
+-    std::string wall = "1970-01-01";
+-    {
+-        std::ifstream in("/app/snapvat/clock.snap");
+-        in >> wall;
+-        if (wall.empty()) {
+-            wall = "1970-01-01";
++    std::map<std::string, int> days;
++    DIR *dir = opendir("/app/snapvat/live");
++    if (!dir) {
++        return 1;
++    }
++    while (dirent *ent = readdir(dir)) {
++        std::string name = ent->d_name;
++        if (name.size() < 5 || name.substr(name.size() - 4) != ".urn") {
++            continue;
+         }
+-    }
+-    int total = 0;
+-    DIR *dir = opendir("/app/snapvat/live");
+-    if (dir) {
+-        while (dirent *ent = readdir(dir)) {
+-            std::string name = ent->d_name;
+-            if (name.size() < 5 || name.substr(name.size() - 4) != ".urn") {
++        if (name[0] == '.') {
++            continue;
++        }
++        std::ifstream in(std::string("/app/snapvat/live/") + name);
++        if (!in) {
++            closedir(dir);
++            return 1;
++        }
++        std::string line;
++        std::string day;
++        int n = 0;
++        bool saw_banner = false;
++        while (std::getline(in, line)) {
++            while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) {
++                line.pop_back();
++            }
++            if (line == "URN1") {
++                saw_banner = true;
+                 continue;
+             }
+-            std::ifstream in(std::string("/app/snapvat/live/") + name);
+-            std::string line;
+-            int n = 0;
+-            while (std::getline(in, line)) {
+-                if (line.rfind("n ", 0) == 0) {
+-                    n = std::stoi(line.substr(2));
+-                }
++            if (line.rfind("day ", 0) == 0) {
++                day = line.substr(4);
++            } else if (line.rfind("n ", 0) == 0) {
++                n = std::stoi(line.substr(2));
+             }
+-            total += n;
+         }
+-        closedir(dir);
++        if (!saw_banner || day.size() < 10 || n < 0) {
++            closedir(dir);
++            return 1;
++        }
++        days[day] += n;
+     }
+-    int tick = 0;
+-    {
+-        std::ifstream tin("/app/snapvat/tick");
+-        tin >> tick;
+-    }
+-    tick += 1;
+-    {
+-        std::ofstream tout("/app/snapvat/tick");
+-        tout << tick << "\n";
+-    }
++    closedir(dir);
+     std::ofstream tmp("/app/snapvat/days.tmp");
+     if (!tmp) {
+         return 1;
+     }
+-    tmp << wall << " " << total << "\n";
+-    std::ofstream emit("/app/inkpit/emit.inc");
+-    if (!emit) {
++    std::ostringstream emit;
++    for (const auto &kv : days) {
++        tmp << kv.first << " " << kv.second << "\n";
++        emit << kv.first << ":" << kv.second << "\n";
++    }
++    std::ofstream out("/app/inkpit/emit.inc");
++    if (!out) {
+         return 1;
+     }
+-    emit << wall << " " << total << " tick=" << tick << "\n";
++    out << emit.str();
+     return 0;
+ }

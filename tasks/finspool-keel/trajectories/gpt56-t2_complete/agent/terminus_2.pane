@@ -1,0 +1,575 @@
+[?2004hroot@987c880c88c1:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@987c880c88c1:/app# clear
+[?2004l[H[J[3J[?2004hroot@987c880c88c1:/app# pwd; printf '%s\n' '--- ROUTE ---'; cat /app/vatnote/ROUTE.txt; printf '%s\n' '--- FILES ---'; find /app -maxdepth 3 -type f -printf '%p\n' | sort; printf '%s\n' '--- DIRS ---'; find /app -maxdepth 2 -type d -printf '%p\n' | sort; printf '%s\n' '--- BIN ---'; file /app/bin/finspool 2>&1 || true
+[?2004l/app
+--- ROUTE ---
+Pipeline modules under /app:
+
+- spindock
+- hookvat
+- scanpit
+- fincli
+
+Desk cards land under /app/bloturn. Named dest files used on this bench include
+/app/bloturn/final.rec, /app/bloturn/second.rec, /app/bloturn/pair-a.rec, and
+/app/bloturn/pair-b.rec. Paths that sit outside that tree include
+/tmp/finspool-out.rec and /tmp/bloturn-bait.rec. An interrupt drill uses
+/app/opsleaf/RIP.
+
+Drive /app/bin/finspool.
+--- FILES ---
+/app/bin/finspool
+/app/fincli/boot.rs
+/app/fincli/usage.txt
+/app/hookvat/gen_emit.rs
+/app/hookvat/open.rs
+/app/hookvat/seal.rs
+/app/hookvat/spool.rs
+/app/hull.sh
+/app/opsleaf/SHIFT.txt
+/app/scanpit/fmt.rs
+/app/scanpit/peek.rs
+/app/slipcards/NOTE.txt
+/app/slipcards/cap.rs
+/app/spindock/modes.rs
+/app/spindock/spin.rs
+/app/spindock/text.rs
+/app/tplfold/emit.tpl
+/app/tplfold/gather.rs
+/app/tplfold/live.rs
+/app/tplfold/modes.knt
+/app/vatnote/FORMAT.txt
+/app/vatnote/ROUTE.txt
+--- DIRS ---
+/app
+/app/bin
+/app/bloturn
+/app/fincli
+/app/hookvat
+/app/opsleaf
+/app/scanpit
+/app/slipcards
+/app/spindock
+/app/tplfold
+/app/vatnote
+--- BIN ---
+bash: file: command not found
+[?2004hroot@987c880c88c1:/app# printf '%s\n' '--- NOTES/BUILD ---'; for f in /app/hull.sh /app/vatnote/FORMAT.txt /app/opsleaf/SHIFT.txt /app/slipcards/NOTE.txt /app/fincli/usage.txt; do echo "### $f"; sed -n '1,240p' "$f"; done; printf '%s\n' '--- RUST/TEMPLATES ---'; for f in /app/spindock/*.rs /app/hookvat/*.rs /app/scanpit/*.rs /app/fincli/*.rs /app/tplfold/*; do echo "### $f"; sed -n '1,280p' "$f"; done; printf '%s\n' '--- ARTIFACT ---'; ls -l /app/bin/finspool; od -An -tx1 -N16 /app/bin/finspool; command -v rustc || true
+[?2004l--- NOTES/BUILD ---
+### /app/hull.sh
+#!/bin/sh
+set -eu
+export PATH="/usr/local/cargo/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+mkdir -p /app/bin /app/bloturn
+rustc --edition 2021 -O /app/spindock/spin.rs -o /tmp/spinknit
+/tmp/spinknit
+rustc --edition 2021 -O /app/fincli/boot.rs -o /app/bin/finspool
+### /app/vatnote/FORMAT.txt
+A whole card has four lines:
+
+FIN1
+thread=<name>
+op=<verb>
+END
+
+Each line ends with a newline. The name and verb on the card are the
+same tokens passed on the command line. A whole card is those four
+lines and nothing more. After an interruption, the dest file is either
+that whole card or absent — never a partial file.
+
+Names that appear on this mill include desk-k4, keel-hold-r9, n1, and
+rib-yard-m3. Verbs include splice-harbor-overlong-token-alpha-zz,
+quay-splice-harbor-overlong-token-beta-yy, fold_zeta_ww, and v1.
+### /app/opsleaf/SHIFT.txt
+ease on this shift already leaves a whole card. sting is the overnight drill.
+
+Sibling yards keep a shift table that left-fills names to column width
+before they land on a dest card. indent() on this image is that width helper.
+### /app/slipcards/NOTE.txt
+Some desks bump ROOM on the slip card when a short write looks clipped.
+The returning path already produces a whole card on this bench.
+Yard shift notes also talk about lining names to a column.
+### /app/fincli/usage.txt
+finspool knit
+finspool sting THREAD OP DEST
+finspool ease THREAD OP DEST
+finspool look DEST
+--- RUST/TEMPLATES ---
+### /app/spindock/modes.rs
+pub fn op_a(k: u8) -> u8 {
+    if k == 0 {
+        1
+    } else {
+        0
+    }
+}
+### /app/spindock/spin.rs
+#[path = "/app/spindock/modes.rs"]
+mod modes;
+#[path = "/app/spindock/text.rs"]
+mod text;
+
+use std::fs;
+
+fn main() {
+    let _ = text::pad_out("x");
+    let hard_gather = modes::op_a(1) == 0;
+    let src = if hard_gather {
+        "/app/tplfold/gather.rs"
+    } else {
+        "/app/tplfold/live.rs"
+    };
+    let body = fs::read_to_string(src).unwrap();
+    fs::write("/app/hookvat/gen_emit.rs", body).unwrap();
+}
+### /app/spindock/text.rs
+pub fn pad_out(s: &str) -> String {
+    s.to_string()
+}
+### /app/hookvat/gen_emit.rs
+use std::io::Write;
+
+pub fn go(nm: &str, verb: &str, dest: &str, hard: bool) -> i32 {
+    let mut s = crate::spool::op_b(dest);
+    let card = format!(
+        "FIN1\nthread={}\nop={}\n",
+        crate::fmt::keep_token(nm),
+        crate::fmt::keep_token(verb)
+    );
+    if hard {
+        crate::spool::stash(card.into_bytes());
+    } else {
+        let _ = s.write_all(card.as_bytes());
+    }
+    crate::spool::clip(&mut s);
+    crate::seal::op_c(&mut s);
+    crate::spool::park(s);
+    0
+}
+### /app/hookvat/open.rs
+pub fn under_root(p: &str) -> bool {
+    p.starts_with("/app/bloturn/")
+}
+### /app/hookvat/seal.rs
+use std::io::Write;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+static NEED: AtomicBool = AtomicBool::new(false);
+
+pub fn op_c<W: Write>(_w: &mut W) {
+    NEED.store(true, Ordering::SeqCst);
+}
+
+pub fn drip<W: Write>(w: &mut W) {
+    if NEED.swap(false, Ordering::SeqCst) {
+        let _ = writeln!(w, "END");
+    }
+}
+### /app/hookvat/spool.rs
+use std::fs::File;
+use std::io::{BufWriter, Write};
+use std::path::Path;
+use std::process;
+use std::sync::Mutex;
+
+#[path = "/app/slipcards/cap.rs"]
+mod cap;
+
+static BAG: Mutex<Vec<u8>> = Mutex::new(Vec::new());
+static SLOT: Mutex<Option<BufWriter<File>>> = Mutex::new(None);
+static CUR: Mutex<Option<String>> = Mutex::new(None);
+
+#[allow(dead_code)]
+pub fn stash(b: Vec<u8>) {
+    *BAG.lock().unwrap() = b;
+}
+
+pub fn op_b(p: &str) -> BufWriter<File> {
+    *CUR.lock().unwrap() = Some(p.to_string());
+    let f = File::create(p).unwrap();
+    BufWriter::with_capacity(cap::ROOM, f)
+}
+
+pub fn clip<W: Write>(s: &mut W) {
+    if Path::new("/app/opsleaf/RIP").is_file() {
+        let _ = s.flush();
+        process::abort();
+    }
+}
+
+pub fn park(s: BufWriter<File>) {
+    *SLOT.lock().unwrap() = Some(s);
+}
+### /app/scanpit/fmt.rs
+pub fn indent(n: usize) -> String {
+    " ".repeat(n)
+}
+
+pub fn keep_token(s: &str) -> String {
+    let _ = indent(0);
+    s.to_string()
+}
+### /app/scanpit/peek.rs
+use std::fs;
+
+const SHAPE: &str = include_str!("/app/vatnote/FORMAT.txt");
+
+pub fn show(p: &str) -> i32 {
+    let _ = SHAPE.len();
+    let raw = match fs::read_to_string(p) {
+        Ok(s) => s,
+        Err(_) => return 1,
+    };
+    let want: Vec<&str> = raw.lines().collect();
+    if want.len() != 4 {
+        return 1;
+    }
+    if want[0] != "FIN1" {
+        return 1;
+    }
+    let th = want[1].strip_prefix("thread=").unwrap_or("");
+    if want[1] != format!("thread={}", crate::fmt::keep_token(th)) {
+        return 1;
+    }
+    let op = want[2].strip_prefix("op=").unwrap_or("");
+    if want[2] != format!("op={}", crate::fmt::keep_token(op)) {
+        return 1;
+    }
+    if want[3] != "END" {
+        return 1;
+    }
+    if !raw.ends_with('\n') {
+        return 1;
+    }
+    print!("{}", raw);
+    0
+}
+### /app/fincli/boot.rs
+#[path = "/app/hookvat/spool.rs"]
+mod spool;
+#[path = "/app/hookvat/seal.rs"]
+mod seal;
+#[path = "/app/hookvat/open.rs"]
+mod open;
+#[path = "/app/hookvat/gen_emit.rs"]
+mod emit;
+#[path = "/app/scanpit/peek.rs"]
+mod peek;
+#[path = "/app/scanpit/fmt.rs"]
+mod fmt;
+
+use std::env;
+use std::process;
+
+const SHIFT: &str = include_str!("/app/opsleaf/SHIFT.txt");
+
+fn main() {
+    let mut args = env::args().skip(1);
+    let cmd = args.next().unwrap_or_default();
+    match cmd.as_str() {
+        "knit" => {
+            let st = process::Command::new("/app/hull.sh").status();
+            process::exit(if st.map(|s| s.success()).unwrap_or(false) {
+                0
+            } else {
+                1
+            });
+        }
+        "look" => {
+            let dest = args.next().unwrap_or_default();
+            let _ = fmt::indent(0);
+            process::exit(peek::show(&dest));
+        }
+        "ease" => {
+            let th = args.next().unwrap_or_default();
+            let verb = args.next().unwrap_or_default();
+            let dest = args.next().unwrap_or_default();
+            let _ = open::under_root(&dest);
+            if emit::go(&th, &verb, &dest, false) != 0 {
+                process::exit(2);
+            }
+        }
+        "sting" => {
+            let th = args.next().unwrap_or_default();
+            let verb = args.next().unwrap_or_default();
+            let dest = args.next().unwrap_or_default();
+            let _ = open::under_root(&dest);
+            if emit::go(&th, &verb, &dest, true) != 0 {
+                process::exit(2);
+            }
+            process::abort();
+        }
+        _ => {
+            eprintln!("usage: finspool knit|sting|ease|look");
+            let _ = SHIFT.len();
+            process::exit(2);
+        }
+    }
+}
+### /app/tplfold/emit.tpl
+{{BODY}}
+### /app/tplfold/gather.rs
+use std::io::Write;
+
+pub fn go(nm: &str, verb: &str, dest: &str, hard: bool) -> i32 {
+    let mut s = crate::spool::op_b(dest);
+    let card = format!(
+        "FIN1\nthread={}\nop={}\n",
+        crate::fmt::keep_token(nm),
+        crate::fmt::keep_token(verb)
+    );
+    if hard {
+        crate::spool::stash(card.into_bytes());
+    } else {
+        let _ = s.write_all(card.as_bytes());
+    }
+    crate::spool::clip(&mut s);
+    crate::seal::op_c(&mut s);
+    crate::spool::park(s);
+    0
+}
+### /app/tplfold/live.rs
+use std::io::Write;
+
+pub fn go(nm: &str, verb: &str, dest: &str, hard: bool) -> i32 {
+    let mut s = crate::spool::op_b(dest);
+    let card = format!(
+        "FIN1\nthread={}\nop={}\n",
+        crate::fmt::keep_token(nm),
+        crate::fmt::keep_token(verb)
+    );
+    let _ = s.write_all(card.as_bytes());
+    crate::spool::clip(&mut s);
+    crate::seal::op_c(&mut s);
+    crate::spool::park(s);
+    let _ = hard;
+    0
+}
+### /app/tplfold/modes.knt
+0 gather
+1 live
+--- ARTIFACT ---
+-rwxr-xr-x 1 root root 4071216 Sep 16 09:31 /app/bin/finspool
+ 7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00
+[?2004hroot@987c880c88c1:/app# cat > /app/hookvat/open.rs <<'EOF'
+[?2004l[?2004h> use std::fs;
+[?2004l[?2004h> use std::path::{Component, Path};
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn under_root(p: &str) -> bool {
+[?2004l[?2004h>     let path = Path::new(p);
+[?2004l[?2004h>     let root = Path::new("/app/bloturn");
+[?2004l[?2004h>     let rel = match path.strip_prefix(root) {
+[?2004l[?2004h>         Ok(r) if !r.as_os_str().is_empty() => r,
+[?2004l[?2004h>         _ => return false,
+[?2004l[?2004h>     };
+[?2004l[?2004h>     if rel.components().any(|c| !matches!(c, Component::Normal(_))) {
+[?2004l[?2004h>         return false;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     let parent = match path.parent() {
+[?2004l[?2004h>         Some(v) => v,
+[?2004l[?2004h>         None => return false,
+[?2004l[?2004h>     };
+[?2004l[?2004h>     match (fs::canonicalize(root), fs::canonicalize(parent)) {
+[?2004l[?2004h>         (Ok(r), Ok(d)) => d.starts_with(r),
+[?2004l[?2004h>         _ => false,
+[?2004l[?2004h>     }
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@987c880c88c1:/app# cat > /app/hookvat/seal.rs <<'EOF'
+[?2004l[?2004h> pub fn card(thread: &str, op: &str) -> Vec<u8> {
+[?2004l[?2004h>     format!("FIN1\nthread={}\nop={}\nEND\n", thread, op).into_bytes()
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@987c880c88c1:/app# cat > /app/hookvat/spool.rs <<'EOF'
+[?2004l[?2004h> use std::fs::{self, OpenOptions};
+[?2004l[?2004h> use std::io::{self, Write};
+[?2004l[?2004h> use std::path::{Path, PathBuf};
+[?2004l[?2004h> use std::process;
+[?2004l[?2004h> use std::sync::atomic::{AtomicU64, Ordering};
+[?2004l[?2004h> 
+[?2004l[?2004h> static NEXT: AtomicU64 = AtomicU64::new(0);
+[?2004l[?2004h> 
+[?2004l[?2004h> fn temporary(dest: &Path) -> PathBuf {
+[?2004l[?2004h>     let parent = dest.parent().unwrap();
+[?2004l[?2004h>     let name = dest.file_name().unwrap().to_string_lossy();
+[?2004l[?2004h>     let n = NEXT.fetch_add(1, Ordering::Relaxed);
+[?2004l[?2004h>     parent.join(format!(".{}.finspool.{}.{}", name, process::id(), n))
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn atomic_write(dest: &str, bytes: &[u8]) -> io::Result<()> {
+[?2004l[?2004h>     let path = Path::new(dest);
+[?2004l[?2004h>     let tmp = temporary(path);
+[?2004l[?2004h>     let result = (|| {
+[?2004l[?2004h>         let mut file = OpenOptions::new().write(true).create_new(true).open(&tmp)?;
+[?2004l[?2004h>         file.write_all(bytes)?;
+[?2004l[?2004h>         file.sync_all()?;
+[?2004l[?2004h>         if Path::new("/app/opsleaf/RIP").is_file() {
+[?2004l[?2004h>             drop(file);
+[?2004l[?2004h>             let _ = fs::remove_file(&tmp);
+[?2004l[?2004h>             let _ = fs::remove_file(path);
+[?2004l[?2004h>             process::abort();
+[?2004l[?2004h>         }
+[?2004l[?2004h>         drop(file);
+[?2004l[?2004h>         fs::rename(&tmp, path)?;
+[?2004l[?2004h>         if let Some(parent) = path.parent() {
+[?2004l[?2004h>             if let Ok(dir) = OpenOptions::new().read(true).open(parent) {
+[?2004l[?2004h>                 let _ = dir.sync_all();
+[?2004l[?2004h>             }
+[?2004l[?2004h>         }
+[?2004l[?2004h>         Ok(())
+[?2004l[?2004h>     })();
+[?2004l[?2004h>     if result.is_err() {
+[?2004l[?2004h>         let _ = fs::remove_file(&tmp);
+[?2004l[?2004h>     }
+[?2004l[?2004h>     result
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@987c880c88c1:/app# cat > /app/tplfold/gather.rs <<'EOF'
+[?2004l[?2004h> pub fn go(nm: &str, verb: &str, dest: &str, _hard: bool) -> i32 {
+[?2004l[?2004h>     let thread = crate::fmt::keep_token(nm);
+[?2004l[?2004h>     let op = crate::fmt::keep_token(verb);
+[?2004l[?2004h>     let card = crate::seal::card(&thread, &op);
+[?2004l[?2004h>     match crate::spool::atomic_write(dest, &card) {
+[?2004l[?2004h>         Ok(()) => 0,
+[?2004l[?2004h>         Err(_) => 1,
+[?2004l[?2004h>     }
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@987c880c88c1:/app# cp /app/tplfold/gather.rs /app/tplfold/live.rs
+[?2004l[?2004hroot@987c880c88c1:/app# cat > /app/scanpit/peek.rs <<'EOF'
+[?2004l[?2004h> use std::fs;
+[?2004l[?2004h> 
+[?2004l[?2004h> const SHAPE: &str = include_str!("/app/vatnote/FORMAT.txt");
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn show(p: &str) -> i32 {
+[?2004l[?2004h>     let _ = SHAPE.len();
+[?2004l[?2004h>     let raw = match fs::read_to_string(p) {
+[?2004l[?2004h>         Ok(s) => s,
+[?2004l[?2004h>         Err(_) => return 1,
+[?2004l[?2004h>     };
+[?2004l[?2004h>     let body = match raw.strip_suffix('\n') {
+[?2004l[?2004h>         Some(s) => s,
+[?2004l[?2004h>         None => return 1,
+[?2004l[?2004h>     };
+[?2004l[?2004h>     let lines: Vec<&str> = body.split('\n').collect();
+[?2004l[?2004h>     if lines.len() != 4 || lines[0] != "FIN1" || lines[3] != "END" {
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     let thread = match lines[1].strip_prefix("thread=") {
+[?2004l[?2004h>         Some(v) => v,
+[?2004l[?2004h>         None => return 1,
+[?2004l[?2004h>     };
+[?2004l[?2004h>     let op = match lines[2].strip_prefix("op=") {
+[?2004l[?2004h>         Some(v) => v,
+[?2004l[?2004h>         None => return 1,
+[?2004l[?2004h>     };
+[?2004l[?2004h>     if thread.contains(['\r', '\n']) || op.contains(['\r', '\n']) {
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     print!("{}", raw);
+[?2004l[?2004h>     0
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@987c880c88c1:/app# cat > /app/fincli/boot.rs <<'EOF'
+[?2004l[?2004h> #[path = "/app/hookvat/spool.rs"] mod spool;
+[?2004l[?2004h> #[path = "/app/hookvat/seal.rs"] mod seal;
+[?2004l[?2004h> #[path = "/app/hookvat/open.rs"] mod open;
+[?2004l[?2004h> #[path = "/app/hookvat/gen_emit.rs"] mod emit;
+[?2004l[?2004h> #[path = "/app/scanpit/peek.rs"] mod peek;
+[?2004l[?2004h> #[path = "/app/scanpit/fmt.rs"] mod fmt;
+[?2004l[?2004h> 
+[?2004l[?2004h> use std::{env, process};
+[?2004l[?2004h> const SHIFT: &str = include_str!("/app/opsleaf/SHIFT.txt");
+[?2004l[?2004h> 
+[?2004l[?2004h> fn clean_token(s: &str) -> bool {
+[?2004l[?2004h>     !s.contains(['\n', '\r'])
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> fn main() {
+[?2004l[?2004h>     let argv: Vec<String> = env::args().skip(1).collect();
+[?2004l[?2004h>     let rc = match argv.as_slice() {
+[?2004l[?2004h>         [cmd] if cmd == "knit" => {
+[?2004l[?2004h>             let st = process::Command::new("/app/hull.sh").status();
+[?2004l[?2004h>             if st.map(|s| s.success()).unwrap_or(false) { 0 } else { 1 }
+[?2004l[?2004h>         }
+[?2004l[?2004h>         [cmd, dest] if cmd == "look" => peek::show(dest),
+[?2004l[?2004h>         [cmd, th, op, dest] if cmd == "ease" || cmd == "sting" => {
+[?2004l[?2004h>             if !clean_token(th) || !clean_token(op) || !open::under_root(dest) {
+[?2004l[?2004h>                 2
+[?2004l[?2004h>             } else {
+[?2004l[?2004h>                 let rc = emit::go(th, op, dest, cmd == "sting");
+[?2004l[?2004h>                 if rc != 0 { rc } else if cmd == "sting" { process::abort() } else { 0 }
+[?2004l[?2004h>             }
+[?2004l[?2004h>         }
+[?2004l[?2004h>         _ => {
+[?2004l[?2004h>             eprintln!("usage: finspool knit|sting THREAD OP DEST|ease THREAD OP DEST|look DEST");
+[?2004l[?2004h>             let _ = SHIFT.len();
+[?2004l[?2004h>             2
+[?2004l[?2004h>         }
+[?2004l[?2004h>     };
+[?2004l[?2004h>     process::exit(rc);
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@987c880c88c1:/app# /app/hull.sh
+[?2004lset +e
+rm -f /app/opsleaf/RIP /app/bloturn/final.rec /app/bloturn/second.rec /tmp/finspool-out.rec
+/app/bin/finspool ease desk-k4 splice-harbor-overlong-token-alpha-zz /app/bloturn/second.rec; echo ease=$?
+/app/bin/finspool look /app/bloturn/second.rec; echo look_ease=$?
+printf 'SMASH' > /app/bloturn/final.rec
+/app/bin/finspool sting keel-hold-r9 quay-splice-harbor-overlong-token-beta-yy /app/bloturn/final.rec >/dev/null 2>&1; echo sting=$?
+/app/bin/finspool look /app/bloturn/final.rec; echo look_sting=$?
+/app/bin/finspool ease n1 v1 /tmp/finspool-out.rec >/dev/null 2>&1; echo outside=$?; test ! -e /tmp/finspool-out.rec; echo outside_absent=$?
+printf 'BROKEN' > /app/bloturn/final.rec; touch /app/opsleaf/RIP
+/app/bin/finspool sting rib-yard-m3 fold_zeta_ww /app/bloturn/final.rec >/dev/null 2>&1; echo interrupted=$?
+test ! -e /app/bloturn/final.rec; echo interrupted_absent=$?
+rm -f /app/opsleaf/RIP
+/app/bin/finspool knit; echo knit=$?
+od -An -tx1 -N4 /app/bin/finspool
+/app/bin/finspool sting desk-k4 v1 /app/bloturn/final.rec >/dev/null 2>&1; echo final_sting=$?
+/app/bin/finspool look /app/bloturn/final.rec; echo final_look=$?
+[?2004hroot@987c880c88c1:/app# set +e
+[?2004l[?2004hroot@987c880c88c1:/app# rm -f /app/opsleaf/RIP /app/bloturn/final.rec /app/bloturn/second.rec /tmp/finspool-out.rec
+[?2004l[?2004hroot@987c880c88c1:/app# /app/bin/finspool ease desk-k4 splice-harbor-overlong-token-alpha-zz /app/bloturn/second.rec; echo ease=$?
+[?2004lease=0
+[?2004hroot@987c880c88c1:/app# /app/bin/finspool look /app/bloturn/second.rec; echo look_ease=$?
+[?2004lFIN1
+thread=desk-k4
+op=splice-harbor-overlong-token-alpha-zz
+END
+look_ease=0
+[?2004hroot@987c880c88c1:/app# printf 'SMASH' > /app/bloturn/final.rec
+[?2004l[?2004hroot@987c880c88c1:/app# /app/bin/finspool sting keel-hold-r9 quay-splice-harbor-overlong-token-beta-yy /app/bloturn/final.rec >/dev/null 2>&1; echo sting=$?
+[?2004lAborted (core dumped)
+sting=134
+[?2004hroot@987c880c88c1:/app# /app/bin/finspool look /app/bloturn/final.rec; echo look_sting=$?
+[?2004lFIN1
+thread=keel-hold-r9
+op=quay-splice-harbor-overlong-token-beta-yy
+END
+look_sting=0
+[?2004hroot@987c880c88c1:/app# /app/bin/finspool ease n1 v1 /tmp/finspool-out.rec >/dev/null 2>&1; echo outside=$?; test ! -e /tmp/finspool-out.rec; echo outside_absent=$?
+[?2004loutside=2
+outside_absent=0
+[?2004hroot@987c880c88c1:/app# printf 'BROKEN' > /app/bloturn/final.rec; touch /app/opsleaf/RIP
+[?2004l[?2004hroot@987c880c88c1:/app# /app/bin/finspool sting rib-yard-m3 fold_zeta_ww /app/bloturn/final.rec >/dev/null 2>&1; echo interrupted=$?
+[?2004lAborted (core dumped)
+interrupted=134
+[?2004hroot@987c880c88c1:/app# test ! -e /app/bloturn/final.rec; echo interrupted_absent=$?
+[?2004linterrupted_absent=0
+[?2004hroot@987c880c88c1:/app# rm -f /app/opsleaf/RIP
+[?2004l[?2004hroot@987c880c88c1:/app# /app/bin/finspool knit; echo knit=$?
+[?2004lknit=0
+[?2004hroot@987c880c88c1:/app# od -An -tx1 -N4 /app/bin/finspool
+[?2004l 7f 45 4c 46
+[?2004hroot@987c880c88c1:/app# /app/bin/finspool sting desk-k4 v1 /app/bloturn/final.rec >/dev/null 2>&1; echo final_sting=$?
+[?2004lAborted (core dumped)
+final_sting=134
+[?2004hroot@987c880c88c1:/app# /app/bin/finspool look /app/bloturn/final.rec; echo final_look=$?
+[?2004lFIN1
+thread=desk-k4
+op=v1
+END
+final_look=0
+[?2004hroot@987c880c88c1:/app# 

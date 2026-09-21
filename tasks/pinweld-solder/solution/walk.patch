@@ -1,0 +1,71 @@
+--- /app/blotcli/walk.c
++++ /app/blotcli/walk.c
+@@ -23,28 +23,46 @@
+     pclose(fp);
+ }
+ 
++static int collect_units(char units[][512], int max) {
++    int n = 0;
++    DIR *d = opendir("/app/ribunit");
++    if (!d) return 0;
++    struct dirent *ent;
++    while ((ent = readdir(d)) != NULL) {
++        size_t L = strlen(ent->d_name);
++        if (L < 3 || strcmp(ent->d_name + L - 2, ".c") != 0) continue;
++        if (n < max) snprintf(units[n++], 512, "/app/ribunit/%s", ent->d_name);
++    }
++    closedir(d);
++    for (int i = 0; i < n; i++) {
++        for (int j = i + 1; j < n; j++) {
++            if (strcmp(units[j], units[i]) < 0) {
++                char tmp[512];
++                memcpy(tmp, units[i], 512);
++                memcpy(units[i], units[j], 512);
++                memcpy(units[j], tmp, 512);
++            }
++        }
++    }
++    return n;
++}
++
+ void op_fill(void) {
+     mkdir("/app/mintbay", 0755);
+     char flags[8][512];
+-    (void)cfg_open(flags, 8);
+-    /* default core recipe only */
+-    const char *use = "-P -DCORE=1";
++    int ncfg = cfg_open(flags, 8);
++    char units[32][512];
++    int nu = collect_units(units, 32);
+ 
+     FILE *log = fopen("/app/mintbay/scan.log", "w");
+     char names[64][64];
+     int n = 0;
+ 
+-    DIR *d = opendir("/app/ribunit");
+-    if (d) {
+-        struct dirent *ent;
+-        while ((ent = readdir(d)) != NULL) {
+-            size_t L = strlen(ent->d_name);
+-            if (L < 3 || strcmp(ent->d_name + L - 2, ".c") != 0) continue;
+-            char src[512];
+-            snprintf(src, sizeof src, "/app/ribunit/%s", ent->d_name);
+-            if (log) fprintf(log, "seen %s\n", src);
+-            char cmd[768];
+-            snprintf(cmd, sizeof cmd, "gcc -E %s -I/app/ribunit %s 2>/dev/null", use, src);
++    for (int u = 0; u < nu; u++) {
++        if (log) fprintf(log, "seen %s\n", units[u]);
++        for (int c = 0; c < ncfg; c++) {
++            char cmd[1024];
++            snprintf(cmd, sizeof cmd, "gcc -E %s -I/app/ribunit %s 2>/dev/null", flags[c], units[u]);
+             char text[65536];
+             slurp_cmd(cmd, text, sizeof text);
+             char tmp[32][64];
+@@ -54,7 +72,6 @@
+                 n++;
+             }
+         }
+-        closedir(d);
+     }
+     if (log) fclose(log);
+     sort_unique(names, &n);

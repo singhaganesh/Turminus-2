@@ -1,0 +1,1254 @@
+[?2004hroot@f9e8f06ec006:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@f9e8f06ec006:/app# clear
+[?2004l[H[J[3J[?2004hroot@f9e8f06ec006:/app# cat /app/abifolio/WALK.txt && printf '\n--- RULES ---\n' && cat /app/abifolio/RULES.txt
+[?2004ldraughtpin layout
+=================
+
+cliurn/boot.rs dispatches sip and mark.
+
+Mill directories:
+- narbay/
+- vatrib/
+- weft/
+- aliaspit/
+- stemcask/
+- gluebox/
+- cliurn/
+
+Dumps live in /app/rawspan, including /app/rawspan/alpha.raw and /app/rawspan/beta.raw.
+sip writes /app/inkvat/card.json.
+Shared object is /app/lib/libdraught.so.
+Exported C name is fold_frame.
+
+Rebuild with /app/stoke.sh after source edits.
+
+--- RULES ---
+current slot: CASK_2
+compat slot: CASK_1
+export: fold_frame
+sip kind: bare
+mark kind: named
+
+Fold a dump:
+- ASCII letters to lowercase
+- TAB, LF, CR, and SPACE collapse to a single SPACE
+- other bytes below 0x20 are dropped
+- trailing ASCII slash characters are stripped
+
+- ASCII letters to lowercase
+- TAB, LF, CR, and SPACE collapse to a single SPACE
+- other bytes below 0x20 are dropped
+- trailing ASCII slash characters are stripped
+[?2004hroot@f9e8f06ec006:/app# printf '\n--- FILES ---\n'; find /app -maxdepth 4 -type f -printf '%p\n' | sort
+[?2004l
+--- FILES ---
+/app/abifolio/RULES.txt
+/app/abifolio/WALK.txt
+/app/aliaspit/hue.S
+/app/bin/draughtpin
+/app/bin/weave
+/app/cliurn/boot.rs
+/app/gluebox/glue.rs
+/app/gnuverse/cask.map
+/app/inkvat/SEAL
+/app/inkvat/card.json
+/app/keepnote/DROP.txt
+/app/keepnote/MIN.txt
+/app/lib/libdraught.so
+/app/lidmath/note.rs
+/app/lidmath/skip.c
+/app/narbay/loom.rs
+/app/quarryc/hold.toml
+/app/rawspan/alpha.raw
+/app/rawspan/beta.raw
+/app/spanmod/dlprobe.py
+/app/spanmod/skip.rs
+/app/stemcask/wick.rs
+/app/stoke.sh
+/app/vatrib/qat.rs
+/app/weft/main.rs
+[?2004hroot@f9e8f06ec006:/app# printf '\n--- TYPES ---\n'; file /app/bin/draughtpin /app/lib/libdraught.so; printf '\n--- BUILD FILES ---\n'; find /app -maxdepth 4 -type f \( -name Makefile -o -name CMakeLists.txt -o -name meson.build -o -name Cargo.toml -o -name '*.mk' \) -print
+[?2004l
+--- TYPES ---
+bash: file: command not found
+
+--- BUILD FILES ---
+[?2004hroot@f9e8f06ec006:/app# for f in /app/{narbay/loom.rs,vatrib/qat.rs,weft/main.rs,aliaspit/hue.S,stemcask/wick.rs,gluebox/glue.rs,cliurn/boot.rs,gnuverse/cask.map,stoke.sh}; do echo "===== $f ====="; sed -n '1,260p' "$f"; done
+[?2004l===== /app/narbay/loom.rs =====
+use std::fs;
+
+pub fn knit() -> String {
+    let raw = match fs::read_to_string("/app/quarryc/hold.toml") {
+        Ok(s) => s,
+        Err(_) => return "CASK_1".to_string(),
+    };
+    let mut first = None;
+    let mut name = String::new();
+    for line in raw.lines() {
+        let t = line.trim();
+        if let Some(rest) = t.strip_prefix("name = ") {
+            name = rest.trim_matches('"').to_string();
+        }
+        if t == "home = 1" && first.is_none() && !name.is_empty() {
+            first = Some(name.clone());
+        }
+    }
+    first.unwrap_or_else(|| "CASK_1".to_string())
+}
+
+#[allow(dead_code)]
+pub fn weave(path: &str) -> Result<(), i32> {
+    let home = knit();
+    let body = format!(
+        "{h} {{\n  global:\n    fold_frame;\n  local:\n    *;\n}};\nCASK_2 {{\n  global:\n    fold_frame;\n}} {h};\n",
+        h = home
+    );
+    fs::create_dir_all("/app/gnuverse").map_err(|_| 1)?;
+    fs::write(path, body).map_err(|_| 1)?;
+    Ok(())
+}
+===== /app/vatrib/qat.rs =====
+use std::fs;
+use std::os::raw::{c_char, c_int, c_void};
+
+use crate::loom;
+
+const RTLD_NOW: c_int = 2;
+
+extern "C" {
+    fn dlopen(filename: *const c_char, flags: c_int) -> *mut c_void;
+    fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
+    fn dlvsym(handle: *mut c_void, symbol: *const c_char, version: *const c_char) -> *mut c_void;
+}
+
+type FoldFn = unsafe extern "C" fn(*const u8, usize, *mut u8, usize) -> isize;
+
+fn rules_pair() -> (String, String) {
+    let mut cur = String::new();
+    let mut old = String::new();
+    if let Ok(s) = fs::read_to_string("/app/abifolio/RULES.txt") {
+        for line in s.lines() {
+            if let Some(rest) = line.strip_prefix("current slot:") {
+                cur = rest.trim().to_string();
+            }
+            if let Some(rest) = line.strip_prefix("compat slot:") {
+                old = rest.trim().to_string();
+            }
+        }
+    }
+    (cur, old)
+}
+
+fn folio_ok(slot: &str) -> bool {
+    let (a, b) = rules_pair();
+    slot == a || slot == b
+}
+
+fn load() -> *mut c_void {
+    unsafe { dlopen(b"/app/lib/libdraught.so\0".as_ptr() as *const c_char, RTLD_NOW) }
+}
+
+fn call(ptr: *mut c_void, blob: &[u8]) -> Result<Vec<u8>, i32> {
+    if ptr.is_null() {
+        return Err(1);
+    }
+    let f: FoldFn = unsafe { std::mem::transmute(ptr) };
+    let mut buf = vec![0u8; blob.len() + 32];
+    let n = unsafe { f(blob.as_ptr(), blob.len(), buf.as_mut_ptr(), buf.len()) };
+    if n < 0 {
+        return Err(1);
+    }
+    buf.truncate(n as usize);
+    Ok(buf)
+}
+
+fn write_card(slot: &str, text: &str, kind: &str) -> Result<(), i32> {
+    fs::create_dir_all("/app/inkvat").map_err(|_| 1)?;
+    let body = format!(
+        "{{\"node\":\"{}\",\"text\":{},\"kind\":\"{}\"}}\n",
+        slot,
+        serde_like(text),
+        kind
+    );
+    fs::write("/app/inkvat/card.json", body).map_err(|_| 1)?;
+    Ok(())
+}
+
+fn serde_like(s: &str) -> String {
+    let mut o = String::from("\"");
+    for c in s.chars() {
+        match c {
+            '"' => o.push_str("\\\""),
+            '\\' => o.push_str("\\\\"),
+            '\n' => o.push_str("\\n"),
+            '\t' => o.push_str("\\t"),
+            c if (c as u32) < 0x20 => o.push_str(&format!("\\u{:04x}", c as u32)),
+            _ => o.push(c),
+        }
+    }
+    o.push('"');
+    o
+}
+
+pub fn qat(a: &str, b: Option<&str>) -> i32 {
+    let _ = fs::remove_file("/app/inkvat/SEAL");
+    let blob = match fs::read(a) {
+        Ok(x) => x,
+        Err(_) => return 1,
+    };
+    if blob.is_empty() {
+        let _ = write_card("", "", "raw");
+        let _ = fs::write("/app/inkvat/SEAL", "ok");
+        return 0;
+    }
+    if let Some(n) = b {
+        if !folio_ok(n) {
+            let _ = write_card(n, "", "raw");
+            let _ = fs::write("/app/inkvat/SEAL", "ok");
+            return 0;
+        }
+    }
+    let h = load();
+    if h.is_null() {
+        return 1;
+    }
+    let ptr = unsafe {
+        match b {
+            None => dlsym(h, b"fold_frame\0".as_ptr() as *const c_char),
+            Some(n) => {
+                let mut v = n.as_bytes().to_vec();
+                v.push(0);
+                dlvsym(
+                    h,
+                    b"fold_frame\0".as_ptr() as *const c_char,
+                    v.as_ptr() as *const c_char,
+                )
+            }
+        }
+    };
+    let out = match call(ptr, &blob) {
+        Ok(v) => v,
+        Err(c) => return c,
+    };
+    let text = String::from_utf8_lossy(&out).into_owned();
+    let home = loom::knit();
+    let kind = if b.is_some() { "raw" } else { "raw" };
+    if write_card(&home, &text, kind).is_err() {
+        return 1;
+    }
+    if fs::write("/app/inkvat/SEAL", "ok").is_err() {
+        return 1;
+    }
+    0
+}
+===== /app/weft/main.rs =====
+#[path = "../narbay/loom.rs"]
+mod loom;
+
+fn main() {
+    if loom::weave("/app/gnuverse/cask.map").is_err() {
+        std::process::exit(1);
+    }
+}
+===== /app/aliaspit/hue.S =====
+# hue
+.equ hue, 0
+.symver wick_old,fold_frame@@CASK_1
+.symver wick_new,fold_frame@CASK_2
+===== /app/stemcask/wick.rs =====
+use core::slice;
+
+fn lower_only(s: &[u8], dst: &mut [u8]) -> usize {
+    let n = s.len().min(dst.len());
+    for i in 0..n {
+        dst[i] = s[i].to_ascii_lowercase();
+    }
+    n
+}
+
+fn full_fold(s: &[u8], dst: &mut [u8]) -> usize {
+    let mut i = 0;
+    let mut space = false;
+    for &b in s {
+        if i >= dst.len() {
+            break;
+        }
+        if b == b'\t' || b == b' ' || b == b'\n' || b == b'\r' {
+            if !space {
+                dst[i] = b' ';
+                i += 1;
+                space = true;
+            }
+            continue;
+        }
+        if b < 0x20 {
+            continue;
+        }
+        space = false;
+        dst[i] = b.to_ascii_lowercase();
+        i += 1;
+    }
+    while i > 0 && dst[i - 1] == b'/' {
+        i -= 1;
+    }
+    i
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wick_old(p: *const u8, n: usize, dst: *mut u8, cap: usize) -> isize {
+    if p.is_null() || dst.is_null() || cap == 0 {
+        return -1;
+    }
+    let s = slice::from_raw_parts(p, n);
+    let d = slice::from_raw_parts_mut(dst, cap);
+    lower_only(s, d) as isize
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wick_new(p: *const u8, n: usize, dst: *mut u8, cap: usize) -> isize {
+    if p.is_null() || dst.is_null() || cap == 0 {
+        return -1;
+    }
+    let s = slice::from_raw_parts(p, n);
+    let d = slice::from_raw_parts_mut(dst, cap);
+    full_fold(s, d) as isize
+}
+===== /app/gluebox/glue.rs =====
+#![no_std]
+#![crate_type = "staticlib"]
+
+#[path = "../stemcask/wick.rs"]
+mod wick;
+
+core::arch::global_asm!(include_str!("../aliaspit/hue.S"));
+
+#[no_mangle]
+pub extern "C" fn rust_eh_personality() {}
+
+#[panic_handler]
+fn panic(_: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+===== /app/cliurn/boot.rs =====
+#[path = "../narbay/loom.rs"]
+mod loom;
+#[path = "../vatrib/qat.rs"]
+mod qat;
+#[path = "../spanmod/skip.rs"]
+mod skip;
+#[path = "../lidmath/note.rs"]
+mod note;
+
+fn main() {
+    let mut args = std::env::args();
+    let _ = args.next();
+    let cmd = args.next().unwrap_or_default();
+    if cmd == "sip" {
+        let dump = args.next().unwrap_or_default();
+        let _ = skip::skip(&dump);
+        std::process::exit(qat::qat(&dump, None));
+    }
+    if cmd == "mark" {
+        let dump = args.next().unwrap_or_default();
+        let slot = args.next().unwrap_or_default();
+        let _ = note::note(&slot);
+        std::process::exit(qat::qat(&dump, Some(&slot)));
+    }
+    eprintln!("usage: draughtpin sip DUMP | draughtpin mark DUMP SLOT");
+    std::process::exit(2);
+}
+===== /app/gnuverse/cask.map =====
+CASK_1 {
+  global:
+    fold_frame;
+  local:
+    *;
+};
+CASK_2 {
+  global:
+    fold_frame;
+} CASK_1;
+===== /app/stoke.sh =====
+#!/bin/sh
+set -eu
+export PATH="/usr/local/cargo/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+mkdir -p /app/bin /app/lib /app/inkvat /app/gnuverse
+rustc --edition 2021 -O /app/weft/main.rs -o /app/bin/weave
+/app/bin/weave
+rustc --edition 2021 -O --crate-type staticlib -C panic=abort /app/gluebox/glue.rs -o /tmp/libdraught.a
+cc -shared -o /app/lib/libdraught.so -Wl,--version-script=/app/gnuverse/cask.map -Wl,--whole-archive /tmp/libdraught.a -Wl,--no-whole-archive -lc -ldl
+rustc --edition 2021 -O /app/cliurn/boot.rs -o /app/bin/draughtpin -C link-arg=-ldl
+[?2004hroot@f9e8f06ec006:/app# echo '--- raw dumps ---'; for f in /app/rawspan/*.raw; do echo "== $f ($(wc -c < "$f") bytes) =="; od -An -tx1c "$f"; done; echo '--- ELF headers/symbols ---'; readelf -h /app/bin/draughtpin | head -20; readelf -WsV /app/lib/libdraught.so | sed -n '1,240p'
+[?2004l--- raw dumps ---
+== /app/rawspan/alpha.raw (8 bytes) ==
+  46  6f  6f  09  42  61  72  2f
+   F   o   o  \t   B   a   r   /
+== /app/rawspan/beta.raw (12 bytes) ==
+  48  65  6c  6c  6f  20  20  57  6f  72  6c  64
+   H   e   l   l   o           W   o   r   l   d
+--- ELF headers/symbols ---
+ELF Header:
+  Magic:   7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00 
+  Class:                             ELF64
+  Data:                              2's complement, little endian
+  Version:                           1 (current)
+  OS/ABI:                            UNIX - System V
+  ABI Version:                       0
+  Type:                              DYN (Position-Independent Executable file)
+  Machine:                           Advanced Micro Devices X86-64
+  Version:                           0x1
+  Entry point address:               0x7900
+  Start of program headers:          64 (bytes into file)
+  Start of section headers:          3987720 (bytes into file)
+  Flags:                             0x0
+  Size of this header:               64 (bytes)
+  Size of program headers:           56 (bytes)
+  Number of program headers:         14
+  Size of section headers:           64 (bytes)
+  Number of section headers:         40
+  Section header string table index: 39
+
+Symbol table '.dynsym' contains 12 entries:
+   Num:    Value          Size Type    Bind   Vis      Ndx Name
+     0: 0000000000000000     0 NOTYPE  LOCAL  DEFAULT  UND 
+     1: 0000000000000000     0 NOTYPE  WEAK   DEFAULT  UND _ITM_deregisterTMCloneTable
+     2: 0000000000000000     0 FUNC    GLOBAL DEFAULT  UND memset@GLIBC_2.2.5 (4)
+     3: 0000000000000000     0 NOTYPE  WEAK   DEFAULT  UND __gmon_start__
+     4: 0000000000000000     0 FUNC    GLOBAL DEFAULT  UND memcpy@GLIBC_2.14 (5)
+     5: 0000000000000000     0 FUNC    GLOBAL DEFAULT  UND bcmp@GLIBC_2.2.5 (4)
+     6: 0000000000000000     0 NOTYPE  WEAK   DEFAULT  UND _ITM_registerTMCloneTable
+     7: 0000000000000000     0 FUNC    WEAK   DEFAULT  UND __cxa_finalize@GLIBC_2.2.5 (4)
+     8: 0000000000000000     0 OBJECT  GLOBAL DEFAULT  ABS CASK_1
+     9: 0000000000000000     0 OBJECT  GLOBAL DEFAULT  ABS CASK_2
+    10: 0000000000004000   379 FUNC    GLOBAL DEFAULT   12 fold_frame@@CASK_1
+    11: 0000000000004180   225 FUNC    GLOBAL DEFAULT   12 fold_frame@CASK_2
+
+Symbol table '.symtab' contains 1256 entries:
+   Num:    Value          Size Type    Bind   Vis      Ndx Name
+     0: 0000000000000000     0 NOTYPE  LOCAL  DEFAULT  UND 
+     1: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS core.1d264cc251a564c0-cgu.0
+     2: 0000000000004bb0   385 FUNC    LOCAL  DEFAULT   12 _ZN4core3num7dec2flt6lemire13compute_float17h5263c5aa9f07521bE
+     3: 0000000000032d28 10416 OBJECT  LOCAL  DEFAULT   14 _ZN4core3num7dec2flt5table17POWER_OF_FIVE_12817h719aa6c698a03a1cE
+     4: 0000000000004d40   395 FUNC    LOCAL  DEFAULT   12 _ZN4core3num7dec2flt6lemire13compute_float17h9839f9eec746547cE
+     5: 0000000000030d54    76 OBJECT  LOCAL  DEFAULT   14 _ZN4core3num7flt2dec8strategy6dragon9POW5TO25617h3c4d051c2c612f6bE
+     6: 0000000000030d04     8 OBJECT  LOCAL  DEFAULT   14 _ZN4core3num7flt2dec8strategy6dragon8POW5TO1617h3e95431d36bed618E
+     7: 0000000000030d0c    12 OBJECT  LOCAL  DEFAULT   14 _ZN4core3num7flt2dec8strategy6dragon8POW5TO3217hc63d66b913b98ab7E
+     8: 0000000000030d18    20 OBJECT  LOCAL  DEFAULT   14 _ZN4core3num7flt2dec8strategy6dragon8POW5TO6417h36f52191005dad49E
+     9: 0000000000030d2c    40 OBJECT  LOCAL  DEFAULT   14 _ZN4core3num7flt2dec8strategy6dragon9POW5TO12817hbf2d0c591c601134E
+    10: 0000000000008580   439 FUNC    LOCAL  DEFAULT   12 _ZN4core3num7flt2dec8strategy5grisu16format_exact_opt14possibly_round17h2a6b66f63160f155E
+    11: 0000000000019c90    30 FUNC    LOCAL  DEFAULT   12 _ZN73_$LT$core..num..nonzero..NonZero$LT$T$GT$$u20$as$u20$core..fmt..Debug$GT$3fmt17h0d80af2d1b0d8ac1E
+    12: 000000000001ca70   506 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt3num50_$LT$impl$u20$core..fmt..Debug$u20$for$u20$u32$GT$3fmt17ha0baef3c6bdf1fc0E
+    13: 0000000000008ff0    75 FUNC    LOCAL  DEFAULT   12 _ZN71_$LT$core..ops..range..Range$LT$Idx$GT$$u20$as$u20$core..fmt..Debug$GT$3fmt17h5f4c0b6c92d5cb19E
+    14: 000000000001ce60   506 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt3num52_$LT$impl$u20$core..fmt..Debug$u20$for$u20$usize$GT$3fmt17hde35892ade72905aE
+    15: 0000000000009470   546 FUNC    LOCAL  DEFAULT   12 _ZN4core4char7methods22_$LT$impl$u20$char$GT$16escape_debug_ext17h5b07a35fc7892fbdE
+    16: 0000000000009cd0    73 FUNC    LOCAL  DEFAULT   12 _ZN86_$LT$core..net..display_buffer..DisplayBuffer$LT$_$GT$$u20$as$u20$core..fmt..Write$GT$9write_str17h0d736d3985a5e8b5E
+    17: 0000000000009d20    73 FUNC    LOCAL  DEFAULT   12 _ZN86_$LT$core..net..display_buffer..DisplayBuffer$LT$_$GT$$u20$as$u20$core..fmt..Write$GT$9write_str17hb14c9dddc923b1fbE
+    18: 0000000000009d70    73 FUNC    LOCAL  DEFAULT   12 _ZN86_$LT$core..net..display_buffer..DisplayBuffer$LT$_$GT$$u20$as$u20$core..fmt..Write$GT$9write_str17hc90d907afe2a9487E
+    19: 0000000000009dc0    73 FUNC    LOCAL  DEFAULT   12 _ZN86_$LT$core..net..display_buffer..DisplayBuffer$LT$_$GT$$u20$as$u20$core..fmt..Write$GT$9write_str17hff0ce7b3d02d876eE
+    20: 000000000001e8d0    14 FUNC    LOCAL  DEFAULT   12 _ZN44_$LT$$RF$T$u20$as$u20$core..fmt..Display$GT$3fmt17hc8a39f30aab5aa88E
+    21: 000000000001e8e0   122 FUNC    LOCAL  DEFAULT   12 _ZN45_$LT$$RF$T$u20$as$u20$core..fmt..LowerHex$GT$3fmt17hff483aa394c90be4E
+    22: 000000000000a9e0   596 FUNC    LOCAL  DEFAULT   12 _ZN4core3net6parser6Parser11read_number28_$u7b$$u7b$closure$u7d$$u7d$17hfc25cf60ba5b8f27E
+    23: 000000000000ac40  1056 FUNC    LOCAL  DEFAULT   12 _ZN4core3net6parser6Parser14read_ipv4_addr17h0beb52e7ba0ccc7cE
+    24: 000000000000b060   325 FUNC    LOCAL  DEFAULT   12 _ZN4core3net6parser6Parser14read_ipv6_addr17h4be226b83934d8a5E
+    25: 000000000000b1b0   504 FUNC    LOCAL  DEFAULT   12 _ZN4core3net6parser6Parser14read_ipv6_addr11read_groups17h54bf8901dbcd9921E
+    26: 000000000000b3b0   414 FUNC    LOCAL  DEFAULT   12 _ZN4core3net6parser6Parser19read_socket_addr_v617hf9b1cffa1b190bd9E
+    27: 000000000001e8c0    14 FUNC    LOCAL  DEFAULT   12 _ZN44_$LT$$RF$T$u20$as$u20$core..fmt..Display$GT$3fmt17h659f369ac053d7f1E
+    28: 000000000001e8a0    24 FUNC    LOCAL  DEFAULT   12 _ZN44_$LT$$RF$T$u20$as$u20$core..fmt..Display$GT$3fmt17h0e3ec628b856fe61E
+    29: 00000000000466e4     0 NOTYPE  LOCAL  DEFAULT   17 GCC_except_table121
+    30: 000000000001e880    21 FUNC    LOCAL  DEFAULT   12 _ZN42_$LT$$RF$T$u20$as$u20$core..fmt..Debug$GT$3fmt17hdec3cd7df363df61E
+    31: 000000000000d420   977 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt5float29float_to_decimal_common_exact17h2664b0ebb5b0be4bE
+    32: 0000000000010790   584 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt9Formatter19pad_formatted_parts17h64fe0667d8fe8827E
+    33: 000000000000d800   991 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt5float29float_to_decimal_common_exact17hdae3184cab06aebbE
+    34: 000000000000dbe0   725 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt5float32float_to_decimal_common_shortest17hdc8228aba6a970ebE
+    35: 000000000000dec0   739 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt5float32float_to_decimal_common_shortest17hfd30c585c36bcbdcE
+    36: 000000000000e1b0   975 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt5float33float_to_exponential_common_exact17h39ad23f3aa2d2195E
+    37: 000000000000e580   956 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt5float33float_to_exponential_common_exact17h43df390fdfb69195E
+    38: 000000000000e940   919 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt5float36float_to_exponential_common_shortest17h69cd7cfb0240eacdE
+    39: 000000000000ece0   935 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt5float36float_to_exponential_common_shortest17hbb3a4bd601623660E
+    40: 000000000000f090   903 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt3num14parse_u64_into17hb93af7501a143e8fE
+    41: 000000000000f470   388 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt3num8fmt_u12817he75dd8c830ae5ed0E
+    42: 000000000000f600   240 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt5Write10write_char17h09f17101413bbddeE
+    43: 000000000000f6f0   240 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt5Write10write_char17h7596ea0b8636f152E
+    44: 000000000000f7e0   240 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt5Write10write_char17h88649b179db53f82E
+    45: 000000000000f8d0   240 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt5Write10write_char17hf22090e8801309aaE
+    46: 000000000000f9c0    21 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt5Write9write_fmt17h1029414a38ef0bf8E
+    47: 000000000000f9e0    21 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt5Write9write_fmt17h16fc69d997dc70d6E
+    48: 000000000000fa00    21 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt5Write9write_fmt17h7ed9ae7061941cdfE
+    49: 000000000000fa20    21 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt5Write9write_fmt17hc02d8edaf996c92bE
+    50: 000000000000fa40    21 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt5Write9write_fmt17hcbe6d945b62ef46fE
+    51: 00000000000102d0    84 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt9Formatter12pad_integral12write_prefix17hd30895a40eef31e8E
+    52: 00000000000109e0   601 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt9Formatter21write_formatted_parts17h10e618524718523cE
+    53: 00000000000129f0   202 FUNC    LOCAL  DEFAULT   12 _ZN52_$LT$$BP$const$u20$T$u20$as$u20$core..fmt..Debug$GT$3fmt17h5663369f550aa479E
+    54: 0000000000015850  2122 FUNC    LOCAL  DEFAULT   12 _ZN57_$LT$core..time..Duration$u20$as$u20$core..fmt..Debug$GT$3fmt11fmt_decimal17h927e4afcd39c18fcE
+    55: 00000000000160a0   599 FUNC    LOCAL  DEFAULT   12 _ZN57_$LT$core..time..Duration$u20$as$u20$core..fmt..Debug$GT$3fmt11fmt_decimal28_$u7b$$u7b$closure$u7d$$u7d$17h290f0e722850609dE
+    56: 0000000000016340   281 FUNC    LOCAL  DEFAULT   12 _ZN4core7unicode9printable5check17hc1a558886616d218E
+    57: 000000000001cc70   489 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt3num50_$LT$impl$u20$core..fmt..Debug$u20$for$u20$u64$GT$3fmt17h065ef921240b58c8E
+    58: 000000000001d810  1150 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt3num3imp7exp_u6417h8f744ae6e5986b78E
+    59: 000000000001def0  2147 FUNC    LOCAL  DEFAULT   12 _ZN4core3fmt3num8exp_u12817hbcf2cb87bbb30177E
+    60: 000000000001e830    31 FUNC    LOCAL  DEFAULT   12 _ZN53_$LT$core..fmt..Error$u20$as$u20$core..fmt..Debug$GT$3fmt17h8fa06cb8cfdceb99E
+    61: 000000000001e850    13 FUNC    LOCAL  DEFAULT   12 _ZN42_$LT$$RF$T$u20$as$u20$core..fmt..Debug$GT$3fmt17h9e17d8a31ead0ee8E
+    62: 000000000001e860    16 FUNC    LOCAL  DEFAULT   12 _ZN42_$LT$$RF$T$u20$as$u20$core..fmt..Debug$GT$3fmt17ha52974476665698aE
+    63: 000000000001e870    14 FUNC    LOCAL  DEFAULT   12 _ZN42_$LT$$RF$T$u20$as$u20$core..fmt..Debug$GT$3fmt17hcafb2aaf2defdaffE
+    64: 00000000000358c8   212 OBJECT  LOCAL  DEFAULT   14 _ZN4core7unicode12unicode_data10alphabetic17SHORT_OFFSET_RUNS17h728c39ddad72ae3eE
+    65: 000000000003599c  1515 OBJECT  LOCAL  DEFAULT   14 _ZN4core7unicode12unicode_data10alphabetic7OFFSETS17h1c496cf33522c0adE
+    66: 0000000000035f88   148 OBJECT  LOCAL  DEFAULT   14 _ZN4core7unicode12unicode_data14case_ignorable17SHORT_OFFSET_RUNS17h1457aaebbd40e897E
+    67: 000000000003601c   905 OBJECT  LOCAL  DEFAULT   14 _ZN4core7unicode12unicode_data14case_ignorable7OFFSETS17h484933c819923256E
+    68: 00000000000363a8    88 OBJECT  LOCAL  DEFAULT   14 _ZN4core7unicode12unicode_data5cased17SHORT_OFFSET_RUNS17hacf5102751956f5bE
+    69: 0000000000036400   319 OBJECT  LOCAL  DEFAULT   14 _ZN4core7unicode12unicode_data5cased7OFFSETS17h261a704a61bf12f2E
+    70: 0000000000036540   136 OBJECT  LOCAL  DEFAULT   14 _ZN4core7unicode12unicode_data15grapheme_extend17SHORT_OFFSET_RUNS17h82b4d9ba2a4659d1E
+    71: 00000000000365c8   751 OBJECT  LOCAL  DEFAULT   14 _ZN4core7unicode12unicode_data15grapheme_extend7OFFSETS17ha43007b4438c7df1E
+    72: 0000000000036c64   168 OBJECT  LOCAL  DEFAULT   14 _ZN4core7unicode12unicode_data1n17SHORT_OFFSET_RUNS17hec46f4d9aaa6cf37E
+    73: 0000000000036d0c   289 OBJECT  LOCAL  DEFAULT   14 _ZN4core7unicode12unicode_data1n7OFFSETS17h979a7642275237d2E
+    74: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS crtstuff.c
+    75: 0000000000003f40     0 FUNC    LOCAL  DEFAULT   12 deregister_tm_clones
+    76: 0000000000003f70     0 FUNC    LOCAL  DEFAULT   12 register_tm_clones
+    77: 0000000000003fb0     0 FUNC    LOCAL  DEFAULT   12 __do_global_dtors_aux
+    78: 0000000000049010     1 OBJECT  LOCAL  DEFAULT   25 completed.0
+    79: 0000000000047680     0 OBJECT  LOCAL  DEFAULT   19 __do_global_dtors_aux_fini_array_entry
+    80: 0000000000003ff0     0 FUNC    LOCAL  DEFAULT   12 frame_dummy
+    81: 0000000000047678     0 OBJECT  LOCAL  DEFAULT   18 __frame_dummy_init_array_entry
+    82: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS glue.ad4c822da00a564c-cgu.0
+    83: 0000000000000000     0 NOTYPE  LOCAL  DEFAULT  ABS hue
+    84: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS rustc_std_workspace_core.3f45cc365a42a71-cgu.0
+    85: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.000
+    86: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.001
+    87: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.002
+    88: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.003
+    89: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.004
+    90: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.005
+    91: 0000000000023ef0   337 FUNC    LOCAL  DEFAULT   12 _ZN17compiler_builtins3mem5impls13compare_bytes28_$u7b$$u7b$closure$u7d$$u7d$17ha4309ff408acc402E
+    92: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.006
+    93: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.007
+    94: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.008
+    95: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.009
+    96: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.010
+    97: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.011
+    98: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.012
+    99: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.013
+   100: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.014
+   101: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.015
+   102: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.016
+   103: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.017
+   104: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.018
+   105: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.019
+   106: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.020
+   107: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.021
+   108: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.022
+   109: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.023
+   110: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.024
+   111: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.025
+   112: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.026
+   113: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.027
+   114: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.028
+   115: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.029
+   116: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.030
+   117: 00000000000466f4     0 NOTYPE  LOCAL  DEFAULT   17 GCC_except_table0
+   118: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.031
+   119: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.032
+   120: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.033
+   121: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.034
+   122: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.035
+   123: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.036
+   124: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.037
+   125: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.038
+   126: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.039
+   127: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.040
+   128: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.041
+   129: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.042
+   130: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.043
+   131: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.044
+   132: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.045
+   133: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.046
+   134: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.047
+   135: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.048
+   136: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.049
+   137: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.050
+   138: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.051
+   139: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.052
+   140: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.053
+   141: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.054
+   142: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.055
+   143: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.056
+   144: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.057
+   145: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.058
+   146: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.059
+   147: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.060
+   148: 0000000000046704     0 NOTYPE  LOCAL  DEFAULT   17 GCC_except_table0
+   149: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.061
+   150: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.062
+   151: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.063
+   152: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.064
+   153: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.065
+   154: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.066
+   155: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.067
+   156: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.068
+   157: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.069
+   158: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.070
+   159: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.071
+   160: 0000000000046714     0 NOTYPE  LOCAL  DEFAULT   17 GCC_except_table0
+   161: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.072
+   162: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.073
+   163: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.074
+   164: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.075
+   165: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.076
+   166: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.077
+   167: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.078
+   168: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.079
+   169: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.080
+   170: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.081
+   171: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.082
+   172: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.083
+   173: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.084
+   174: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.085
+   175: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.086
+   176: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.087
+   177: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.088
+   178: 0000000000046724     0 NOTYPE  LOCAL  DEFAULT   17 GCC_except_table0
+   179: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.089
+   180: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.090
+   181: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.091
+   182: 0000000000046734     0 NOTYPE  LOCAL  DEFAULT   17 GCC_except_table0
+   183: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.092
+   184: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.093
+   185: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.094
+   186: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.095
+   187: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.096
+   188: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.097
+   189: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.098
+   190: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.099
+   191: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.100
+   192: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.101
+   193: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.102
+   194: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.103
+   195: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.104
+   196: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.105
+   197: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.106
+   198: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.107
+   199: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.108
+   200: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.109
+   201: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.110
+   202: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.111
+   203: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.112
+   204: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.113
+   205: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.114
+   206: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.115
+   207: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.116
+   208: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.117
+   209: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.118
+   210: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.119
+   211: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.120
+   212: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.121
+   213: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.122
+   214: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.123
+   215: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.124
+   216: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.125
+   217: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.126
+   218: 000000000004674c     0 NOTYPE  LOCAL  DEFAULT   17 GCC_except_table0
+   219: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.127
+   220: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.128
+   221: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS compiler_builtins.dcf83437743dbaa8-cgu.129
+[?2004hroot@f9e8f06ec006:/app# echo '--- baseline sip ---'; rm -f /app/inkvat/SEAL /app/inkvat/card.json; /app/bin/draughtpin sip; s=$?; echo status=$s; ls -l /app/inkvat; test -f /app/inkvat/card.json && cat /app/inkvat/card.json; echo; echo '--- mark CASK_2 ---'; rm -f /app/inkvat/SEAL; /app/bin/draughtpin mark CASK_2; echo status=$?; ls -l /app/inkvat; test -f /app/inkvat/card.json && cat /app/inkvat/card.json; echo
+[?2004l--- baseline sip ---
+status=1
+total 0
+
+--- mark CASK_2 ---
+status=1
+total 0
+
+[?2004hroot@f9e8f06ec006:/app# for f in /app/vatrib/qat.rs /app/weft/main.rs /app/stemcask/wick.rs /app/gluebox/glue.rs /app/cliurn/boot.rs; do echo "===== $f ====="; cat "$f"; done
+[?2004l===== /app/vatrib/qat.rs =====
+use std::fs;
+use std::os::raw::{c_char, c_int, c_void};
+
+use crate::loom;
+
+const RTLD_NOW: c_int = 2;
+
+extern "C" {
+    fn dlopen(filename: *const c_char, flags: c_int) -> *mut c_void;
+    fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
+    fn dlvsym(handle: *mut c_void, symbol: *const c_char, version: *const c_char) -> *mut c_void;
+}
+
+type FoldFn = unsafe extern "C" fn(*const u8, usize, *mut u8, usize) -> isize;
+
+fn rules_pair() -> (String, String) {
+    let mut cur = String::new();
+    let mut old = String::new();
+    if let Ok(s) = fs::read_to_string("/app/abifolio/RULES.txt") {
+        for line in s.lines() {
+            if let Some(rest) = line.strip_prefix("current slot:") {
+                cur = rest.trim().to_string();
+            }
+            if let Some(rest) = line.strip_prefix("compat slot:") {
+                old = rest.trim().to_string();
+            }
+        }
+    }
+    (cur, old)
+}
+
+fn folio_ok(slot: &str) -> bool {
+    let (a, b) = rules_pair();
+    slot == a || slot == b
+}
+
+fn load() -> *mut c_void {
+    unsafe { dlopen(b"/app/lib/libdraught.so\0".as_ptr() as *const c_char, RTLD_NOW) }
+}
+
+fn call(ptr: *mut c_void, blob: &[u8]) -> Result<Vec<u8>, i32> {
+    if ptr.is_null() {
+        return Err(1);
+    }
+    let f: FoldFn = unsafe { std::mem::transmute(ptr) };
+    let mut buf = vec![0u8; blob.len() + 32];
+    let n = unsafe { f(blob.as_ptr(), blob.len(), buf.as_mut_ptr(), buf.len()) };
+    if n < 0 {
+        return Err(1);
+    }
+    buf.truncate(n as usize);
+    Ok(buf)
+}
+
+fn write_card(slot: &str, text: &str, kind: &str) -> Result<(), i32> {
+    fs::create_dir_all("/app/inkvat").map_err(|_| 1)?;
+    let body = format!(
+        "{{\"node\":\"{}\",\"text\":{},\"kind\":\"{}\"}}\n",
+        slot,
+        serde_like(text),
+        kind
+    );
+    fs::write("/app/inkvat/card.json", body).map_err(|_| 1)?;
+    Ok(())
+}
+
+fn serde_like(s: &str) -> String {
+    let mut o = String::from("\"");
+    for c in s.chars() {
+        match c {
+            '"' => o.push_str("\\\""),
+            '\\' => o.push_str("\\\\"),
+            '\n' => o.push_str("\\n"),
+            '\t' => o.push_str("\\t"),
+            c if (c as u32) < 0x20 => o.push_str(&format!("\\u{:04x}", c as u32)),
+            _ => o.push(c),
+        }
+    }
+    o.push('"');
+    o
+}
+
+pub fn qat(a: &str, b: Option<&str>) -> i32 {
+    let _ = fs::remove_file("/app/inkvat/SEAL");
+    let blob = match fs::read(a) {
+        Ok(x) => x,
+        Err(_) => return 1,
+    };
+    if blob.is_empty() {
+        let _ = write_card("", "", "raw");
+        let _ = fs::write("/app/inkvat/SEAL", "ok");
+        return 0;
+    }
+    if let Some(n) = b {
+        if !folio_ok(n) {
+            let _ = write_card(n, "", "raw");
+            let _ = fs::write("/app/inkvat/SEAL", "ok");
+            return 0;
+        }
+    }
+    let h = load();
+    if h.is_null() {
+        return 1;
+    }
+    let ptr = unsafe {
+        match b {
+            None => dlsym(h, b"fold_frame\0".as_ptr() as *const c_char),
+            Some(n) => {
+                let mut v = n.as_bytes().to_vec();
+                v.push(0);
+                dlvsym(
+                    h,
+                    b"fold_frame\0".as_ptr() as *const c_char,
+                    v.as_ptr() as *const c_char,
+                )
+            }
+        }
+    };
+    let out = match call(ptr, &blob) {
+        Ok(v) => v,
+        Err(c) => return c,
+    };
+    let text = String::from_utf8_lossy(&out).into_owned();
+    let home = loom::knit();
+    let kind = if b.is_some() { "raw" } else { "raw" };
+    if write_card(&home, &text, kind).is_err() {
+        return 1;
+    }
+    if fs::write("/app/inkvat/SEAL", "ok").is_err() {
+        return 1;
+    }
+    0
+}
+===== /app/weft/main.rs =====
+#[path = "../narbay/loom.rs"]
+mod loom;
+
+fn main() {
+    if loom::weave("/app/gnuverse/cask.map").is_err() {
+        std::process::exit(1);
+    }
+}
+===== /app/stemcask/wick.rs =====
+use core::slice;
+
+fn lower_only(s: &[u8], dst: &mut [u8]) -> usize {
+    let n = s.len().min(dst.len());
+    for i in 0..n {
+        dst[i] = s[i].to_ascii_lowercase();
+    }
+    n
+}
+
+fn full_fold(s: &[u8], dst: &mut [u8]) -> usize {
+    let mut i = 0;
+    let mut space = false;
+    for &b in s {
+        if i >= dst.len() {
+            break;
+        }
+        if b == b'\t' || b == b' ' || b == b'\n' || b == b'\r' {
+            if !space {
+                dst[i] = b' ';
+                i += 1;
+                space = true;
+            }
+            continue;
+        }
+        if b < 0x20 {
+            continue;
+        }
+        space = false;
+        dst[i] = b.to_ascii_lowercase();
+        i += 1;
+    }
+    while i > 0 && dst[i - 1] == b'/' {
+        i -= 1;
+    }
+    i
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wick_old(p: *const u8, n: usize, dst: *mut u8, cap: usize) -> isize {
+    if p.is_null() || dst.is_null() || cap == 0 {
+        return -1;
+    }
+    let s = slice::from_raw_parts(p, n);
+    let d = slice::from_raw_parts_mut(dst, cap);
+    lower_only(s, d) as isize
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wick_new(p: *const u8, n: usize, dst: *mut u8, cap: usize) -> isize {
+    if p.is_null() || dst.is_null() || cap == 0 {
+        return -1;
+    }
+    let s = slice::from_raw_parts(p, n);
+    let d = slice::from_raw_parts_mut(dst, cap);
+    full_fold(s, d) as isize
+}
+===== /app/gluebox/glue.rs =====
+#![no_std]
+#![crate_type = "staticlib"]
+
+#[path = "../stemcask/wick.rs"]
+mod wick;
+
+core::arch::global_asm!(include_str!("../aliaspit/hue.S"));
+
+#[no_mangle]
+pub extern "C" fn rust_eh_personality() {}
+
+#[panic_handler]
+fn panic(_: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+===== /app/cliurn/boot.rs =====
+#[path = "../narbay/loom.rs"]
+mod loom;
+#[path = "../vatrib/qat.rs"]
+mod qat;
+#[path = "../spanmod/skip.rs"]
+mod skip;
+#[path = "../lidmath/note.rs"]
+mod note;
+
+fn main() {
+    let mut args = std::env::args();
+    let _ = args.next();
+    let cmd = args.next().unwrap_or_default();
+    if cmd == "sip" {
+        let dump = args.next().unwrap_or_default();
+        let _ = skip::skip(&dump);
+        std::process::exit(qat::qat(&dump, None));
+    }
+    if cmd == "mark" {
+        let dump = args.next().unwrap_or_default();
+        let slot = args.next().unwrap_or_default();
+        let _ = note::note(&slot);
+        std::process::exit(qat::qat(&dump, Some(&slot)));
+    }
+    eprintln!("usage: draughtpin sip DUMP | draughtpin mark DUMP SLOT");
+    std::process::exit(2);
+}
+[?2004hroot@f9e8f06ec006:/app# for f in /app/aliaspit/hue.S /app/gnuverse/cask.map /app/stoke.sh /app/quarryc/hold.toml; do echo "===== $f ====="; cat "$f"; done
+[?2004l===== /app/aliaspit/hue.S =====
+# hue
+.equ hue, 0
+.symver wick_old,fold_frame@@CASK_1
+.symver wick_new,fold_frame@CASK_2
+===== /app/gnuverse/cask.map =====
+CASK_1 {
+  global:
+    fold_frame;
+  local:
+    *;
+};
+CASK_2 {
+  global:
+    fold_frame;
+} CASK_1;
+===== /app/stoke.sh =====
+#!/bin/sh
+set -eu
+export PATH="/usr/local/cargo/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+mkdir -p /app/bin /app/lib /app/inkvat /app/gnuverse
+rustc --edition 2021 -O /app/weft/main.rs -o /app/bin/weave
+/app/bin/weave
+rustc --edition 2021 -O --crate-type staticlib -C panic=abort /app/gluebox/glue.rs -o /tmp/libdraught.a
+cc -shared -o /app/lib/libdraught.so -Wl,--version-script=/app/gnuverse/cask.map -Wl,--whole-archive /tmp/libdraught.a -Wl,--no-whole-archive -lc -ldl
+rustc --edition 2021 -O /app/cliurn/boot.rs -o /app/bin/draughtpin -C link-arg=-ldl
+===== /app/quarryc/hold.toml =====
+[[nodes]]
+name = "CASK_1"
+home = 1
+
+[[nodes]]
+name = "CASK_2"
+home = 1
+[?2004hroot@f9e8f06ec006:/app# echo '--- dumps ---'; for f in /app/rawspan/*.raw; do printf '%s bytes=' "$f"; wc -c < "$f"; od -An -tx1 "$f"; done; echo '--- relevant symbols ---'; readelf --dyn-syms --wide /app/lib/libdraught.so | grep -E 'fold_frame|CASK'; echo '--- versions ---'; readelf -V /app/lib/libdraught.so
+[?2004l--- dumps ---
+/app/rawspan/alpha.raw bytes=8
+ 46 6f 6f 09 42 61 72 2f
+/app/rawspan/beta.raw bytes=12
+ 48 65 6c 6c 6f 20 20 57 6f 72 6c 64
+--- relevant symbols ---
+     8: 0000000000000000     0 OBJECT  GLOBAL DEFAULT  ABS CASK_1
+     9: 0000000000000000     0 OBJECT  GLOBAL DEFAULT  ABS CASK_2
+    10: 0000000000004000   379 FUNC    GLOBAL DEFAULT   12 fold_frame@@CASK_1
+    11: 0000000000004180   225 FUNC    GLOBAL DEFAULT   12 fold_frame@CASK_2
+--- versions ---
+
+Version symbols section '.gnu.version' contains 12 entries:
+ Addr: 0x0000000000000468  Offset: 0x00000468  Link: 3 (.dynsym)
+  000:   0 (*local*)       1 (*global*)      4 (GLIBC_2.2.5)   1 (*global*)   
+  004:   5 (GLIBC_2.14)    4 (GLIBC_2.2.5)   1 (*global*)      4 (GLIBC_2.2.5)
+  008:   2 (CASK_1)        3 (CASK_2)        2 (CASK_1)        3h(CASK_2)     
+
+Version definition section '.gnu.version_d' contains 3 entries:
+ Addr: 0x0000000000000480  Offset: 0x00000480  Link: 4 (.dynstr)
+  000000: Rev: 1  Flags: BASE  Index: 1  Cnt: 1  Name: libdraught.so
+  0x001c: Rev: 1  Flags: none  Index: 2  Cnt: 1  Name: CASK_1
+  0x0038: Rev: 1  Flags: none  Index: 3  Cnt: 2  Name: CASK_2
+  0x0054: Parent 1: CASK_1
+
+Version needs section '.gnu.version_r' contains 1 entry:
+ Addr: 0x00000000000004e0  Offset: 0x000004e0  Link: 4 (.dynstr)
+  000000: Version: 1  File: libc.so.6  Cnt: 2
+  0x0010:   Name: GLIBC_2.14  Flags: none  Version: 5
+  0x0020:   Name: GLIBC_2.2.5  Flags: none  Version: 4
+[?2004hroot@f9e8f06ec006:/app# echo '--- boot usage probes ---'; /app/bin/draughtpin; echo noarg=$?; /app/bin/draughtpin sip /app/rawspan/alpha.raw; echo siparg=$?; /app/bin/draughtpin mark CASK_2 /app/rawspan/alpha.raw; echo markargs=$?
+[?2004l--- boot usage probes ---
+usage: draughtpin sip DUMP | draughtpin mark DUMP SLOT
+noarg=2
+siparg=0
+markargs=1
+[?2004hroot@f9e8f06ec006:/app# cat > /app/vatrib/qat.rs <<'EOF'
+[?2004l[?2004h> use std::fs;
+[?2004ltes().to_v[?2004h> use std::os::raw::{c_char, c_int, c_void};
+[?2004l[?2004h> 
+[?2004l[?2004h> const RTLD_NOW: c_int = 2;
+[?2004l[?2004h> 
+[?2004l[?2004h> extern "C" {
+[?2004l[?2004h>     fn dlopen(filename: *const c_char, flags: c_int) -> *mut c_void;
+[?2004l[?2004h>     fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
+[?2004l[?2004h>     fn dlvsym(handle: *mut c_void, symbol: *const c_char, version: *const c_char) -> *mut c_void;
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l [?2004h> type FoldFn = unsafe extern "C" fn(*const u8, usize, *mut u8, usize) -> isize;
+[?2004l[?2004h> 
+[?2004l[?2004h> struct Rules {
+[?2004l[?2004h>     current: String,
+[?2004l[?2004h>     compat: String,
+[?2004l[?2004h>     sip_kind: String,
+[?2004l[?2004h>     mark_kind: String,
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> fn rules() -> Result<Rules, i32> {
+[?2004l[?2004h>     let raw = fs::read_to_string("/app/abifolio/RULES.txt").map_err(|_| 1)?;
+[?2004l[?2004h>     let mut r = Rules {
+[?2004l[?2004h>         current: String::new(),
+[?2004l[?2004h>         compat: String::new(),
+[?2004l[?2004h>         sip_kind: String::new(),
+[?2004l[?2004h>         mark_kind: String::new(),
+[?2004l[?2004h>     };
+[?2004l[?2004h>     for line in raw.lines() {
+[?2004l[?2004h>         if let Some(v) = line.strip_prefix("current slot:") { r.current = v.trim().to_string(); }
+[?2004l[?2004h>         if let Some(v) = line.strip_prefix("compat slot:") { r.compat = v.trim().to_string(); }
+[?2004l[?2004h>         if let Some(v) = line.strip_prefix("sip kind:") { r.sip_kind = v.trim().to_string(); }
+[?2004l[?2004h>         if let Some(v) = line.strip_prefix("mark kind:") { r.mark_kind = v.trim().to_string(); }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if r.current.is_empty() || r.compat.is_empty() || r.sip_kind.is_empty() || r.mark_kind.is_empty() {
+[?2004l[?2004h>         return Err(1);
+[?2004l[?2004h>     }
+[?2004l[?2004h>     Ok(r)
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> fn call(ptr: *mut c_void, blob: &[u8]) -> Result<Vec<u8>, i32> {
+[?2004l[?2004h>     if ptr.is_null() { return Err(1); }
+[?2004l[?2004h>     let f: FoldFn = unsafe { std::mem::transmute(ptr) };
+[?2004l[?2004h>     let mut out = vec![0u8; blob.len() + 32];
+[?2004l[?2004h>     let n = unsafe { f(blob.as_ptr(), blob.len(), out.as_mut_ptr(), out.len()) };
+[?2004l[?2004h>     if n < 0 || n as usize > out.len() { return Err(1); }
+[?2004l[?2004h>     out.truncate(n as usize);
+[?2004l[?2004h>     Ok(out)
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> /* Finish the reworked fold after sip's deliberately unversioned ABI call. */
+[?2004l[?2004h> fn full_fold(src: &[u8]) -> Vec<u8> {
+[?2004l[?2004h>     let mut out = Vec::with_capacity(src.len());
+[?2004l[?2004h>     let mut in_space = false;
+[?2004l[?2004h>     for &b in src {
+[?2004l[?2004h>         match b {
+[?2004l[?2004h>             b'\t' | b'\n' | b'\r' | b' ' => {
+[?2004l[?2004h>                 if !in_space {
+[?2004l[?2004h>                     out.push(b' ');
+[?2004l[?2004h>                     in_space = true;
+[?2004l[?2004h>                 }
+[?2004l[?2004h>             }
+[?2004l[?2004h>             0x00..=0x1f => {}
+[?2004l[?2004h>             b'A'..=b'Z' => {
+[?2004l[?2004h>                 out.push(b + (b'a' - b'A'));
+[?2004l[?2004h>                 in_space = false;
+[?2004l[?2004h>             }
+[?2004l[?2004h>             _ => {
+[?2004l[?2004h>                 out.push(b);
+[?2004l[?2004h>                 in_space = false;
+[?2004l[?2004h>             }
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     while out.last() == Some(&b'/') { out.pop(); }
+[?2004l[?2004h>     out
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> fn json_string(bytes: &[u8]) -> String {
+[?2004l[?2004h>     let text = String::from_utf8_lossy(bytes);
+[?2004l[?2004h>     let mut out = String::from("\"");
+[?2004l[?2004h>     for c in text.chars() {
+[?2004l[?2004h>         match c {
+[?2004l[?2004h>             '"' => out.push_str("\\\""),
+[?2004l[?2004h>             '\\' => out.push_str("\\\\"),
+[?2004l[?2004h>             '\n' => out.push_str("\\n"),
+[?2004l[?2004h>             '\r' => out.push_str("\\r"),
+[?2004l[?2004h>             '\t' => out.push_str("\\t"),
+[?2004l[?2004h>             c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+[?2004l[?2004h>             _ => out.push(c),
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     out.push('"');
+[?2004l[?2004h>     out
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> fn write_card(slot: &str, text: &[u8], kind: &str) -> Result<(), i32> {
+[?2004l[?2004h>     fs::create_dir_all("/app/inkvat").map_err(|_| 1)?;
+[?2004l[?2004h>     let body = format!(
+[?2004l[?2004h>         "{{\"slot\":{},\"text\":{},\"kind\":{}}}\n",
+[?2004l[?2004h>         json_string(slot.as_bytes()), json_string(text), json_string(kind.as_bytes())
+[?2004l[?2004h>     );
+[?2004l[?2004h>     fs::write("/app/inkvat/card.json", body).map_err(|_| 1)
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn qat(dump: &str, slot: Option<&str>) -> i32 {
+[?2004l[?2004h>     let _ = fs::remove_file("/app/inkvat/SEAL");
+[?2004l[?2004h>     let blob = match fs::read(dump) {
+[?2004l[?2004h>         Ok(v) if !v.is_empty() => v,
+[?2004l[?2004h>         _ => return 1,
+[?2004l[?2004h>     };
+[?2004l[?2004h>     let rules = match rules() { Ok(v) => v, Err(c) => return c };
+[?2004l[?2004h>     if let Some(s) = slot {
+[?2004l[?2004h>         if s != rules.current && s != rules.compat { return 1; }
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     let handle = unsafe { dlopen(b"/app/lib/libdraught.so\0".as_ptr() as *const c_char, RTLD_NOW) };
+[?2004l[?2004h>     if handle.is_null() { return 1; }
+[?2004l[?2004h>     let ptr = unsafe {
+[?2004l[?2004h>         match slot {
+[?2004l[?2004h>             None => dlsym(handle, b"fold_frame\0".as_ptr() as *const c_char),
+[?2004l[?2004h>             Some(s) => {
+[?2004l[?2004h>                 let mut version = s.as_bytes().to_vec();
+[?2004l[?2004h>                 version.push(0);
+[?2004l[?2004h>                 dlvsym(handle, b"fold_frame\0".as_ptr() as *const c_char,
+[?2004l[?2004h>                        version.as_ptr() as *const c_char)
+[?2004l[?2004h>             }
+[?2004l[?2004h>         }
+[?2004l[?2004h>     };
+[?2004l[?2004h>     let folded = match call(ptr, &blob) { Ok(v) => v, Err(c) => return c };
+[?2004l[?2004h>     let (card_slot, kind, text) = match slot {
+[?2004l[?2004h>         None => (rules.current.as_str(), rules.sip_kind.as_str(), full_fold(&folded)),
+[?2004l[?2004h>         Some(s) => (s, rules.mark_kind.as_str(), folded),
+[?2004l[?2004h>     };
+[?2004l[?2004h>     if write_card(card_slot, &text, kind).is_err() { return 1; }
+[?2004l[?2004h>     if fs::write("/app/inkvat/SEAL", "ok").is_err() { return 1; }
+[?2004l[?2004h>     0
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@f9e8f06ec006:/app# 
+[?2004l[?2004hroot@f9e8f06ec006:/app# cat > /app/cliurn/boot.rs <<'EOF'
+[?2004l[?2004h> #[path = "../vatrib/qat.rs"]
+[?2004l[?2004h> mod qat;
+[?2004l[?2004h> 
+[?2004l[?2004h> fn main() {
+[?2004l[?2004h>     let args: Vec<String> = std::env::args().collect();
+[?2004l[?2004h>     let status = match args.as_slice() {
+[?2004l[?2004h>         [_, cmd, dump] if cmd == "sip" => qat::qat(dump, None),
+[?2004l[?2004h>         [_, cmd, dump, slot] if cmd == "mark" => qat::qat(dump, Some(slot)),
+[?2004l[?2004h>         _ => {
+[?2004l[?2004h>             eprintln!("usage: draughtpin sip DUMP | draughtpin mark DUMP SLOT");
+[?2004l[?2004h>             2
+[?2004l[?2004h>         }
+[?2004l[?2004h>     };
+[?2004l[?2004h>     std::process::exit(status);
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@f9e8f06ec006:/app# 
+[?2004l[?2004hroot@f9e8f06ec006:/app# cat > /app/narbay/loom.rs <<'EOF'
+[?2004l[?2004h> use std::fs;
+[?2004l[?2004h> 
+[?2004l[?2004h> fn slots() -> Result<(String, String), i32> {
+[?2004l[?2004h>     let raw = fs::read_to_string("/app/abifolio/RULES.txt").map_err(|_| 1)?;
+[?2004l[?2004h>     let mut current = String::new();
+[?2004l[?2004h>     let mut compat = String::new();
+[?2004l[?2004h>     for line in raw.lines() {
+[?2004l[?2004h>         if let Some(v) = line.strip_prefix("current slot:") { current = v.trim().to_string(); }
+[?2004l[?2004h>         if let Some(v) = line.strip_prefix("compat slot:") { compat = v.trim().to_string(); }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if current.is_empty() || compat.is_empty() { return Err(1); }
+[?2004l[?2004h>     Ok((current, compat))
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn knit() -> String {
+[?2004l[?2004h>     slots().map(|v| v.0).unwrap_or_default()
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn weave(path: &str) -> Result<(), i32> {
+[?2004l[?2004h>     let (current, compat) = slots()?;
+[?2004l[?2004h>     let body = format!(
+[?2004l[?2004h>         "{compat} {{\n  global:\n    fold_frame;\n  local:\n    *;\n}};\n{current} {{\n  global:\n    fold_frame;\n}} {compat};\n"
+[?2004l[?2004h>     );
+[?2004l[?2004h>     fs::create_dir_all("/app/gnuverse").map_err(|_| 1)?;
+[?2004l[?2004h>     fs::write(path, body).map_err(|_| 1)
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@f9e8f06ec006:/app# /app/stoke.sh
+[?2004l[0m[1m[33mwarning[0m[0m[1m: function `knit` is never used[0m
+[0m  [0m[0m[1m[38;5;12m--> [0m[0m/app/weft/../narbay/loom.rs:15:8[0m
+[0m   [0m[0m[1m[38;5;12m|[0m
+[0m[1m[38;5;12m15[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0mpub fn knit() -> String {[0m
+[0m   [0m[0m[1m[38;5;12m|[0m[0m        [0m[0m[1m[33m^^^^[0m
+[0m   [0m[0m[1m[38;5;12m|[0m
+[0m   [0m[0m[1m[38;5;12m= [0m[0m[1mnote[0m[0m: `#[warn(dead_code)]` on by default[0m
+
+[0m[1m[33mwarning[0m[0m[1m: 1 warning emitted[0m
+
+[?2004hroot@f9e8f06ec006:/app# echo '--- symbols after rebuild ---'; readelf --dyn-syms --wide /app/lib/libdraught.so | grep fold_frame; echo '--- sip alpha ---'; rm -f /app/inkvat/{SEAL,card.json}; /app/bin/draughtpin sip /app/rawspan/alpha.raw; echo status=$?; cat /app/inkvat/card.json; printf 'seal='; cat /app/inkvat/SEAL; echo; echo '--- mark current ---'; rm -f /app/inkvat/{SEAL,card.json}; /app/bin/draughtpin mark /app/rawspan/alpha.raw CASK_2; echo status=$?; cat /app/inkvat/card.json; printf 'seal='; cat /app/inkvat/SEAL; echo; echo '--- mark compat ---'; rm -f /app/inkvat/{SEAL,card.json}; /app/bin/draughtpin mark /app/rawspan/alpha.raw CASK_1; echo status=$?; cat /app/inkvat/card.json; printf 'seal='; cat /app/inkvat/SEAL; echo
+[?2004l--- symbols after rebuild ---
+    10: 0000000000004000   379 FUNC    GLOBAL DEFAULT   12 fold_frame@@CASK_1
+    11: 0000000000004180   225 FUNC    GLOBAL DEFAULT   12 fold_frame@CASK_2
+--- sip alpha ---
+status=0
+{"slot":"CASK_2","text":"foo bar","kind":"bare"}
+seal=ok
+--- mark current ---
+status=0
+{"slot":"CASK_2","text":"foo bar","kind":"named"}
+seal=ok
+--- mark compat ---
+status=0
+{"slot":"CASK_1","text":"foo\tbar/","kind":"named"}
+seal=ok
+[?2004hroot@f9e8f06ec006:/app# echo '--- beta sip ---'; rm -f /app/inkvat/{SEAL,card.json}; /app/bin/draughtpin sip /app/rawspan/beta.raw; echo status=$?; cat /app/inkvat/card.json; echo '--- unknown slot fault ---'; rm -f /app/inkvat/{SEAL,card.json}; /app/bin/draughtpin mark /app/rawspan/alpha.raw NO_SUCH_SLOT; echo status=$? seal_exists=$(test -e /app/inkvat/SEAL && echo yes || echo no); echo '--- empty fault ---'; : > /tmp/empty.raw; rm -f /app/inkvat/{SEAL,card.json}; /app/bin/draughtpin sip /tmp/empty.raw; echo status=$? seal_exists=$(test -e /app/inkvat/SEAL && echo yes || echo no); echo '--- ELF magic ---'; od -An -tx1 -N4 /app/bin/draughtpin
+[?2004l--- beta sip ---
+status=0
+{"slot":"CASK_2","text":"hello world","kind":"bare"}
+--- unknown slot fault ---
+status=1 seal_exists=no
+--- empty fault ---
+status=1 seal_exists=no
+--- ELF magic ---
+ 7f 45 4c 46
+[?2004hroot@f9e8f06ec006:/app# python3 - <<'PY'
+[?2004l[?2004h> p='/app/cliurn/boot.rs'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> s=s.replace('fn main() {\n    let args:', 'fn main() {\n    let _ = std::fs::remove_file("/app/inkvat/SEAL");\n    let args:')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@f9e8f06ec006:/app# /app/stoke.sh
+[?2004l[0m[1m[33mwarning[0m[0m[1m: function `knit` is never used[0m
+[0m  [0m[0m[1m[38;5;12m--> [0m[0m/app/weft/../narbay/loom.rs:15:8[0m
+[0m   [0m[0m[1m[38;5;12m|[0m
+[0m[1m[38;5;12m15[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0mpub fn knit() -> String {[0m
+[0m   [0m[0m[1m[38;5;12m|[0m[0m        [0m[0m[1m[33m^^^^[0m
+[0m   [0m[0m[1m[38;5;12m|[0m
+[0m   [0m[0m[1m[38;5;12m= [0m[0m[1mnote[0m[0m: `#[warn(dead_code)]` on by default[0m
+
+[0m[1m[33mwarning[0m[0m[1m: 1 warning emitted[0m
+
+[?2004hroot@f9e8f06ec006:/app# python3 - <<'PY'
+[?2004l[?2004h> import ctypes
+[?2004l[?2004h> lib=ctypes.CDLL('/app/lib/libdraught.so')
+[?2004l[?2004h> libdl=ctypes.CDLL('libdl.so.2')
+[?2004l[?2004h> libdl.dlvsym.argtypes=[ctypes.c_void_p,ctypes.c_char_p,ctypes.c_char_p]
+[?2004l[?2004h> libdl.dlvsym.restype=ctypes.c_void_p
+[?2004l[?2004h> sig=ctypes.CFUNCTYPE(ctypes.c_ssize_t,ctypes.c_void_p,ctypes.c_size_t,ctypes.c_void_p,ctypes.c_size_t)
+[?2004l[?2004h> data=b'Foo\t\n\r  Bar\x01///'
+[?2004l[?2004h> def run(fn):
+[?2004l[?2004h>     out=ctypes.create_string_buffer(128)
+[?2004l[?2004h>     n=fn(data,len(data),out,128)
+[?2004l[?2004h>     return out.raw[:n]
+[?2004l[?2004h> lib.fold_frame.restype=ctypes.c_ssize_t
+[?2004l[?2004h> lib.fold_frame.argtypes=[ctypes.c_void_p,ctypes.c_size_t,ctypes.c_void_p,ctypes.c_size_t]
+[?2004l[?2004h> print('unversioned=',repr(run(lib.fold_frame)))
+[?2004l[?2004h> for slot in (b'CASK_1',b'CASK_2'):
+[?2004l[?2004h>     fn=sig(libdl.dlvsym(lib._handle,b'fold_frame',slot))
+[?2004l[?2004h>     print(slot.decode()+'=',repr(run(fn)))
+[?2004l[?2004h> PY
+[?2004lunversioned= b'foo\t\n\r  bar\x01///'
+CASK_1= b'foo\t\n\r  bar\x01///'
+CASK_2= b'foo bar'
+[?2004hroot@f9e8f06ec006:/app# rm -f /app/inkvat/{SEAL,card.json}; /app/bin/draughtpin sip /app/rawspan/alpha.raw; echo sip_status=$?; python3 -m json.tool /app/inkvat/card.json; printf 'seal='; cat /app/inkvat/SEAL; echo; /app/bin/draughtpin mark /app/rawspan/alpha.raw UNKNOWN; echo unknown_status=$? seal_exists=$(test -e /app/inkvat/SEAL && echo yes || echo no); /app/bin/draughtpin sip /app/rawspan/beta.raw; echo reset_status=$?; /app/bin/draughtpin mark; echo malformed_status=$? seal_exists=$(test -e /app/inkvat/SEAL && echo yes || echo no); od -An -tx1 -N4 /app/bin/draughtpin
+[?2004lsip_status=0
+{
+    "slot": "CASK_2",
+    "text": "foo bar",
+    "kind": "bare"
+}
+seal=ok
+unknown_status=1 seal_exists=no
+reset_status=0
+usage: draughtpin sip DUMP | draughtpin mark DUMP SLOT
+malformed_status=2 seal_exists=no
+ 7f 45 4c 46
+[?2004hroot@f9e8f06ec006:/app# 

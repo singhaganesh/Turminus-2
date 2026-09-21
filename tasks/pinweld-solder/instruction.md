@@ -1,0 +1,5 @@
+Ops on this bench drive `/app/bin/pinweld`. `census` mints `/app/mintbay/points.reg` and `/app/mintbay/runtime.lst` from `WELD_HOOK` names under `/app/ribunit`, and records each processed path in `/app/mintbay/scan.log`. Grammar sits in `/app/inkdocs/forms.txt`. Compile recipes that ship are the files under `/app/recipath`. Bay map: `/app/inkdocs/BAYMAP.txt`.
+
+Census already returns success and `scan.log` already names the salvage unit, yet that unit's mark never lands in `points.reg`. `poke` on that mark fails. `points.reg` must list the union of `WELD_HOOK` names visible under every recipe in `/app/recipath`. A declared name missing from `points.reg` must make `census` fail. `/app/bin/pinweld poke NAME` must fire the salvage-path mark once that list is complete. The linked mill at `/app/bin/pinweld` starts with ELF magic.
+
+Repair belongs in the C pipeline modules named in `/app/inkdocs/BAYMAP.txt`. Source edits under `/app` are required. One `census` subprocess has to mint both products; static copies of mintbay files are insufficient. The verifier reruns `/app/bin/pinweld census` and `/app/bin/pinweld poke`.

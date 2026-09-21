@@ -1,0 +1,54 @@
+--- stampwire/op_b.cpp
++++ stampwire/op_b.cpp
+@@ -1,12 +1,49 @@
+ #include "mark.hpp"
+ 
++#include <dirent.h>
+ #include <fstream>
+ #include <string>
++#include <sys/stat.h>
+ 
+ int op_b(void) {
+-    std::ifstream in("/app/snapvat/last.id");
+     std::string tok;
+-    if (!(in >> tok) || tok.empty()) {
++    {
++        std::ifstream in("/app/snapvat/poured.txt");
++        in >> tok;
++    }
++    if (tok.empty()) {
++        DIR *dir = opendir("/app/snapvat/live");
++        time_t best = 0;
++        if (dir) {
++            while (dirent *ent = readdir(dir)) {
++                std::string name = ent->d_name;
++                if (name.size() < 5 || name.substr(name.size() - 4) != ".urn") {
++                    continue;
++                }
++                std::string path = std::string("/app/snapvat/live/") + name;
++                struct stat st;
++                if (stat(path.c_str(), &st) != 0) {
++                    continue;
++                }
++                if (st.st_mtime > best) {
++                    best = st.st_mtime;
++                    std::ifstream in(path);
++                    std::string line;
++                    while (std::getline(in, line)) {
++                        if (line.rfind("id ", 0) == 0) {
++                            tok = line.substr(3);
++                        }
++                    }
++                }
++            }
++            closedir(dir);
++        }
++    }
++    if (tok.empty()) {
++        std::ifstream in("/app/snapvat/last.id");
++        in >> tok;
++    }
++    if (tok.empty()) {
+         tok = "none";
+     }
+     std::ofstream out("/app/snapvat/cover.tmp");

@@ -1,0 +1,5 @@
+Ops left `/app/bin/moldwire` emitting decoder C from `/app/sheetpit/*.sheet`. `bake` refreshes `/app/incpit/*.inc` from those sheets. `skim` dumps `/app/jsonpit/skim.json` for `/app/duskpit/dusk.bin`. GROUP handling in the emitter was patched last week; `bake` finishes 0, logs `served`, and every `.inc` is bitwise unchanged. Inner keys in that JSON stay empty strings. dusk.bin carries packed values. `/app/jsonpit/skim.json` uses decimal strings for `depth`, `temp`, and `wind` (and any other FIELD names on the sheet).
+
+`/app/bin/moldwire` has to remain a compiled ELF. Correct the Java and C pipeline modules named in `/app/dockotes/tree.map`. Source fixes under `/app` are required. Static or manual output writes are insufficient. Bake must regenerate `/app/incpit` units and `/app/jsonpit/skim.json`. A bake that reuses urn rows despite emitter sources under `/app/slagbin` having moved must exit non-zero.
+
+Sheet grammar and the skim object live in `/app/dockotes/sheet.rules`. The verifier reruns `/app/bin/moldwire bake` and `/app/bin/moldwire skim`. A sheet dropped into `/app/sheetpit` with no prior bake has to show up as a new `.inc` from one bake process.

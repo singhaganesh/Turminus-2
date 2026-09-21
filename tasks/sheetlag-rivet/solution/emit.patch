@@ -1,0 +1,42 @@
+--- rivetbay/forgekit/emit.c	2026-09-06 11:24:45.941141159 +0530
++++ rivetbay/forgekit/emit.c	2026-09-06 11:25:42.008400182 +0530
+@@ -4,6 +4,16 @@
+ #include <stdlib.h>
+ #include <string.h>
+ 
++static void write_spec_fields(FILE *o, char *spec) {
++    char *tok = strtok(spec, ",");
++    while (tok) {
++        char fn[64], k[16];
++        if (sscanf(tok, "%63[^:]:%15s", fn, k) == 2)
++            fprintf(o, "%s %s\n", fn, k);
++        tok = strtok(NULL, ",");
++    }
++}
++
+ static void emit_one(const char *line) {
+     char tmp[1024];
+     strncpy(tmp, line, sizeof(tmp) - 1);
+@@ -22,21 +32,7 @@
+     FILE *o = fopen(outp, "w");
+     if (!o) return;
+     fprintf(o, "KDEC1\nNAME %s\n", name);
+-    char *parts[32];
+-    int nf = 0;
+-    char spec_copy[512];
+-    strncpy(spec_copy, spec, sizeof(spec_copy) - 1);
+-    spec_copy[sizeof(spec_copy) - 1] = 0;
+-    char *tok = strtok(spec_copy, ",");
+-    while (tok && nf < 32) {
+-        parts[nf++] = tok;
+-        tok = strtok(NULL, ",");
+-    }
+-    for (int i = nf - 1; i >= 0; i--) {
+-        char fn[64], k[16];
+-        if (sscanf(parts[i], "%63[^:]:%15s", fn, k) == 2)
+-            fprintf(o, "%s %s\n", fn, k);
+-    }
++    write_spec_fields(o, spec);
+     fclose(o);
+ }
+ 
