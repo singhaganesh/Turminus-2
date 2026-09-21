@@ -1,0 +1,706 @@
+[?2004hroot@673b5dedbdb5:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@673b5dedbdb5:/app# clear
+[?2004l[H[J[3J[?2004hroot@673b5dedbdb5:/app# pwd; find . -maxdepth 3 -type f -printf '%p\n' | sort; echo '--- MAP ---'; cat /app/deskcue/MAP.txt; echo '--- binary ---'; file /app/bin/loomketch; head -c 16 /app/bin/loomketch | od -An -tx1
+[?2004l/app
+./bin/loomketch
+./deskcue/MAP.txt
+./hearth.sh
+./humdock/emit.rs
+./inkbay/GUARD
+./inkbay/bound.json
+./inkbay/desk.tsv
+./ketchcli/NOTES.txt
+./ketchcli/main.rs
+./ketchcli/usage.txt
+./opsfold/PRIOR.txt
+./opsfold/SHIFT.txt
+./qanbox/tally.rs
+./seed/vatlogs/pid_17.asan
+./seed/vatlogs/pid_3.asan
+./seed/vatlogs/pid_441.asan
+./seed/vatlogs/pid_55.asan
+./seed/vatlogs/pid_80.asan
+./seed/vatlogs/pid_902.asan
+./tplbay/bound.tpl
+./tplbay/desk.tpl
+./treyfun/clip.rs
+./urnwalk/README.txt
+./urnwalk/walk.rs
+./vatlogs/pid_17.asan
+./vatlogs/pid_3.asan
+./vatlogs/pid_441.asan
+./vatlogs/pid_55.asan
+./vatlogs/pid_80.asan
+./vatlogs/pid_902.asan
+./walkcue/alpha.rs
+--- MAP ---
+loomketch mill layout
+=====================
+
+ketchcli/main.rs dispatches bind.
+
+Other crates sit beside ketchcli. Journals live in /app/vatlogs.
+Fixture copies of those journals sit at /app/seed/vatlogs.
+bind refreshes /app/inkbay/bound.json, /app/inkbay/desk.tsv, and /app/inkbay/GUARD.
+
+bound.json uses object findings as a list of records
+{ "issue": N, "kind": "<kind>", "frames": ["<sym>", ...], "body": "<text>" }
+where issue is an integer that starts at 1. desk.tsv starts with header
+issue	kind	body
+then one tab-separated row per finding, using those same issue values.
+
+Journal text is AddressSanitizer form: one ERROR: kind line followed by #N frame lines.
+Template copy sits at /app/tplbay/bound.tpl.
+walkcue/ holds an ops sidecar used when KETCH_ALPHA=1.
+
+A bind root such as /tmp/loom_out sits outside /app/vatlogs and must fail.
+
+--- binary ---
+bash: file: command not found
+ 7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00
+[?2004hroot@673b5dedbdb5:/app# echo '--- source/build candidates ---'; find /app -maxdepth 4 -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.rs' -o -name '*.go' -o -name 'Makefile' -o -name 'CMakeLists.txt' -o -name 'Cargo.toml' \) -print | sort
+[?2004l--- source/build candidates ---
+/app/humdock/emit.rs
+/app/ketchcli/main.rs
+/app/qanbox/tally.rs
+/app/treyfun/clip.rs
+/app/urnwalk/walk.rs
+/app/walkcue/alpha.rs
+[?2004hroot@673b5dedbdb5:/app# rm -rf /app/inkbay; mkdir -p /app/inkbay; /app/bin/loomketch bind; rc=$?; echo RC=$rc; find /app/inkbay -maxdepth 1 -type f -printf '%f %s bytes\n' -exec sh -c 'echo "--- $1"; cat "$1"' _ {} \;
+[?2004lRC=0
+GUARD 2 bytes
+--- /app/inkbay/GUARD
+okbound.json 637 bytes
+--- /app/inkbay/bound.json
+{"findings":[{"issue":1,"kind":"use-after-return","frames":["__interceptor_memcpy","latch_tick","drain_slot"],"body":"__interceptor_memcpy | latch_tick | drain_slot"},{"issue":2,"kind":"heap-use-after-free","frames":["__interceptor_memcpy","widget_free","worker_main"],"body":"__interceptor_memcpy | widget_free | worker_main"},{"issue":3,"kind":"stack-buffer-overflow","frames":["__interceptor_memcpy","pump_read","loop_tick"],"body":"__interceptor_memcpy | pump_read | loop_tick"},{"issue":4,"kind":"heap-buffer-overflow","frames":["__interceptor_memcpy","fill_span","prep_buf"],"body":"__interceptor_memcpy | fill_span | prep_buf"}]}
+desk.tsv 289 bytes
+--- /app/inkbay/desk.tsv
+issue	kind	body
+1	heap-buffer-overflow	__interceptor_memcpy | fill_span | prep_buf
+2	heap-use-after-free	__interceptor_memcpy | widget_free | worker_main
+3	stack-buffer-overflow	__interceptor_memcpy | pump_read | loop_tick
+4	use-after-return	__interceptor_memcpy | latch_tick | drain_slot
+[?2004hroot@673b5dedbdb5:/app# echo '--- hearth.sh ---'; sed -n '1,240p' /app/hearth.sh; echo '--- notes ---'; cat /app/ketchcli/NOTES.txt /app/ketchcli/usage.txt /app/urnwalk/README.txt /app/opsfold/PRIOR.txt /app/opsfold/SHIFT.txt; echo '--- templates ---'; cat /app/tplbay/bound.tpl /app/tplbay/desk.tpl
+[?2004l--- hearth.sh ---
+#!/bin/sh
+set -eu
+export PATH="/usr/local/cargo/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+mkdir -p /app/bin /app/inkbay
+rustc --edition 2021 -O /app/ketchcli/main.rs -o /app/bin/loomketch
+--- notes ---
+Subcommand table is bind only.
+loomketch bind [root]
+Default root is /app/vatlogs.
+Path walk helper used by bind.
+Older mill left a bound file that still opened. Do not treat /tmp copies as live.
+Night notes
+
+bind looked noisy when the vat directory came back in a different order.
+Someone exported KETCH_ALPHA=1 so walkcue would line the paths up.
+Smoke still printed every finding. Desk citations still jumped on the next bind.
+--- templates ---
+{"findings":[__ROWS__]}
+issue	kind	body
+[?2004hroot@673b5dedbdb5:/app# for f in /app/ketchcli/main.rs /app/urnwalk/walk.rs /app/treyfun/clip.rs /app/qanbox/tally.rs /app/humdock/emit.rs /app/walkcue/alpha.rs; do echo "===== $f ====="; nl -ba "$f"; done
+[?2004l===== /app/ketchcli/main.rs =====
+     1	#[path = "../urnwalk/walk.rs"]
+     2	mod walk;
+     3	#[path = "../walkcue/alpha.rs"]
+     4	mod alpha;
+     5	#[path = "../qanbox/tally.rs"]
+     6	mod tally;
+     7	#[path = "../humdock/emit.rs"]
+     8	mod rib;
+     9	
+    10	fn main() {
+    11	    let mut args = std::env::args();
+    12	    let _ = args.next();
+    13	    let cmd = args.next().unwrap_or_default();
+    14	    if cmd != "bind" {
+    15	        eprintln!("usage: loomketch bind [root]");
+    16	        std::process::exit(2);
+    17	    }
+    18	    let root = args.next().unwrap_or_else(|| "/app/vatlogs".to_string());
+    19	    let code = match tally::tally(&root) {
+    20	        Ok(recs) => {
+    21	            if rib::emit(&recs) != 0 {
+    22	                1
+    23	            } else {
+    24	                0
+    25	            }
+    26	        }
+    27	        Err(c) => {
+    28	            let _ = std::fs::remove_file("/app/inkbay/GUARD");
+    29	            c
+    30	        }
+    31	    };
+    32	    std::process::exit(code);
+    33	}
+===== /app/urnwalk/walk.rs =====
+     1	pub fn gather(a: &str) -> Result<Vec<String>, i32> {
+     2	    let mut v = Vec::new();
+     3	    let rd = match std::fs::read_dir(a) {
+     4	        Ok(x) => x,
+     5	        Err(_) => return Err(2),
+     6	    };
+     7	    for e in rd {
+     8	        let e = match e {
+     9	            Ok(x) => x,
+    10	            Err(_) => continue,
+    11	        };
+    12	        let p = e.path();
+    13	        if p.is_file() {
+    14	            v.push(p.to_string_lossy().into_owned());
+    15	        }
+    16	    }
+    17	    if crate::alpha::lined(&mut v) {
+    18	        v.sort();
+    19	    }
+    20	    Ok(v)
+    21	}
+===== /app/treyfun/clip.rs =====
+     1	pub fn clip(a: &[String]) -> Vec<String> {
+     2	    a.iter()
+     3	        .filter(|s| !s.starts_with("__asan::") && !s.starts_with("__asan_"))
+     4	        .cloned()
+     5	        .collect()
+     6	}
+     7	
+     8	pub fn take(text: &str) -> Result<(String, Vec<String>), i32> {
+     9	    if text.trim().is_empty() {
+    10	        return Ok((String::new(), Vec::new()));
+    11	    }
+    12	    let mut kind = String::new();
+    13	    let mut frames = Vec::new();
+    14	    for line in text.lines() {
+    15	        if let Some(rest) = line.split("ERROR:").nth(1) {
+    16	            let rest = rest.trim();
+    17	            let after = if let Some(x) = rest.split("AddressSanitizer:").nth(1) {
+    18	                x.trim()
+    19	            } else {
+    20	                rest
+    21	            };
+    22	            kind = after.split(" on ").next().unwrap_or(after).trim().to_string();
+    23	        }
+    24	        if let Some(idx) = line.find('#') {
+    25	            let chunk = &line[idx..];
+    26	            if let Some(after) = chunk.split(" in ").nth(1) {
+    27	                let sym = after.split_whitespace().next().unwrap_or("").to_string();
+    28	                if !sym.is_empty() {
+    29	                    frames.push(sym);
+    30	                }
+    31	            }
+    32	        }
+    33	    }
+    34	    Ok((kind, frames))
+    35	}
+===== /app/qanbox/tally.rs =====
+     1	#[path = "../treyfun/clip.rs"]
+     2	mod clip;
+     3	
+     4	use std::collections::HashMap;
+     5	use std::sync::mpsc;
+     6	use std::thread;
+     7	
+     8	#[derive(Clone)]
+     9	pub struct Rec {
+    10	    pub issue: i32,
+    11	    pub kind: String,
+    12	    pub frames: Vec<String>,
+    13	    pub body: String,
+    14	}
+    15	
+    16	pub fn tally(a: &str) -> Result<Vec<Rec>, i32> {
+    17	    let paths = crate::walk::gather(a)?;
+    18	    let (tx, rx) = mpsc::channel();
+    19	    let mut hs = Vec::new();
+    20	    for p in paths {
+    21	        let tx = tx.clone();
+    22	        hs.push(thread::spawn(move || {
+    23	            let text = match std::fs::read_to_string(&p) {
+    24	                Ok(t) => t,
+    25	                Err(_) => return,
+    26	            };
+    27	            let (kind, frames) = match clip::take(&text) {
+    28	                Ok(x) => x,
+    29	                Err(_) => return,
+    30	            };
+    31	            if kind.is_empty() {
+    32	                return;
+    33	            }
+    34	            let frames = clip::clip(&frames);
+    35	            let body = frames.join(" | ");
+    36	            let _ = tx.send(Rec {
+    37	                issue: 0,
+    38	                kind,
+    39	                frames,
+    40	                body,
+    41	            });
+    42	        }));
+    43	    }
+    44	    drop(tx);
+    45	    for h in hs {
+    46	        let _ = h.join();
+    47	    }
+    48	    let mut bag: HashMap<String, Rec> = HashMap::new();
+    49	    while let Ok(r) = rx.recv() {
+    50	        bag.entry(r.body.clone()).or_insert(r);
+    51	    }
+    52	    let mut recs: Vec<Rec> = bag.into_values().collect();
+    53	    for (i, r) in recs.iter_mut().enumerate() {
+    54	        r.issue = (i as i32) + 1;
+    55	    }
+    56	    let _ = write_bound(&recs);
+    57	    Ok(recs)
+    58	}
+    59	
+    60	fn write_bound(recs: &[Rec]) -> i32 {
+    61	    let tpl = std::fs::read_to_string("/app/tplbay/bound.tpl").unwrap_or_else(|_| "{\"findings\":[__ROWS__]}".into());
+    62	    if recs.is_empty() {
+    63	        let _ = std::fs::write("/app/inkbay/bound.json", tpl);
+    64	        return 0;
+    65	    }
+    66	    let mut inner = String::new();
+    67	    for (i, r) in recs.iter().enumerate() {
+    68	        if i > 0 {
+    69	            inner.push(',');
+    70	        }
+    71	        inner.push_str(&format!(
+    72	            "{{\"issue\":{},\"kind\":{},\"frames\":{},\"body\":{}}}",
+    73	            r.issue,
+    74	            jstr(&r.kind),
+    75	            jarr(&r.frames),
+    76	            jstr(&r.body)
+    77	        ));
+    78	    }
+    79	    let out = tpl.replace("__ROWS__", &inner);
+    80	    let _ = std::fs::create_dir_all("/app/inkbay");
+    81	    match std::fs::write("/app/inkbay/bound.json", out) {
+    82	        Ok(()) => 0,
+    83	        Err(_) => 1,
+    84	    }
+    85	}
+    86	
+    87	fn jstr(s: &str) -> String {
+    88	    format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""))
+    89	}
+    90	
+    91	fn jarr(v: &[String]) -> String {
+    92	    let parts: Vec<String> = v.iter().map(|x| jstr(x)).collect();
+    93	    format!("[{}]", parts.join(","))
+    94	}
+===== /app/humdock/emit.rs =====
+     1	use crate::tally::Rec;
+     2	
+     3	pub fn emit(a: &[Rec]) -> i32 {
+     4	    let mut rows: Vec<Rec> = a.to_vec();
+     5	    rows.sort_by(|x, y| x.kind.cmp(&y.kind));
+     6	    let mut out = String::from("issue\tkind\tbody\n");
+     7	    for (i, r) in rows.iter().enumerate() {
+     8	        out.push_str(&format!("{}\t{}\t{}\n", i + 1, r.kind, r.body));
+     9	    }
+    10	    let _ = std::fs::create_dir_all("/app/inkbay");
+    11	    if std::fs::write("/app/inkbay/desk.tsv", out).is_err() {
+    12	        return 1;
+    13	    }
+    14	    if std::fs::write("/app/inkbay/GUARD", "ok").is_err() {
+    15	        return 1;
+    16	    }
+    17	    0
+    18	}
+===== /app/walkcue/alpha.rs =====
+     1	pub fn lined(a: &mut Vec<String>) -> bool {
+     2	    if std::env::var("KETCH_ALPHA").ok().as_deref() == Some("1") {
+     3	        a.sort();
+     4	        true
+     5	    } else {
+     6	        false
+     7	    }
+     8	}
+[?2004hroot@673b5dedbdb5:/app# for f in /app/vatlogs/*; do echo "===== $f ($(wc -c < "$f") bytes) ====="; cat "$f"; done; echo '--- rust tools ---'; command -v rustc || true; rustc --version 2>/dev/null || true
+[?2004l===== /app/vatlogs/pid_17.asan (315 bytes) =====
+==17==ERROR: AddressSanitizer: heap-use-after-free on address 0xbbb200
+    #0 0xbbb2aa in __asan::ReportGenericError asan.cpp:1
+    #1 0xbbb2bb in __interceptor_memcpy interceptors.cpp:8
+    #2 0xbbb202 in widget_free src/widget_free.c:9
+    #3 0xbbb203 in worker_main src/worker_main.c:9
+SUMMARY: AddressSanitizer
+===== /app/vatlogs/pid_3.asan (305 bytes) =====
+==3==ERROR: AddressSanitizer: heap-buffer-overflow on address 0xfff600
+    #0 0xfff6aa in __asan::ReportGenericError asan.cpp:1
+    #1 0xfff6bb in __interceptor_memcpy interceptors.cpp:8
+    #2 0xfff602 in fill_span src/fill_span.c:9
+    #3 0xfff603 in prep_buf src/prep_buf.c:9
+SUMMARY: AddressSanitizer
+===== /app/vatlogs/pid_441.asan (310 bytes) =====
+==441==ERROR: AddressSanitizer: stack-buffer-overflow on address 0xccc300
+    #0 0xccc3aa in __asan::ReportGenericError asan.cpp:1
+    #1 0xccc3bb in __interceptor_memcpy interceptors.cpp:8
+    #2 0xccc302 in pump_read src/pump_read.c:9
+    #3 0xccc303 in loop_tick src/loop_tick.c:9
+SUMMARY: AddressSanitizer
+===== /app/vatlogs/pid_55.asan (309 bytes) =====
+==55==ERROR: AddressSanitizer: stack-buffer-overflow on address 0xeee500
+    #0 0xeee5aa in __asan::ReportGenericError asan.cpp:1
+    #1 0xeee5bb in __interceptor_memcpy interceptors.cpp:8
+    #2 0xeee502 in pump_read src/pump_read.c:9
+    #3 0xeee503 in loop_tick src/loop_tick.c:9
+SUMMARY: AddressSanitizer
+===== /app/vatlogs/pid_80.asan (308 bytes) =====
+==80==ERROR: AddressSanitizer: use-after-return on address 0xddd400
+    #0 0xddd4aa in __asan::ReportGenericError asan.cpp:1
+    #1 0xddd4bb in __interceptor_memcpy interceptors.cpp:8
+    #2 0xddd402 in latch_tick src/latch_tick.c:9
+    #3 0xddd403 in drain_slot src/drain_slot.c:9
+SUMMARY: AddressSanitizer
+===== /app/vatlogs/pid_902.asan (316 bytes) =====
+==902==ERROR: AddressSanitizer: heap-use-after-free on address 0xaaa100
+    #0 0xaaa1aa in __asan::ReportGenericError asan.cpp:1
+    #1 0xaaa1bb in __interceptor_memcpy interceptors.cpp:8
+    #2 0xaaa102 in widget_free src/widget_free.c:9
+    #3 0xaaa103 in worker_main src/worker_main.c:9
+SUMMARY: AddressSanitizer
+--- rust tools ---
+[?2004hroot@673b5dedbdb5:/app# echo '--- complete tally ---'; sed -n '1,220p' /app/qanbox/tally.rs; echo '--- compiler search ---'; ls -l /usr/local/cargo/bin/rustc /root/.cargo/bin/rustc /usr/bin/rustc 2>/dev/null || true; find / -type f -name rustc 2>/dev/null | head
+[?2004l--- complete tally ---
+#[path = "../treyfun/clip.rs"]
+mod clip;
+
+use std::collections::HashMap;
+use std::sync::mpsc;
+use std::thread;
+
+#[derive(Clone)]
+pub struct Rec {
+    pub issue: i32,
+    pub kind: String,
+    pub frames: Vec<String>,
+    pub body: String,
+}
+
+pub fn tally(a: &str) -> Result<Vec<Rec>, i32> {
+    let paths = crate::walk::gather(a)?;
+    let (tx, rx) = mpsc::channel();
+    let mut hs = Vec::new();
+    for p in paths {
+        let tx = tx.clone();
+        hs.push(thread::spawn(move || {
+            let text = match std::fs::read_to_string(&p) {
+                Ok(t) => t,
+                Err(_) => return,
+            };
+            let (kind, frames) = match clip::take(&text) {
+                Ok(x) => x,
+                Err(_) => return,
+            };
+            if kind.is_empty() {
+                return;
+            }
+            let frames = clip::clip(&frames);
+            let body = frames.join(" | ");
+            let _ = tx.send(Rec {
+                issue: 0,
+                kind,
+                frames,
+                body,
+            });
+        }));
+    }
+    drop(tx);
+    for h in hs {
+        let _ = h.join();
+    }
+    let mut bag: HashMap<String, Rec> = HashMap::new();
+    while let Ok(r) = rx.recv() {
+        bag.entry(r.body.clone()).or_insert(r);
+    }
+    let mut recs: Vec<Rec> = bag.into_values().collect();
+    for (i, r) in recs.iter_mut().enumerate() {
+        r.issue = (i as i32) + 1;
+    }
+    let _ = write_bound(&recs);
+    Ok(recs)
+}
+
+fn write_bound(recs: &[Rec]) -> i32 {
+    let tpl = std::fs::read_to_string("/app/tplbay/bound.tpl").unwrap_or_else(|_| "{\"findings\":[__ROWS__]}".into());
+    if recs.is_empty() {
+        let _ = std::fs::write("/app/inkbay/bound.json", tpl);
+        return 0;
+    }
+    let mut inner = String::new();
+    for (i, r) in recs.iter().enumerate() {
+        if i > 0 {
+            inner.push(',');
+        }
+        inner.push_str(&format!(
+            "{{\"issue\":{},\"kind\":{},\"frames\":{},\"body\":{}}}",
+            r.issue,
+            jstr(&r.kind),
+            jarr(&r.frames),
+            jstr(&r.body)
+        ));
+    }
+    let out = tpl.replace("__ROWS__", &inner);
+    let _ = std::fs::create_dir_all("/app/inkbay");
+    match std::fs::write("/app/inkbay/bound.json", out) {
+        Ok(()) => 0,
+        Err(_) => 1,
+    }
+}
+
+fn jstr(s: &str) -> String {
+    format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""))
+}
+
+fn jarr(v: &[String]) -> String {
+    let parts: Vec<String> = v.iter().map(|x| jstr(x)).collect();
+    format!("[{}]", parts.join(","))
+}
+--- compiler search ---
+lrwxrwxrwx 1 root root 6 Mar 18  2025 /usr/local/cargo/bin/rustc -> rustup
+/usr/local/rustup/toolchains/1.85.1-x86_64-unknown-linux-gnu/bin/rustc
+[?2004hroot@673b5dedbdb5:/app# cat > /app/urnwalk/walk.rs <<'EOF'
+[?2004l[?2004h> use std::path::{Path, PathBuf};
+[?2004l[?2004h> 
+[?2004lki[?2004h> pub fn gather(a: &str) -> Result<Vec<String>, i32> {
+[?2004l       let body = [?2004h>     let allowed = std::fs::canonicalize("/app/vatlogs").map_err(|_| 2)?;
+[?2004l[?2004h>     let root = std::fs::canonicalize(a).map_err(|_| 2)?;
+[?2004l[?2004h>     if !root.starts_with(&allowed) || !root.is_dir() {
+[?2004l[?2004h>         return Err(2);
+[?2004l[?2004h>     }
+[?2004l[?2004h>     let mut paths = Vec::new();
+[?2004l[?2004h>     visit(&root, &allowed, &mut paths)?;
+[?2004l[?2004h>     paths.sort();
+[?2004l[?2004h>     if paths.is_empty() { return Err(2); }
+[?2004l[?2004h>     Ok(paths.into_iter().map(|p| p.to_string_lossy().into_owned()).collect())
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> fn visit(dir: &Path, allowed: &Path, out: &mut Vec<PathBuf>) -> Result<(), i32> {
+[?2004l[?2004h>     let rd = std::fs::read_dir(dir).map_err(|_| 2)?;
+[?2004l[?2004h>     for entry in rd {
+[?2004l[?2004h>         let entry = entry.map_err(|_| 2)?;
+[?2004l[?2004h>         let raw = entry.path();
+[?2004l   let mut inner = String::new();
+    let mut desk =[?2004h>         let path = std::fs::canonicalize(&raw).map_err(|_| 2)?;
+[?2004l[?2004h>         if !path.starts_with(allowed) { return Err(2); }
+[?2004l[?2004h>         let meta = std::fs::metadata(&path).map_err(|_| 2)?;
+[?2004l[?2004h>         if meta.is_dir() {
+[?2004l[?2004h>             visit(&path, allowed, out)?;
+[?2004l[?2004h>         } else if meta.is_file() {
+[?2004l[?2004h>             out.push(path);
+[?2004l[?2004h>         } else {
+[?2004l[?2004h>             return Err(2);
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     Ok(())
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@673b5dedbdb5:/app# cat > /app/treyfun/clip.rs <<'EOF'
+[?2004l[?2004h> pub fn take(text: &str) -> Result<(String, Vec<String>), i32> {
+[?2004l[?2004h>     if text.trim().is_empty() { return Err(3); }
+[?2004l[?2004h>     let mut kind: Option<String> = None;
+[?2004l_ROWS__") { return 1; }
+    let bound = tpl.replace("__ROWS__", &inner);
+    let bp = "/ap[?2004h>     let mut frames = Vec::new();
+[?2004l[?2004h>     let mut summary = false;
+[?2004l[?2004h>     for line in text.lines() {
+[?2004l[?2004h>         if line.contains("ERROR:") {
+[?2004l[?2004h>             if kind.is_some() { return Err(3); }
+[?2004l[?2004h>             let rest = line.split_once("ERROR:").map(|x| x.1).unwrap_or("").trim();
+[?2004l[?2004h>             let after = rest.strip_prefix("AddressSanitizer:").unwrap_or(rest).trim();
+[?2004l[?2004h>             let value = after.split(" on ").next().unwrap_or("").trim();
+[?2004l[?2004h>             if value.is_empty() { return Err(3); }
+[?2004l[?2004h>             kind = Some(value.to_string());
+[?2004l[?2004h>         }
+[?2004l[?2004h>         if line.trim_start().starts_with("SUMMARY:") { summary = true; }
+[?2004l[?2004h>         let trimmed = line.trim_start();
+[?2004l[?2004h>         if trimmed.starts_with('#') {
+[?2004l[?2004h>             let mut words = trimmed.split_whitespace();
+[?2004l[?2004h>             let number = words.next().unwrap_or("");
+[?2004l[?2004h>             if number.len() < 2 || !number[1..].bytes().all(|b| b.is_ascii_digit()) {
+[?2004l[?2004h>                 return Err(3);
+[?2004l[?2004h>             }
+[?2004l[?2004h>             let pos = trimmed.find(" in ").ok_or(3)?;
+[?2004l[?2004h>             let sym = trimmed[pos + 4..].split_whitespace().next().unwrap_or("");
+[?2004l[?2004h>             if sym.is_empty() { return Err(3); }
+[?2004l[?2004h>             if !is_runtime(sym) { frames.push(fold_hex(sym)); }
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004let[?2004h>     if !summary || frames.is_empty() { return Err(3); }
+[?2004l[?2004h>     Ok((kind.ok_or(3)?, frames))
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> fn is_runtime(s: &str) -> bool {
+[?2004l[?2004h>     s.starts_with("__asan") || s.starts_with("__interceptor") || s.starts_with("__hwasan")
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> fn fold_hex(s: &str) -> String {
+[?2004l[?2004h>     let bytes = s.as_bytes();
+[?2004l[?2004h>     let mut out = String::new();
+[?2004l[?2004h>     let mut i = 0;
+[?2004l[?2004h>     while i < bytes.len() {
+[?2004lGUARD");
+[?2004h>         if i + 2 <= bytes.len() && bytes[i] == b'0' && bytes[i + 1] == b'x' {
+[?2004l[?2004h>             let mut j = i + 2;
+[?2004l[?2004h>             while j < bytes.len() && bytes[j].is_ascii_hexdigit() { j += 1; }
+[?2004l[?2004h>             if j > i + 2 { out.push_str("<hex>"); i = j; continue; }
+[?2004l[?2004h>         }
+[?2004l[?2004h>         if bytes[i].is_ascii_hexdigit() {
+[?2004l[?2004h>             let mut j = i;
+[?2004l[?2004h>             let mut digit = false;
+[?2004l[?2004h>             while j < bytes.len() && bytes[j].is_ascii_hexdigit() {
+[?2004l[?2004h>                 digit |= bytes[j].is_ascii_digit();
+[?2004l[?2004h>                 j += 1;
+[?2004l[?2004h>             }
+[?2004l[?2004h>             if j - i >= 4 && digit {
+[?2004l[?2004h>                 out.push_str("<hex>");
+[?2004l[?2004h>                 i = j;
+[?2004l[?2004h>                 continue;
+[?2004l[?2004h>             }
+[?2004l[?2004h>         }
+[?2004l[?2004h>         out.push(bytes[i] as char);
+[?2004l[?2004h>         i += 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     out
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@673b5dedbdb5:/app# cat > /app/qanbox/tally.rs <<'EOF'
+[?2004l[?2004h> #[path = "../treyfun/clip.rs"]
+[?2004l[?2004h> mod clip;
+[?2004l[?2004h> use std::collections::BTreeMap;
+[?2004l[?2004h> 
+[?2004l[?2004h> #[derive(Clone)]
+[?2004l[?2004h> pub struct Rec {
+[?2004l[?2004h>     pub issue: i32,
+[?2004l[?2004h>     pub kind: String,
+[?2004l[?2004h>     pub frames: Vec<String>,
+[?2004l[?2004h>     pub body: String,
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn tally(root: &str) -> Result<Vec<Rec>, i32> {
+[?2004l[?2004h>     let paths = crate::walk::gather(root)?;
+[?2004l[?2004h>     let mut unique: BTreeMap<Vec<String>, Rec> = BTreeMap::new();
+[?2004l[?2004h>     for path in paths {
+[?2004l[?2004h>         let text = std::fs::read_to_string(path).map_err(|_| 3)?;
+[?2004l[?2004h>         let (kind, frames) = clip::take(&text)?;
+[?2004l[?2004h>         let body = frames.join(" | ");
+[?2004l[?2004h>         let rec = Rec { issue: 0, kind, frames: frames.clone(), body };
+[?2004l[?2004h>         match unique.get(&frames) {
+[?2004l[?2004h>             Some(old) if old.kind != rec.kind => return Err(3),
+[?2004l[?2004h>             Some(_) => {},
+[?2004l[?2004h>             None => { unique.insert(frames, rec); }
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     let mut recs: Vec<Rec> = unique.into_values().collect();
+[?2004l[?2004h>     for (i, rec) in recs.iter_mut().enumerate() { rec.issue = i as i32 + 1; }
+[?2004l[?2004h>     Ok(recs)
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@673b5dedbdb5:/app# cat > /app/humdock/emit.rs <<'EOF'
+[?2004l[?2004h> use crate::tally::Rec;
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn emit(rows: &[Rec]) -> i32 {
+[?2004l[?2004h>     if std::fs::create_dir_all("/app/inkbay").is_err() { return 1; }
+[?2004l[?2004h>     let mut inner = String::new();
+[?2004l[?2004h>     let mut desk = String::from("issue\tkind\tbody\n");
+[?2004l[?2004h>     for (i, r) in rows.iter().enumerate() {
+[?2004l[?2004h>         if i != 0 { inner.push(','); }
+[?2004l[?2004h>         inner.push_str(&format!("{{\"issue\":{},\"kind\":{},\"frames\":{},\"body\":{}}}",
+[?2004l[?2004h>             r.issue, jstr(&r.kind), jarr(&r.frames), jstr(&r.body)));
+[?2004l[?2004h>         desk.push_str(&format!("{}\t{}\t{}\n", r.issue, r.kind, r.body));
+[?2004l[?2004h>     }
+[?2004l[?2004h>     let tpl = match std::fs::read_to_string("/app/tplbay/bound.tpl") { Ok(x) => x, Err(_) => return 1 };
+[?2004l[?2004h>     if !tpl.contains("__ROWS__") { return 1; }
+[?2004l[?2004h>     let bound = tpl.replace("__ROWS__", &inner);
+[?2004l[?2004h>     let bp = "/app/inkbay/.bound.json.tmp";
+[?2004l[?2004h>     let dp = "/app/inkbay/.desk.tsv.tmp";
+[?2004l[?2004h>     if std::fs::write(bp, bound).is_err() || std::fs::write(dp, desk).is_err()
+[?2004l[?2004h>         || std::fs::rename(bp, "/app/inkbay/bound.json").is_err()
+[?2004l[?2004h>         || std::fs::rename(dp, "/app/inkbay/desk.tsv").is_err() {
+[?2004l[?2004h>         let _ = std::fs::remove_file(bp); let _ = std::fs::remove_file(dp); return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if std::fs::write("/app/inkbay/GUARD", "ok").is_err() { return 1; }
+[?2004l[?2004h>     0
+[?2004l[?2004h> }
+[?2004l[?2004h> fn jstr(s: &str) -> String {
+[?2004l[?2004h>     let mut out = String::from("\"");
+[?2004l[?2004h>     for c in s.chars() {
+[?2004l[?2004h>         match c { '"' => out.push_str("\\\""), '\\' => out.push_str("\\\\"),
+[?2004l[?2004h>             '\n' => out.push_str("\\n"), '\r' => out.push_str("\\r"), '\t' => out.push_str("\\t"),
+[?2004l[?2004h>             c if c < ' ' => out.push_str(&format!("\\u{:04x}", c as u32)), c => out.push(c) }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     out.push('"'); out
+[?2004l[?2004h> }
+[?2004l[?2004h> fn jarr(v: &[String]) -> String {
+[?2004l[?2004h>     format!("[{}]", v.iter().map(|s| jstr(s)).collect::<Vec<_>>().join(","))
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@673b5dedbdb5:/app# cat > /app/ketchcli/main.rs <<'EOF'
+[?2004l[?2004h> #[path = "../urnwalk/walk.rs"] mod walk;
+[?2004l[?2004h> #[path = "../qanbox/tally.rs"] mod tally;
+[?2004l[?2004h> #[path = "../humdock/emit.rs"] mod rib;
+[?2004l[?2004h> fn main() {
+[?2004l[?2004h>     let mut args = std::env::args().skip(1);
+[?2004l[?2004h>     let cmd = args.next().unwrap_or_default();
+[?2004l[?2004h>     if cmd != "bind" { eprintln!("usage: loomketch bind [root]"); std::process::exit(2); }
+[?2004l[?2004h>     let root = args.next().unwrap_or_else(|| "/app/vatlogs".into());
+[?2004l[?2004h>     if args.next().is_some() { let _ = std::fs::remove_file("/app/inkbay/GUARD"); std::process::exit(2); }
+[?2004l[?2004h>     let _ = std::fs::remove_file("/app/inkbay/GUARD");
+[?2004l[?2004h>     let code = match tally::tally(&root) { Ok(recs) => rib::emit(&recs), Err(c) => c };
+[?2004l[?2004h>     if code != 0 { let _ = std::fs::remove_file("/app/inkbay/GUARD"); }
+[?2004l[?2004h>     std::process::exit(code);
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@673b5dedbdb5:/app# /app/hearth.sh
+[?2004l[?2004hroot@673b5dedbdb5:/app# head -c 4 /app/bin/loomketch | od -An -tx1
+[?2004l 7f 45 4c 46
+[?2004hroot@673b5dedbdb5:/app# rm -rf /app/inkbay; mkdir /app/inkbay; /app/bin/loomketch bind; echo first=$?; cp /app/inkbay/bound.json /tmp/b1; cp /app/inkbay/desk.tsv /tmp/d1; /app/bin/loomketch bind; echo second=$?; cmp /tmp/b1 /app/inkbay/bound.json; echo bound_cmp=$?; cmp /tmp/d1 /app/inkbay/desk.tsv; echo desk_cmp=$?; cat /app/inkbay/bound.json; echo; cat /app/inkbay/desk.tsv; printf 'GUARD='; cat /app/inkbay/GUARD; echo
+[?2004lfirst=0
+second=0
+bound_cmp=0
+desk_cmp=0
+{"findings":[{"issue":1,"kind":"heap-buffer-overflow","frames":["fill_span","prep_buf"],"body":"fill_span | prep_buf"},{"issue":2,"kind":"use-after-return","frames":["latch_tick","drain_slot"],"body":"latch_tick | drain_slot"},{"issue":3,"kind":"stack-buffer-overflow","frames":["pump_read","loop_tick"],"body":"pump_read | loop_tick"},{"issue":4,"kind":"heap-use-after-free","frames":["widget_free","worker_main"],"body":"widget_free | worker_main"}]}
+
+issue	kind	body
+1	heap-buffer-overflow	fill_span | prep_buf
+2	use-after-return	latch_tick | drain_slot
+3	stack-buffer-overflow	pump_read | loop_tick
+4	heap-use-after-free	widget_free | worker_main
+GUARD=ok
+[?2004hroot@673b5dedbdb5:/app# rm -rf /tmp/journal-save; cp -a /app/vatlogs /tmp/journal-save; rm -rf /app/vatlogs/*; mkdir -p /app/vatlogs/z/a /app/vatlogs/b; n=0; for f in /tmp/journal-save/*; do n=$((n+1)); if [ $((n%2)) -eq 0 ]; then cp "$f" "/app/vatlogs/z/a/renamed_$n.log"; else cp "$f" "/app/vatlogs/b/worker_$n.txt"; fi; done; /app/bin/loomketch bind; echo layout_rc=$?; cmp /tmp/b1 /app/inkbay/bound.json; echo layout_bound_cmp=$?; cmp /tmp/d1 /app/inkbay/desk.tsv; echo layout_desk_cmp=$?; /app/bin/loomketch bind /tmp; echo outside_rc=$? guard_exists=$(test -e /app/inkbay/GUARD; echo $?); printf '' > /app/vatlogs/empty.log; /app/bin/loomketch bind; echo empty_rc=$? guard_exists=$(test -e /app/inkbay/GUARD; echo $?); rm /app/vatlogs/empty.log; printf '==1==ERROR: AddressSanitizer: boom\n #0 0x1 in user_frame x.c:1\n' > /app/vatlogs/truncated.log; /app/bin/loomketch bind; echo trunc_rc=$? guard_exists=$(test -e /app/inkbay/GUARD; echo $?); rm -rf /app/vatlogs; cp -a /tmp/journal-save /app/vatlogs; /app/bin/loomketch bind; echo final_rc=$?; head -c4 /app/bin/loomketch | od -An -tx1; cat /app/inkbay/GUARD; echo
+[?2004llayout_rc=0
+layout_bound_cmp=0
+layout_desk_cmp=0
+outside_rc=2 guard_exists=1
+empty_rc=3 guard_exists=1
+trunc_rc=3 guard_exists=1
+final_rc=0
+ 7f 45 4c 46
+ok
+[?2004hroot@673b5dedbdb5:/app# python3 - <<'PY'
+[?2004l[?2004h> import json, pathlib
+[?2004l[?2004h> p=pathlib.Path('/app/inkbay')
+[?2004l[?2004h> data=json.loads((p/'bound.json').read_text())
+[?2004l[?2004h> rows=(p/'desk.tsv').read_text().splitlines()
+[?2004l[?2004h> assert rows[0]=='issue\tkind\tbody'
+[?2004l[?2004h> by_issue={r['issue']:r for r in data['findings']}
+[?2004l[?2004h> assert sorted(by_issue)==list(range(1,len(by_issue)+1))
+[?2004l[?2004h> for line in rows[1:]:
+[?2004l[?2004h>     issue,kind,body=line.split('\t')
+[?2004l[?2004h>     r=by_issue[int(issue)]
+[?2004l[?2004h>     assert (kind,body)==(r['kind'],r['body'])
+[?2004l[?2004h>     assert body==' | '.join(r['frames'])
+[?2004l[?2004h>     assert not any(f.startswith(('__asan','__interceptor','__hwasan')) for f in r['frames'])
+[?2004l[?2004h> assert (p/'GUARD').read_text()=='ok'
+[?2004l[?2004h> print('records:',len(by_issue),'cross-file consistency: ok')
+[?2004l[?2004h> PY
+[?2004lrecords: 4 cross-file consistency: ok
+[?2004hroot@673b5dedbdb5:/app# cp /app/inkbay/bound.json /tmp/final.bound; cp /app/inkbay/desk.tsv /tmp/final.desk; KETCH_ALPHA=1 /app/bin/loomketch bind; cmp /tmp/final.bound /app/inkbay/bound.json && cmp /tmp/final.desk /app/inkbay/desk.tsv; echo alpha_stability=$?; test -x /app/bin/loomketch; echo executable=$?; head -c4 /app/bin/loomketch | od -An -tx1; printf 'GUARD='; cat /app/inkbay/GUARD; echo
+[?2004lalpha_stability=0
+executable=0
+ 7f 45 4c 46
+GUARD=ok
+[?2004hroot@673b5dedbdb5:/app# 

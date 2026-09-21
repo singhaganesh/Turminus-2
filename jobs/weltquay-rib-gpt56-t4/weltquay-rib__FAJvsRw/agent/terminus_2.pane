@@ -1,0 +1,411 @@
+[?2004hroot@ddb5ff434a45:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@ddb5ff434a45:/app# clear
+[?2004l[H[J[3J[?2004hroot@ddb5ff434a45:/app# pwd; printf '%s\n' '--- TREE ---'; cat /app/keepfold/TREE.txt; printf '%s\n' '--- LAYOUT ---'; cat /app/ribcards/LAYOUT.txt; printf '%s\n' '--- files ---'; file /app/bin/weltquay /app/quaybag/night.bin; find /app -maxdepth 3 -type f -printf '%p %s bytes\n' | sort
+[?2004l/app
+--- TREE ---
+weltquay mill
+===============
+
+weltcli/boot.rs dispatches pour.
+
+Pipeline modules:
+- octetkiln/  kiln take and emit
+- stitchbay/  layout row load used by emit
+- peekurn/    pour writer
+- vaultbin/   baked pull used by pour
+- nudgepit/   line tally
+
+Layout rows live in /app/ribcards/LAYOUT.txt.
+Each row is a name, a bit index, and a width.
+pour reads /app/quaybag/night.bin and writes /app/blotbay/rows.json.
+
+Rebuild the binary with /app/wick.sh after source edits.
+--- LAYOUT ---
+kind 0 3
+lane 3 6
+mode 9 3
+welt 12 9
+tail 21 3
+mark 24 8
+--- files ---
+bash: file: command not found
+/app/bin/weltquay 3984912 bytes
+/app/blotbay/rows.json 60 bytes
+/app/keepfold/COVER.txt 160 bytes
+/app/keepfold/TREE.txt 468 bytes
+/app/nudgepit/tally.rs 195 bytes
+/app/octetkiln/emit.rs 991 bytes
+/app/octetkiln/house.rs 343 bytes
+/app/octetkiln/lsb.rs 364 bytes
+/app/octetkiln/take.rs 223 bytes
+/app/peekurn/ink.rs 571 bytes
+/app/quaybag/night.bin 4 bytes
+/app/ribcards/LAYOUT.txt 57 bytes
+/app/stitchbay/card.rs 964 bytes
+/app/vaultbin/pull.rs 287 bytes
+/app/weltcli/boot.rs 511 bytes
+/app/weltcli/usage.txt 77 bytes
+/app/wick.sh 283 bytes
+[?2004hroot@ddb5ff434a45:/app# for f in /app/weltcli/boot.rs /app/octetkiln/*.rs /app/stitchbay/*.rs /app/peekurn/*.rs /app/vaultbin/*.rs /app/nudgepit/*.rs /app/wick.sh /app/keepfold/COVER.txt; do echo "--- $f ---"; sed -n '1,240p' "$f"; done; echo '--- magic/input ---'; od -An -tx1 -N16 /app/bin/weltquay; od -An -tx1 -v /app/quaybag/night.bin; echo '--- existing rows ---'; cat /app/blotbay/rows.json; echo; echo '--- current pour ---'; /app/bin/weltquay pour; rc=$?; echo "rc=$rc"; test -e /app/blotbay/rows.json && cat /app/blotbay/rows.json || echo 'rows.json absent'
+[?2004l--- /app/weltcli/boot.rs ---
+#[path = "../octetkiln/house.rs"]
+mod house;
+#[path = "../octetkiln/take.rs"]
+mod take;
+#[path = "../vaultbin/pull.rs"]
+mod pull;
+#[path = "../peekurn/ink.rs"]
+mod vat;
+#[path = "../nudgepit/tally.rs"]
+mod tally;
+
+fn main() {
+    let mut args = std::env::args().skip(1);
+    let cmd = args.next().unwrap_or_default();
+    let code = match cmd.as_str() {
+        "pour" => vat::rib_c(),
+        _ => {
+            eprintln!("usage: weltquay pour");
+            2
+        }
+    };
+    std::process::exit(code);
+}
+--- /app/octetkiln/emit.rs ---
+use std::fs;
+
+#[path = "../stitchbay/card.rs"]
+mod card;
+
+fn pick(rows: &[card::Row], tag: &str) -> (u32, u32) {
+    for row in rows {
+        if row.tag == tag {
+            return (row.pos, row.n);
+        }
+    }
+    (0, 0)
+}
+
+fn main() {
+    let rows = card::rib_b();
+    let (k0, k1) = pick(&rows, "kind");
+    let (l0, l1) = pick(&rows, "lane");
+    let (m0, m1) = pick(&rows, "mode");
+    let (w0, w1) = pick(&rows, "welt");
+    let (t0, t1) = pick(&rows, "tail");
+    let (x0, x1) = pick(&rows, "mark");
+    let body = format!(
+        r#"use crate::take;
+
+pub fn dump(buf: &[u8]) -> (u32, u32, u32, u32, u32, u32) {{
+    (
+        take::rib_a(buf, {k0}, {k1}),
+        take::rib_a(buf, {l0}, {l1}),
+        take::rib_a(buf, {m0}, {m1}),
+        take::rib_a(buf, {w0}, {w1}),
+        take::rib_a(buf, {t0}, {t1}),
+        take::rib_a(buf, {x0}, {x1}),
+    )
+}}
+"#
+    );
+    let _ = fs::create_dir_all("/app/vaultbin");
+    fs::write("/app/vaultbin/pull.rs", body).expect("emit");
+}
+--- /app/octetkiln/house.rs ---
+pub fn rib_e(buf: &[u8], pos: u32, n: u32) -> u32 {
+    if n == 0 {
+        return 0;
+    }
+    let i = (pos / 8) as usize;
+    if i >= buf.len() {
+        return 0;
+    }
+    let bit = pos % 8;
+    let room = 8 - bit;
+    if n > room {
+        return 0;
+    }
+    let shift = 8 - bit - n;
+    ((buf[i] as u32) >> shift) & ((1u32 << n) - 1)
+}
+--- /app/octetkiln/lsb.rs ---
+pub fn rib_f(buf: &[u8], pos: u32, n: u32) -> u32 {
+    let mut acc = 0u32;
+    let mut i = 0u32;
+    while i < n {
+        let b = pos + i;
+        let idx = (b / 8) as usize;
+        if idx >= buf.len() {
+            break;
+        }
+        let bit = b % 8;
+        let v = ((buf[idx] as u32) >> bit) & 1;
+        acc |= v << i;
+        i += 1;
+    }
+    acc
+}
+--- /app/octetkiln/take.rs ---
+pub fn rib_a(buf: &[u8], pos: u32, n: u32) -> u32 {
+    if n == 0 {
+        return 0;
+    }
+    let bit = pos % 8;
+    let room = 8 - bit;
+    let w = if n > room { room } else { n };
+    crate::house::rib_e(buf, pos, w)
+}
+--- /app/stitchbay/card.rs ---
+pub struct Row {
+    pub tag: String,
+    pub pos: u32,
+    pub n: u32,
+}
+
+fn tok(line: &str) -> Vec<String> {
+    line.split_whitespace().map(|s| s.to_string()).collect()
+}
+
+pub fn rib_b() -> Vec<Row> {
+    let text = std::fs::read_to_string("/app/ribcards/LAYOUT.txt").unwrap_or_default();
+    let mut out = Vec::new();
+    for line in text.lines() {
+        let raw = line.trim();
+        if raw.is_empty() || raw.starts_with('#') {
+            continue;
+        }
+        let parts = tok(raw);
+        if parts.len() < 3 {
+            continue;
+        }
+        let tag = parts[0].clone();
+        let mut pos: u32 = match parts[1].parse() {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let n: u32 = match parts[2].parse() {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        if n > 8 {
+            pos = pos.saturating_add(8 - (pos % 8));
+        }
+        out.push(Row { tag, pos, n });
+    }
+    out
+}
+--- /app/peekurn/ink.rs ---
+use crate::pull;
+use crate::tally;
+use std::fs;
+use std::path::Path;
+
+pub fn rib_c() -> i32 {
+    let _ = tally::lines();
+    let buf = fs::read("/app/quaybag/night.bin").unwrap_or_default();
+    let dest = Path::new("/app/blotbay/rows.json");
+    if let Some(parent) = dest.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let (a, b, c, d, e, f) = pull::dump(&buf);
+    let body = format!(
+        "{{\"kind\":{},\"lane\":{},\"mode\":{},\"welt\":{},\"tail\":{},\"mark\":{}}}\n",
+        a, b, c, d, e, f
+    );
+    let _ = fs::write(dest, body);
+    0
+}
+--- /app/vaultbin/pull.rs ---
+use crate::take;
+
+pub fn dump(buf: &[u8]) -> (u32, u32, u32, u32, u32, u32) {
+    (
+        take::rib_a(buf, 0, 3),
+        take::rib_a(buf, 3, 6),
+        take::rib_a(buf, 9, 3),
+        take::rib_a(buf, 16, 9),
+        take::rib_a(buf, 21, 3),
+        take::rib_a(buf, 24, 8),
+    )
+}
+--- /app/nudgepit/tally.rs ---
+pub fn lines() -> usize {
+    std::fs::read_to_string("/app/ribcards/LAYOUT.txt")
+        .unwrap_or_default()
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .count()
+}
+--- /app/wick.sh ---
+#!/bin/sh
+set -eu
+export PATH="/usr/local/cargo/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+mkdir -p /app/bin /app/blotbay /app/vaultbin
+rustc --edition 2021 -O /app/octetkiln/emit.rs -o /tmp/welt-emit
+/tmp/welt-emit
+rustc --edition 2021 -O /app/weltcli/boot.rs -o /app/bin/weltquay
+--- /app/keepfold/COVER.txt ---
+Desk cover
+==========
+
+Coverage is the number of lines in /app/ribcards/LAYOUT.txt.
+
+The old mill's join is octetkiln/lsb.rs: bit 0 is the low end of an octet.
+--- magic/input ---
+ 7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00
+ b4 dd 3d a5
+--- existing rows ---
+{"kind":5,"lane":20,"mode":5,"welt":61,"tail":5,"mark":165}
+
+--- current pour ---
+rc=0
+{"kind":5,"lane":20,"mode":5,"welt":61,"tail":5,"mark":165}
+[?2004hroot@ddb5ff434a45:/app# python3 - <<'PY'
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p=Path('/app/stitchbay/card.rs')
+[?2004l[?2004h> s=p.read_text()
+[?2004l[?2004h> s=s.replace('        let mut pos: u32 = match parts[1].parse() {', '        let pos: u32 = match parts[1].parse() {')
+[?2004l[?2004h> s=s.replace('        if n > 8 {\n            pos = pos.saturating_add(8 - (pos % 8));\n        }\n', '')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> 
+[?2004l[?2004h> Path('/app/octetkiln/take.rs').write_text('''pub fn rib_a(buf: &[u8], pos: u32, n: u32) -> u32 {
+[?2004l[?2004h>     if n == 0 || n > 32 {
+[?2004l[?2004h>         return 0;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     crate::lsb::rib_f(buf, pos, n)
+[?2004l[?2004h> }
+[?2004l[?2004h> ''')
+[?2004l[?2004h> 
+[?2004l[?2004h> p=Path('/app/weltcli/boot.rs')
+[?2004l[?2004h> s=p.read_text()
+[?2004l[?2004h> s=s.replace('#[path = "../octetkiln/take.rs"]\nmod take;', '#[path = "../octetkiln/take.rs"]\nmod take;\n#[path = "../octetkiln/lsb.rs"]\nmod lsb;')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> 
+[?2004l[?2004h> p=Path('/app/octetkiln/emit.rs')
+[?2004l[?2004h> s=p.read_text()
+[?2004l[?2004h> s=s.replace('    let (x0, x1) = pick(&rows, "mark");', '    let (x0, x1) = pick(&rows, "mark");\n    let width = rows.iter().map(|r| r.pos.saturating_add(r.n)).max().unwrap_or(0).saturating_add(7) / 8;')
+[?2004l[?2004h> s=s.replace('pub fn dump(buf: &[u8])', 'pub const WIDTH: usize = {width}usize;\n\npub fn dump(buf: &[u8])')
+[?2004l[?2004h> p.write_text(s)
+[?2004l[?2004h> 
+[?2004l[?2004h> Path('/app/peekurn/ink.rs').write_text('''use crate::pull;
+[?2004l[?2004h> use crate::tally;
+[?2004l[?2004h> use std::fs;
+[?2004l[?2004h> use std::path::Path;
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn rib_c() -> i32 {
+[?2004l[?2004h>     let _ = tally::lines();
+[?2004l[?2004h>     let dest = Path::new("/app/blotbay/rows.json");
+[?2004l[?2004h>     // Never allow an earlier successful result to survive a failed pour.
+[?2004l[?2004h>     match fs::remove_file(dest) {
+[?2004l[?2004h>         Ok(()) => {}
+[?2004l[?2004h>         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+[?2004l[?2004h>         Err(e) => {
+[?2004l[?2004h>             eprintln!("cannot remove {}: {}", dest.display(), e);
+[?2004l[?2004h>             return 1;
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     let buf = match fs::read("/app/quaybag/night.bin") {
+[?2004l[?2004h>         Ok(buf) => buf,
+[?2004l[?2004h>         Err(e) => {
+[?2004l[?2004h>             eprintln!("cannot read night.bin: {}", e);
+[?2004l[?2004h>             return 1;
+[?2004l[?2004h>         }
+[?2004l[?2004h>     };
+[?2004l[?2004h>     if buf.len() < pull::WIDTH {
+[?2004l[?2004h>         eprintln!("night.bin is too short: need {} bytes, got {}", pull::WIDTH, buf.len());
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     let (a, b, c, d, e, f) = pull::dump(&buf);
+[?2004l[?2004h>     let body = format!(
+[?2004l[?2004h>         "{{\\\"kind\\\":{},\\\"lane\\\":{},\\\"mode\\\":{},\\\"welt\\\":{},\\\"tail\\\":{},\\\"mark\\\":{}}}\\n",
+[?2004l[?2004h>         a, b, c, d, e, f
+[?2004l[?2004h>     );
+[?2004l[?2004h>     if let Some(parent) = dest.parent() {
+[?2004l[?2004h>         if let Err(e) = fs::create_dir_all(parent) {
+[?2004l[?2004h>             eprintln!("cannot create output directory: {}", e);
+[?2004l[?2004h>             return 1;
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if let Err(e) = fs::write(dest, body) {
+[?2004l[?2004h>         eprintln!("cannot write {}: {}", dest.display(), e);
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     0
+[?2004l[?2004h> }
+[?2004l[?2004h> ''')
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@ddb5ff434a45:/app# /app/wick.sh
+[?2004l[0m[1m[33mwarning[0m[0m[1m: function `rib_e` is never used[0m
+[0m [0m[0m[1m[38;5;12m--> [0m[0m/app/weltcli/../octetkiln/house.rs:1:8[0m
+[0m  [0m[0m[1m[38;5;12m|[0m
+[0m[1m[38;5;12m1[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0mpub fn rib_e(buf: &[u8], pos: u32, n: u32) -> u32 {[0m
+[0m  [0m[0m[1m[38;5;12m|[0m[0m        [0m[0m[1m[33m^^^^^[0m
+[0m  [0m[0m[1m[38;5;12m|[0m
+[0m  [0m[0m[1m[38;5;12m= [0m[0m[1mnote[0m[0m: `#[warn(dead_code)]` on by default[0m
+
+[0m[1m[33mwarning[0m[0m[1m: 1 warning emitted[0m
+
+[?2004hroot@ddb5ff434a45:/app# printf '%s\n' '--- generated pull ---'; cat /app/vaultbin/pull.rs
+[?2004l--- generated pull ---
+use crate::take;
+
+pub const WIDTH: usize = 4usize;
+
+pub fn dump(buf: &[u8]) -> (u32, u32, u32, u32, u32, u32) {
+    (
+        take::rib_a(buf, 0, 3),
+        take::rib_a(buf, 3, 6),
+        take::rib_a(buf, 9, 3),
+        take::rib_a(buf, 12, 9),
+        take::rib_a(buf, 21, 3),
+        take::rib_a(buf, 24, 8),
+    )
+}
+[?2004hroot@ddb5ff434a45:/app# printf '%s\n' '--- ELF magic ---'; od -An -tx1 -N4 /app/bin/weltquay
+[?2004l--- ELF magic ---
+ 7f 45 4c 46
+[?2004hroot@ddb5ff434a45:/app# /app/bin/weltquay pour; rc=$?; echo "valid_rc=$rc"; cat /app/blotbay/rows.json
+[?2004lvalid_rc=0
+{"kind":4,"lane":54,"mode":6,"welt":477,"tail":1,"mark":165}
+[?2004hroot@ddb5ff434a45:/app# set -u
+[?2004l[?2004hroot@ddb5ff434a45:/app# cp /app/quaybag/night.bin /tmp/night.bin.good
+[?2004l[?2004hroot@ddb5ff434a45:/app# ok=1
+[?2004l[?2004hroot@ddb5ff434a45:/app# for n in 0 1 2 3; do
+[?2004l[?2004h>   head -c "$n" /tmp/night.bin.good > /app/quaybag/night.bin
+[?2004l[?2004h>   printf '%s\n' stale > /app/blotbay/rows.json
+[?2004l[?2004h>   /app/bin/weltquay pour >/tmp/pour.out 2>/tmp/pour.err
+[?2004l[?2004h>   rc=$?
+[?2004l[?2004h>   if [ "$rc" -eq 0 ] || [ -e /app/blotbay/rows.json ]; then
+[?2004l[?2004h>     echo "SHORT TEST FAILED: n=$n rc=$rc exists=$(test -e /app/blotbay/rows.json && echo yes || echo no)"
+[?2004l[?2004h>     ok=0
+[?2004l[?2004h>   else
+[?2004l[?2004h>     echo "short n=$n: rc=$rc, rows absent"
+[?2004l[?2004h>   fi
+[?2004l[?2004h> done
+[?2004lshort n=0: rc=1, rows absent
+short n=1: rc=1, rows absent
+short n=2: rc=1, rows absent
+short n=3: rc=1, rows absent
+[?2004hroot@ddb5ff434a45:/app# cp /tmp/night.bin.good /app/quaybag/night.bin
+[?2004l[?2004hroot@ddb5ff434a45:/app# /app/bin/weltquay pour
+[?2004l[?2004hroot@ddb5ff434a45:/app# rc=$?
+[?2004l[?2004hroot@ddb5ff434a45:/app# python3 - <<'PY'
+[?2004l[?2004h> import json
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> p = Path('/app/blotbay/rows.json')
+[?2004l[?2004h> o = json.loads(p.read_text())
+[?2004l[?2004h> expected = {'kind': 4, 'lane': 54, 'mode': 6, 'welt': 477, 'tail': 1, 'mark': 165}
+[?2004l[?2004h> assert o == expected, (o, expected)
+[?2004l[?2004h> assert all(type(v) is int for v in o.values())
+[?2004l[?2004h> assert Path('/app/bin/weltquay').read_bytes()[:4] == b'\x7fELF'
+[?2004l[?2004h> print('final JSON validated:', o)
+[?2004l[?2004h> PY
+[?2004lfinal JSON validated: {'kind': 4, 'lane': 54, 'mode': 6, 'welt': 477, 'tail': 1, 'mark': 165}
+[?2004hroot@ddb5ff434a45:/app# pyrc=$?
+[?2004l[?2004hroot@ddb5ff434a45:/app# echo "short_tests_ok=$ok valid_rc=$rc validation_rc=$pyrc input_bytes=$(wc -c < /app/quaybag/night.bin)"
+[?2004lshort_tests_ok=1 valid_rc=0 validation_rc=0 input_bytes=4
+[?2004hroot@ddb5ff434a45:/app# test "$ok" -eq 1 && test "$rc" -eq 0 && test "$pyrc" -eq 0
+[?2004l[?2004hroot@ddb5ff434a45:/app# 

@@ -1,0 +1,482 @@
+[?2004hroot@821025f9d025:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@821025f9d025:/app# clear
+[?2004l[H[J[3J[?2004hroot@821025f9d025:/app# pwd; printf '%s\n' '--- TREE ---'; cat /app/keepfold/TREE.txt; printf '%s\n' '--- LAYOUT ---'; cat /app/ribcards/LAYOUT.txt; printf '%s\n' '--- FILES ---'; find /app -maxdepth 3 -type f -printf '%p\n' | sort
+[?2004l/app
+--- TREE ---
+weltquay mill
+===============
+
+Layout rows live in /app/ribcards/LAYOUT.txt.
+Each row is a name, a bit index, and a width.
+The first bit of a field is the high end of that bit's octet.
+
+pour reads /app/quaybag/night.bin and writes /app/blotbay/rows.json.
+
+Pipeline work: kiln take, layout row load, pour writer, and a baked pull that pour reads. Layout rows feed that bake.
+--- LAYOUT ---
+# name start width; first bit of each field is the high end of that bit's octet
+kind 0 3
+lane 3 6
+mode 9 3
+welt 12 9
+tail 21 3
+mark 24 8
+--- FILES ---
+/app/bin/weltquay
+/app/blotbay/rows.json
+/app/keepfold/COVER.txt
+/app/keepfold/TREE.txt
+/app/kilnbake/hearth.rs
+/app/nudgepit/tally.rs
+/app/octetkiln/house.rs
+/app/octetkiln/lsb.rs
+/app/octetkiln/take.rs
+/app/peekurn/ink.rs
+/app/quaybag/night.bin
+/app/ribcards/LAYOUT.txt
+/app/stitchbay/card.rs
+/app/vaultbin/pull.rs
+/app/weltcli/boot.rs
+/app/weltcli/usage.txt
+/app/wick.sh
+[?2004hroot@821025f9d025:/app# printf '%s\n' '--- TYPES ---'; file /app/bin/weltquay /app/quaybag/night.bin; ls -l /app/bin/weltquay /app/quaybag/night.bin; printf '%s\n' '--- CURRENT RUN ---'; rm -f /app/blotbay/rows.json; /app/bin/weltquay pour; rc=$?; echo "rc=$rc"; if test -e /app/blotbay/rows.json; then cat /app/blotbay/rows.json; else echo 'rows.json absent'; fi
+[?2004l--- TYPES ---
+bash: file: command not found
+-rwxr-xr-x 1 root root 3984912 Sep 16 09:24 /app/bin/weltquay
+-rw-rw-r-- 1 root root       4 Sep 16 06:02 /app/quaybag/night.bin
+--- CURRENT RUN ---
+rc=0
+{"kind":5,"lane":45,"mode":3,"welt":52,"tail":6,"mark":20}
+[?2004hroot@821025f9d025:/app# printf '%s\n' '--- COVER ---'; cat /app/keepfold/COVER.txt; printf '%s\n' '--- BUILD ---'; cat /app/wick.sh; printf '%s\n' '--- SOURCES ---'; for f in /app/{kilnbake,octetkiln,peekurn,stitchbay,vaultbin,weltcli,nudgepit}/*.rs; do echo "===== $f ====="; sed -n '1,240p' "$f"; done
+[?2004l--- COVER ---
+Desk cover
+==========
+
+Coverage is the number of lines in /app/ribcards/LAYOUT.txt.
+
+octetkiln/lsb.rs is leftover desk code and is not wired into pour.
+--- BUILD ---
+#!/bin/sh
+set -eu
+export PATH="/usr/local/cargo/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+mkdir -p /app/bin /app/blotbay /app/vaultbin
+rustc --edition 2021 -O /app/kilnbake/hearth.rs -o /tmp/welt-emit
+/tmp/welt-emit
+rustc --edition 2021 -O /app/weltcli/boot.rs -o /app/bin/weltquay
+--- SOURCES ---
+===== /app/kilnbake/hearth.rs =====
+use std::fs;
+
+#[path = "../stitchbay/card.rs"]
+mod card;
+
+fn slot(rows: &[card::Row], i: usize) -> (u32, u32) {
+    match rows.get(i) {
+        Some(row) => (row.pos / 8, row.n),
+        None => (0, 0),
+    }
+}
+
+pub fn rib_d() {
+    let rows = card::rib_b();
+    let a = slot(&rows, 0);
+    let b = slot(&rows, 1);
+    let c = slot(&rows, 2);
+    let d = slot(&rows, 3);
+    let e = slot(&rows, 4);
+    let f = slot(&rows, 5);
+    let body = format!(
+        r#"use crate::take;
+
+pub fn dump(buf: &[u8]) -> (u32, u32, u32, u32, u32, u32) {{
+    (
+        take::rib_a(buf, {0}, {1}),
+        take::rib_a(buf, {2}, {3}),
+        take::rib_a(buf, {4}, {5}),
+        take::rib_a(buf, {6}, {7}),
+        take::rib_a(buf, {8}, {9}),
+        take::rib_a(buf, {10}, {11}),
+    )
+}}
+"#,
+        a.0, a.1, b.0, b.1, c.0, c.1, d.0, d.1, e.0, e.1, f.0, f.1
+    );
+    let _ = fs::create_dir_all("/app/vaultbin");
+    fs::write("/app/vaultbin/pull.rs", body).expect("emit");
+}
+
+fn main() {
+    rib_d();
+}
+===== /app/octetkiln/house.rs =====
+pub fn rib_e(buf: &[u8], pos: u32, n: u32) -> u32 {
+    if n == 0 {
+        return 0;
+    }
+    let i = (pos / 8) as usize;
+    if i >= buf.len() {
+        return 0;
+    }
+    let bit = pos % 8;
+    let room = 8 - bit;
+    if n > room {
+        return 0;
+    }
+    let shift = 8 - bit - n;
+    ((buf[i] as u32) >> shift) & ((1u32 << n) - 1)
+}
+===== /app/octetkiln/lsb.rs =====
+pub fn rib_f(buf: &[u8], pos: u32, n: u32) -> u32 {
+    let mut acc = 0u32;
+    let mut i = 0u32;
+    while i < n {
+        let b = pos + i;
+        let idx = (b / 8) as usize;
+        if idx >= buf.len() {
+            break;
+        }
+        let bit = b % 8;
+        let v = ((buf[idx] as u32) >> bit) & 1;
+        acc |= v << i;
+        i += 1;
+    }
+    acc
+}
+===== /app/octetkiln/take.rs =====
+pub fn rib_a(buf: &[u8], pos: u32, n: u32) -> u32 {
+    if n == 0 {
+        return 0;
+    }
+    let bit = pos % 8;
+    let room = 8 - bit;
+    let w = if n > room { room } else { n };
+    crate::house::rib_e(buf, pos, w)
+}
+===== /app/peekurn/ink.rs =====
+use crate::pull;
+use crate::tally;
+use std::fs;
+use std::path::Path;
+
+pub fn rib_c() -> i32 {
+    let _ = tally::lines();
+    let buf = fs::read("/app/quaybag/night.bin").unwrap_or_default();
+    let dest = Path::new("/app/blotbay/rows.json");
+    if let Some(parent) = dest.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let (a, b, c, d, e, f) = pull::dump(&buf);
+    let body = format!(
+        "{{\"kind\":{},\"lane\":{},\"mode\":{},\"welt\":{},\"tail\":{},\"mark\":{}}}\n",
+        a, b, c, d, e, f
+    );
+    let _ = fs::write(dest, body);
+    0
+}
+===== /app/stitchbay/card.rs =====
+pub struct Row {
+    pub tag: String,
+    pub pos: u32,
+    pub n: u32,
+}
+
+fn tok(line: &str) -> Vec<String> {
+    line.split_whitespace().map(|s| s.to_string()).collect()
+}
+
+pub fn rib_b() -> Vec<Row> {
+    let text = std::fs::read_to_string("/app/ribcards/LAYOUT.txt").unwrap_or_default();
+    let mut out = Vec::new();
+    for line in text.lines() {
+        let raw = line.trim();
+        if raw.is_empty() || raw.starts_with('#') {
+            continue;
+        }
+        let parts = tok(raw);
+        if parts.len() < 3 {
+            continue;
+        }
+        let tag = parts[0].clone();
+        let mut pos: u32 = match parts[1].parse() {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let n: u32 = match parts[2].parse() {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        if n > 8 {
+            pos = pos.saturating_add(8 - (pos % 8));
+        }
+        out.push(Row { tag, pos, n });
+    }
+    out
+}
+===== /app/vaultbin/pull.rs =====
+use crate::take;
+
+pub fn dump(buf: &[u8]) -> (u32, u32, u32, u32, u32, u32) {
+    (
+        take::rib_a(buf, 0, 3),
+        take::rib_a(buf, 0, 6),
+        take::rib_a(buf, 1, 3),
+        take::rib_a(buf, 2, 9),
+        take::rib_a(buf, 2, 3),
+        take::rib_a(buf, 3, 8),
+    )
+}
+===== /app/weltcli/boot.rs =====
+#[path = "../octetkiln/house.rs"]
+mod house;
+#[path = "../octetkiln/take.rs"]
+mod take;
+#[path = "../vaultbin/pull.rs"]
+mod pull;
+#[path = "../peekurn/ink.rs"]
+mod vat;
+#[path = "../nudgepit/tally.rs"]
+mod tally;
+
+fn main() {
+    let mut args = std::env::args().skip(1);
+    let cmd = args.next().unwrap_or_default();
+    let code = match cmd.as_str() {
+        "pour" => vat::rib_c(),
+        _ => {
+            eprintln!("usage: weltquay pour");
+            2
+        }
+    };
+    std::process::exit(code);
+}
+===== /app/nudgepit/tally.rs =====
+pub fn lines() -> usize {
+    std::fs::read_to_string("/app/ribcards/LAYOUT.txt")
+        .unwrap_or_default()
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .count()
+}
+[?2004hroot@821025f9d025:/app# printf '%s\n' '--- MAGIC ---'; od -An -tx1 -N16 /app/bin/weltquay; printf '%s\n' '--- INPUT ---'; od -An -tx1 -v /app/quaybag/night.bin; printf '%s\n' '--- TOOLCHAIN ---'; rustc --version; cargo --version 2>/dev/null || true
+[?2004l--- MAGIC ---
+ 7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00
+--- INPUT ---
+ b4 dd 3d a5
+--- TOOLCHAIN ---
+bash: rustc: command not found
+[?2004hroot@821025f9d025:/app# command -v rustc || true; find /usr /root -type f -name rustc -perm -111 2>/dev/null | head -20; ls -la /usr/local/cargo/bin /root/.cargo/bin 2>/dev/null || true; ls -la /app
+[?2004l/usr/local/rustup/toolchains/1.85.1-x86_64-unknown-linux-gnu/bin/rustc
+/usr/local/cargo/bin:
+total 18636
+drwxrwxrwx 2 root root     4096 Mar 18  2025 .
+drwxrwxrwx 3 root root     4096 Mar 18  2025 ..
+lrwxrwxrwx 1 root root        6 Mar 18  2025 cargo -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 cargo-clippy -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 cargo-fmt -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 cargo-miri -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 clippy-driver -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 rls -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 rust-analyzer -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 rust-gdb -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 rust-gdbgui -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 rust-lldb -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 rustc -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 rustdoc -> rustup
+lrwxrwxrwx 1 root root        6 Mar 18  2025 rustfmt -> rustup
+-rwxrwxrwx 1 root root 19072384 Mar 18  2025 rustup
+total 64
+drwxr-xr-x 1 root root 4096 Sep 16 09:24 .
+drwxr-xr-x 1 root root 4096 Sep 16 09:47 ..
+drwxr-xr-x 2 root root 4096 Sep 16 09:24 bin
+drwxr-xr-x 1 root root 4096 Sep 16 09:47 blotbay
+drwxr-xr-x 2 root root 4096 Sep 15 16:34 keepfold
+drwxr-xr-x 2 root root 4096 Sep 16 09:20 kilnbake
+drwxr-xr-x 2 root root 4096 Sep 15 16:34 nudgepit
+drwxr-xr-x 2 root root 4096 Sep 16 09:20 octetkiln
+drwxr-xr-x 2 root root 4096 Sep 15 16:34 peekurn
+drwxr-xr-x 2 root root 4096 Sep 15 16:33 quaybag
+drwxr-xr-x 2 root root 4096 Sep 15 16:34 ribcards
+drwxr-xr-x 2 root root 4096 Sep 15 16:34 stitchbay
+drwxr-xr-x 1 root root 4096 Sep 15 16:34 vaultbin
+drwxr-xr-x 2 root root 4096 Sep 15 16:35 weltcli
+-rwxrwxr-x 1 root root  284 Sep 16 09:20 wick.sh
+[?2004hroot@821025f9d025:/app# cat > /app/octetkiln/house.rs <<'EOF'
+[?2004l[?2004h> pub fn rib_e(buf: &[u8], pos: u32, n: u32) -> u32 {
+[?2004l[?2004h>     if n == 0 {
+[?2004l[?2004h>         return 0;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if n > 32 || (pos as u64) + (n as u64) > (buf.len() as u64) * 8 {
+[?2004l[?2004h>         return 0;
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     let mut value = 0u32;
+[?2004l[?2004h>     for offset in 0..n {
+[?2004l[?2004h>         let absolute = pos + offset;
+[?2004l[?2004h>         let octet = buf[(absolute / 8) as usize];
+[?2004l[?2004h>         let bit = (octet >> (7 - (absolute % 8))) & 1;
+[?2004l[?2004h>         value = (value << 1) | bit as u32;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     value
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@821025f9d025:/app# cat > /app/octetkiln/take.rs <<'EOF'
+[?2004l[?2004h> pub fn rib_a(buf: &[u8], pos: u32, n: u32) -> u32 {
+[?2004l[?2004h>     crate::house::rib_e(buf, pos, n)
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@821025f9d025:/app# python3 - <<'PY'
+[?2004l[?2004h> p = '/app/stitchbay/card.rs'
+[?2004l[?2004h> s = open(p).read()
+[?2004l[?2004h> s = s.replace('        let mut pos: u32 = match parts[1].parse() {', '        let pos: u32 = match parts[1].parse() {')
+[?2004l[?2004h> s = s.replace('        if n > 8 {\n            pos = pos.saturating_add(8 - (pos % 8));\n        }\n', '')
+[?2004l[?2004h> open(p, 'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@821025f9d025:/app# cat > /app/kilnbake/hearth.rs <<'EOF'
+[?2004l[?2004h> use std::fs;
+[?2004l[?2004h> 
+[?2004l[?2004h> #[path = "../stitchbay/card.rs"]
+[?2004l[?2004h> mod card;
+[?2004l[?2004h> 
+[?2004l[?2004h> fn slot(rows: &[card::Row], i: usize) -> (u32, u32) {
+[?2004l[?2004h>     match rows.get(i) {
+[?2004l[?2004h>         Some(row) => (row.pos, row.n),
+[?2004l[?2004h>         None => (0, 0),
+[?2004l[?2004h>     }
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn rib_d() {
+[?2004l[?2004h>     let rows = card::rib_b();
+[?2004l[?2004h>     let a = slot(&rows, 0);
+[?2004l[?2004h>     let b = slot(&rows, 1);
+[?2004l[?2004h>     let c = slot(&rows, 2);
+[?2004l[?2004h>     let d = slot(&rows, 3);
+[?2004l[?2004h>     let e = slot(&rows, 4);
+[?2004l[?2004h>     let f = slot(&rows, 5);
+[?2004l[?2004h>     let width = rows
+[?2004l[?2004h>         .iter()
+[?2004l[?2004h>         .map(|row| row.pos.saturating_add(row.n))
+[?2004l[?2004h>         .max()
+[?2004l[?2004h>         .unwrap_or(0);
+[?2004l[?2004h>     let body = format!(
+[?2004l[?2004h>         r#"use crate::take;
+[?2004l[?2004h> 
+[?2004l[?2004h> pub const WIDTH_BITS: u32 = {12};
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn dump(buf: &[u8]) -> (u32, u32, u32, u32, u32, u32) {{
+[?2004l[?2004h>     (
+[?2004l[?2004h>         take::rib_a(buf, {0}, {1}),
+[?2004l[?2004h>         take::rib_a(buf, {2}, {3}),
+[?2004l[?2004h>         take::rib_a(buf, {4}, {5}),
+[?2004l[?2004h>         take::rib_a(buf, {6}, {7}),
+[?2004l[?2004h>         take::rib_a(buf, {8}, {9}),
+[?2004l[?2004h>         take::rib_a(buf, {10}, {11}),
+[?2004l[?2004h>     )
+[?2004l[?2004h> }}
+[?2004l[?2004h> "#,
+[?2004l[?2004h>         a.0, a.1, b.0, b.1, c.0, c.1, d.0, d.1, e.0, e.1, f.0, f.1, width
+[?2004l[?2004h>     );
+[?2004l[?2004h>     fs::create_dir_all("/app/vaultbin").expect("create vault");
+[?2004l[?2004h>     fs::write("/app/vaultbin/pull.rs", body).expect("emit pull");
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> fn main() {
+[?2004l[?2004h>     rib_d();
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@821025f9d025:/app# cat > /app/peekurn/ink.rs <<'EOF'
+[?2004l[?2004h> use crate::pull;
+[?2004l[?2004h> use crate::tally;
+[?2004l[?2004h> use std::fs;
+[?2004l[?2004h> use std::io::ErrorKind;
+[?2004l[?2004h> use std::path::Path;
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn rib_c() -> i32 {
+[?2004l[?2004h>     let _ = tally::lines();
+[?2004l[?2004h>     let dest = Path::new("/app/blotbay/rows.json");
+[?2004l[?2004h> 
+[?2004l[?2004h>     if let Err(err) = fs::remove_file(dest) {
+[?2004l[?2004h>         if err.kind() != ErrorKind::NotFound {
+[?2004l[?2004h>             eprintln!("cannot remove old rows output: {}", err);
+[?2004l[?2004h>             return 1;
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     let buf = match fs::read("/app/quaybag/night.bin") {
+[?2004l[?2004h>         Ok(buf) => buf,
+[?2004l[?2004h>         Err(err) => {
+[?2004l[?2004h>             eprintln!("cannot read body: {}", err);
+[?2004l[?2004h>             return 1;
+[?2004l[?2004h>         }
+[?2004l[?2004h>     };
+[?2004l[?2004h>     if (buf.len() as u64) * 8 < pull::WIDTH_BITS as u64 {
+[?2004l[?2004h>         eprintln!(
+[?2004l[?2004h>             "body is too short: {} bits supplied, {} required",
+[?2004l[?2004h>             buf.len() * 8,
+[?2004l[?2004h>             pull::WIDTH_BITS
+[?2004l[?2004h>         );
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h> 
+[?2004l[?2004h>     let (a, b, c, d, e, f) = pull::dump(&buf);
+[?2004l[?2004h>     let body = format!(
+[?2004l[?2004h>         "{{\"kind\":{},\"lane\":{},\"mode\":{},\"welt\":{},\"tail\":{},\"mark\":{}}}\n",
+[?2004l[?2004h>         a, b, c, d, e, f
+[?2004l[?2004h>     );
+[?2004l[?2004h>     if let Some(parent) = dest.parent() {
+[?2004l[?2004h>         if let Err(err) = fs::create_dir_all(parent) {
+[?2004l[?2004h>             eprintln!("cannot create output directory: {}", err);
+[?2004l[?2004h>             return 1;
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if let Err(err) = fs::write(dest, body) {
+[?2004l[?2004h>         eprintln!("cannot write rows output: {}", err);
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     0
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@821025f9d025:/app# /app/wick.sh
+[?2004l[0m[1m[33mwarning[0m[0m[1m: field `tag` is never read[0m
+[0m [0m[0m[1m[38;5;12m--> [0m[0m/app/kilnbake/../stitchbay/card.rs:2:9[0m
+[0m  [0m[0m[1m[38;5;12m|[0m
+[0m[1m[38;5;12m1[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0mpub struct Row {[0m
+[0m  [0m[0m[1m[38;5;12m|[0m[0m            [0m[0m[1m[38;5;12m---[0m[0m [0m[0m[1m[38;5;12mfield in this struct[0m
+[0m[1m[38;5;12m2[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m    pub tag: String,[0m
+[0m  [0m[0m[1m[38;5;12m|[0m[0m         [0m[0m[1m[33m^^^[0m
+[0m  [0m[0m[1m[38;5;12m|[0m
+[0m  [0m[0m[1m[38;5;12m= [0m[0m[1mnote[0m[0m: `#[warn(dead_code)]` on by default[0m
+
+[0m[1m[33mwarning[0m[0m[1m: 1 warning emitted[0m
+
+[?2004hroot@821025f9d025:/app# printf '%s\n' '--- GENERATED PULL ---'; cat /app/vaultbin/pull.rs; printf '%s\n' '--- ELF MAGIC ---'; od -An -tx1 -N4 /app/bin/weltquay; printf '%s\n' '--- NORMAL ---'; rm -f /app/blotbay/rows.json; /app/bin/weltquay pour; rc=$?; echo "rc=$rc"; cat /app/blotbay/rows.json
+[?2004l--- GENERATED PULL ---
+use crate::take;
+
+pub const WIDTH_BITS: u32 = 32;
+
+pub fn dump(buf: &[u8]) -> (u32, u32, u32, u32, u32, u32) {
+    (
+        take::rib_a(buf, 0, 3),
+        take::rib_a(buf, 3, 6),
+        take::rib_a(buf, 9, 3),
+        take::rib_a(buf, 12, 9),
+        take::rib_a(buf, 21, 3),
+        take::rib_a(buf, 24, 8),
+    )
+}
+--- ELF MAGIC ---
+ 7f 45 4c 46
+--- NORMAL ---
+rc=0
+{"kind":5,"lane":41,"mode":5,"welt":423,"tail":5,"mark":165}
+[?2004hroot@821025f9d025:/app# cp /app/quaybag/night.bin /tmp/night.bin.saved; head -c 3 /tmp/night.bin.saved > /app/quaybag/night.bin; printf '%s\n' 'stale' > /app/blotbay/rows.json; printf '%s\n' '--- SHORT BODY ---'; /app/bin/weltquay pour; rc=$?; echo "rc=$rc"; if test -e /app/blotbay/rows.json; then echo 'ERROR: rows.json remains'; ls -l /app/blotbay/rows.json; else echo 'rows.json absent'; fi; mv /tmp/night.bin.saved /app/quaybag/night.bin; printf '%s\n' '--- RESTORED NORMAL ---'; /app/bin/weltquay pour; rc2=$?; echo "rc=$rc2"; cat /app/blotbay/rows.json
+[?2004l--- SHORT BODY ---
+body is too short: 24 bits supplied, 32 required
+rc=1
+rows.json absent
+--- RESTORED NORMAL ---
+rc=0
+{"kind":5,"lane":41,"mode":5,"welt":423,"tail":5,"mark":165}
+[?2004hroot@821025f9d025:/app# 

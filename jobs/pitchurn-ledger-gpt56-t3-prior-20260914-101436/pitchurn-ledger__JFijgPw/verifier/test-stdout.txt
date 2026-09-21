@@ -1,0 +1,64 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 12 items
+
+../tests/test_outputs.py ..F.F.......                                    [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_pu03_fresh_span _____________________________
+
+    def test_pu03_fresh_span():
+        """Never-seen mixed reel has mean_piece at or below 2048."""
+        _prepare()
+        p = _mixed()
+        _stow(p)
+        t = _tally()
+>       assert float(t["mean_piece"]) <= 2048.0
+E       AssertionError: assert 4000.0 <= 2048.0
+E        +  where 4000.0 = float('4000.0000')
+
+/tests/test_outputs.py:99: AssertionError
+_____________________________ test_pu05_dirty_exit _____________________________
+
+    def test_pu05_dirty_exit():
+        """Already-siloed stable.bin restow exits 0 only when reuse stays high."""
+        _prepare()
+        _stow(STABLE)
+        t = _tally()
+        assert float(t["reuse_frac"]) >= 0.80
+        idx = Path("/app/urnbay/idx.tsv")
+        keep = Path("/app/urnbay/keep/idx.tsv")
+        hot = Path("/app/urnbay/hot/idx.tsv")
+        saved = idx.read_bytes() if idx.exists() else b""
+        saved_k = keep.read_bytes() if keep.exists() else b""
+        saved_h = hot.read_bytes() if hot.exists() else b""
+        idx.write_text("")
+        keep.write_text("")
+        hot.write_text("")
+        r2 = _stow(STABLE)
+        idx.write_bytes(saved)
+        keep.write_bytes(saved_k)
+        hot.write_bytes(saved_h)
+        t2 = json.loads(TALLY.read_text())
+>       assert float(t2["reuse_frac"]) < 0.80
+E       AssertionError: assert 1.0 < 0.8
+E        +  where 1.0 = float('1.0000')
+
+/tests/test_outputs.py:133: AssertionError
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_pu01_twice_blob
+PASSED ../tests/test_outputs.py::test_pu02_held_frac
+PASSED ../tests/test_outputs.py::test_pu04_sink_match
+PASSED ../tests/test_outputs.py::test_pu06_card_keys
+PASSED ../tests/test_outputs.py::test_pu07_hi_bit
+PASSED ../tests/test_outputs.py::test_pu08_cold_keep
+PASSED ../tests/test_outputs.py::test_pu09_once_pass
+PASSED ../tests/test_outputs.py::test_pu10_zz_corrupt
+PASSED ../tests/test_outputs.py::test_pu11_card_obj
+PASSED ../tests/test_outputs.py::test_pu12_floor_ignored
+FAILED ../tests/test_outputs.py::test_pu03_fresh_span - AssertionError: asser...
+FAILED ../tests/test_outputs.py::test_pu05_dirty_exit - AssertionError: asser...
+========================= 2 failed, 10 passed in 3.12s =========================

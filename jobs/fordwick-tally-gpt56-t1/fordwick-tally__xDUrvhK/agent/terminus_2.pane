@@ -1,0 +1,721 @@
+[?2004hroot@2147f0244af3:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@2147f0244af3:/app# clear
+[?2004l[H[J[3J[?2004hroot@2147f0244af3:/app# printf '%s\n' '--- SPAN ---'; cat /app/slipfold/SPAN.txt; printf '%s\n' '--- KILN ---'; cat /app/kiln/KILN.txt; printf '%s\n' '--- FILES ---'; find /app -maxdepth 3 -type f -printf '%p\n' | sort
+[?2004l--- SPAN ---
+Station geometry
+================
+
+Frame size: 160 x 120
+Rate: 12 fps
+Horizontal scan row: y = 70 (top of frame is y = 0)
+
+Drive:
+
+    python3 /app/varnish/mill.pyc CLIP
+
+CLIP is an mp4 path. Success writes /app/inkwell/sheet.toml:
+
+    crossings = <integer>
+
+Worked sample: /app/shown.mp4 -> crossings = 3
+
+Similar silhouettes that share the scan still count as separate when each
+centroid completes top-to-bottom, including overlap or one body shading another.
+
+Unreadable CLIP: non-zero exit, do not write /app/inkwell/sheet.toml.
+Example unreadable path:
+
+    python3 /app/varnish/mill.pyc /tmp/no-such-fordwick.mp4
+
+Fold blot, tether, spout, and the spanwell driver using the kiln notes.
+--- KILN ---
+Kiln card
+=========
+
+The station mill is the folded snapshot named in /app/slipfold/SPAN.txt.
+It is built from blot, tether, spout, and the spanwell driver under /app.
+
+This directory holds the fold tools. Run the executable script here after
+editing those modules. Live pipeline files are not what the station executes.
+--- FILES ---
+/app/blot.py
+/app/hopcard/millcard.txt
+/app/kiln/KILN.txt
+/app/kiln/bake.sh
+/app/kiln/pack.py
+/app/shown.mp4
+/app/slipfold/SPAN.txt
+/app/spanwell.py
+/app/spout.py
+/app/tether.py
+/app/varnish/mill.pyc
+/app/varnish/packed.py
+/app/wickpit/__init__.py
+/app/wickpit/shiftlog.txt
+/app/wickpit/touchcue.py
+[?2004hroot@2147f0244af3:/app# printf '%s\n' '--- PYTHON SOURCES ---'; find /app -maxdepth 3 -type f \( -name '*.py' -o -name '*.toml' -o -name '*.sh' \) -print -exec sh -c 'echo "### $1"; sed -n "1,240p" "$1"' _ {} \;
+[?2004l--- PYTHON SOURCES ---
+/app/varnish/packed.py
+### /app/varnish/packed.py
+from __future__ import annotations
+
+
+import cv2
+
+LINE_Y = 70
+
+
+def make_mog():
+    return cv2.createBackgroundSubtractorMOG2(
+        history=30, varThreshold=16, detectShadows=True
+    )
+
+
+def blot_mark(frame, mog) -> bool:
+    fg = mog.apply(frame)
+    _, th = cv2.threshold(fg, 200, 255, cv2.THRESH_BINARY)
+    y = int(LINE_Y)
+    band = th[max(0, y - 1) : min(th.shape[0], y + 2)]
+    return bool(band.any())
+
+
+
+def knit_marks(now: bool, prev: bool, n: int) -> tuple[int, bool]:
+    if now:
+        n += 1
+    return n, now
+
+
+def fold_gate(n: int) -> int:
+    return n
+
+
+import cv2
+import toml
+from pathlib import Path
+
+
+SHEET = Path("/app/inkwell/sheet.toml")
+
+
+def emit_span(src: str) -> int:
+    cap = cv2.VideoCapture(src)
+    mog = make_mog()
+    prev = False
+    n = 0
+    while True:
+        ok, frame = cap.read()
+        if not ok:
+            break
+        now = blot_mark(frame, mog)
+        n, prev = knit_marks(now, prev, n)
+    cap.release()
+    return fold_gate(n)
+
+
+def dump_sheet(n: int) -> None:
+    SHEET.parent.mkdir(parents=True, exist_ok=True)
+    SHEET.write_text(toml.dumps({"crossings": int(n)}), encoding="utf-8")
+
+#!/usr/bin/env python3
+
+import sys
+
+
+
+def main() -> int:
+    if len(sys.argv) != 2:
+        return 2
+    n = emit_span(sys.argv[1])
+    dump_sheet(n)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+/app/kiln/pack.py
+### /app/kiln/pack.py
+#!/usr/bin/env python3
+"""Fold blot/tether/spout/spanwell into /app/varnish/mill.pyc."""
+from __future__ import annotations
+
+import py_compile
+from pathlib import Path
+
+ROOT = Path("/app")
+PARTS = [
+    ROOT / "blot.py",
+    ROOT / "tether.py",
+    ROOT / "spout.py",
+    ROOT / "spanwell.py",
+]
+SKIP_PREFIXES = (
+    "from blot ",
+    "import blot",
+    "from tether ",
+    "import tether",
+    "from spout ",
+    "import spout",
+)
+
+
+def _strip(text: str) -> tuple[list[str], list[str]]:
+    futures: list[str] = []
+    keep: list[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if any(stripped.startswith(p) for p in SKIP_PREFIXES):
+            continue
+        if stripped.startswith("from __future__ import"):
+            if stripped not in futures:
+                futures.append(stripped)
+            continue
+        keep.append(line)
+    return futures, keep
+
+
+def main() -> None:
+    out_dir = ROOT / "varnish"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    packed = out_dir / "packed.py"
+    all_future: list[str] = []
+    bodies: list[str] = []
+    for p in PARTS:
+        futures, keep = _strip(p.read_text(encoding="utf-8"))
+        for item in futures:
+            if item not in all_future:
+                all_future.append(item)
+        bodies.append("\n".join(keep))
+    packed.write_text("\n".join(all_future) + "\n\n" + "\n\n".join(bodies) + "\n", encoding="utf-8")
+    py_compile.compile(str(packed), cfile=str(out_dir / "mill.pyc"), doraise=True)
+
+
+if __name__ == "__main__":
+    main()
+/app/kiln/bake.sh
+### /app/kiln/bake.sh
+#!/usr/bin/env bash
+set -euo pipefail
+python3 /app/kiln/pack.py
+/app/wickpit/__init__.py
+### /app/wickpit/__init__.py
+/app/wickpit/touchcue.py
+### /app/wickpit/touchcue.py
+#!/usr/bin/env python3
+"""Desk helper: rising occupancy on the scan row."""
+from __future__ import annotations
+
+import cv2
+
+LINE_Y = 70
+
+
+def occupancy_edges(src: str) -> int:
+    cap = cv2.VideoCapture(src)
+    mog = cv2.createBackgroundSubtractorMOG2(history=30, varThreshold=16, detectShadows=True)
+    prev = False
+    n = 0
+    while True:
+        ok, frame = cap.read()
+        if not ok:
+            break
+        fg = mog.apply(frame)
+        _, th = cv2.threshold(fg, 200, 255, cv2.THRESH_BINARY)
+        y = int(LINE_Y)
+        band = th[max(0, y - 1) : min(th.shape[0], y + 2)]
+        now = bool(band.any())
+        if now and not prev:
+            n += 1
+        prev = now
+    cap.release()
+    return n
+/app/spanwell.py
+### /app/spanwell.py
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import sys
+
+from spout import dump_sheet, emit_span
+
+
+def main() -> int:
+    if len(sys.argv) != 2:
+        return 2
+    n = emit_span(sys.argv[1])
+    dump_sheet(n)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+/app/spout.py
+### /app/spout.py
+from __future__ import annotations
+
+import cv2
+import toml
+from pathlib import Path
+
+from blot import blot_mark, make_mog
+from tether import fold_gate, knit_marks
+
+SHEET = Path("/app/inkwell/sheet.toml")
+
+
+def emit_span(src: str) -> int:
+    cap = cv2.VideoCapture(src)
+    mog = make_mog()
+    prev = False
+    n = 0
+    while True:
+        ok, frame = cap.read()
+        if not ok:
+            break
+        now = blot_mark(frame, mog)
+        n, prev = knit_marks(now, prev, n)
+    cap.release()
+    return fold_gate(n)
+
+
+def dump_sheet(n: int) -> None:
+    SHEET.parent.mkdir(parents=True, exist_ok=True)
+    SHEET.write_text(toml.dumps({"crossings": int(n)}), encoding="utf-8")
+/app/tether.py
+### /app/tether.py
+from __future__ import annotations
+
+
+def knit_marks(now: bool, prev: bool, n: int) -> tuple[int, bool]:
+    if now:
+        n += 1
+    return n, now
+
+
+def fold_gate(n: int) -> int:
+    return n
+/app/blot.py
+### /app/blot.py
+from __future__ import annotations
+
+import cv2
+
+LINE_Y = 70
+
+
+def make_mog():
+    return cv2.createBackgroundSubtractorMOG2(
+        history=30, varThreshold=16, detectShadows=True
+    )
+
+
+def blot_mark(frame, mog) -> bool:
+    fg = mog.apply(frame)
+    _, th = cv2.threshold(fg, 200, 255, cv2.THRESH_BINARY)
+    y = int(LINE_Y)
+    band = th[max(0, y - 1) : min(th.shape[0], y + 2)]
+    return bool(band.any())
+[?2004hroot@2147f0244af3:/app# printf '%s\n' '--- millcard ---'; cat /app/hopcard/millcard.txt; printf '%s\n' '--- shiftlog ---'; cat /app/wickpit/shiftlog.txt
+[?2004l--- millcard ---
+Desk leftover. Sample reel lives at /app/shown.mp4.
+--- shiftlog ---
+Night desk: occupancy helper still green on the worked sample.
+Do not treat that as the whole mill.
+[?2004hroot@2147f0244af3:/app# cat > /tmp/inspect.py <<'PY'
+[?2004l[?2004h> import cv2, numpy as np
+[?2004l[?2004h> p='/app/shown.mp4'; c=cv2.VideoCapture(p)
+[?2004l[?2004h> print('opened',c.isOpened(),'n',int(c.get(cv2.CAP_PROP_FRAME_COUNT)),'fps',c.get(cv2.CAP_PROP_FPS),'wh',int(c.get(3)),int(c.get(4)))
+[?2004l[?2004h> fs=[]
+[?2004l[?2004h> while True:
+[?2004l[?2004h>  ok,f=c.read()
+[?2004l[?2004h>  if not ok: break
+[?2004l[?2004h>  fs.append(f)
+[?2004l[?2004h> c.release(); a=np.array(fs)
+[?2004l[?2004h> print('decoded',len(fs),'shape',a.shape)
+[?2004l[?2004h> # temporal median background and per-frame changed-pixel components
+[?2004l[?2004h> bg=np.median(a,axis=0).astype(np.uint8)
+[?2004l[?2004h> print('bg corners/center BGR',*[bg[y,x].tolist() for y,x in [(0,0),(0,159),(119,0),(119,159),(60,80)]])
+[?2004l[?2004h> for i,f in enumerate(fs):
+[?2004l[?2004h>  d=np.max(cv2.absdiff(f,bg),axis=2)
+[?2004l[?2004h>  m=(d>25).astype(np.uint8)*255
+[?2004l[?2004h>  m=cv2.morphologyEx(m,cv2.MORPH_OPEN,np.ones((3,3),np.uint8))
+[?2004l[?2004h>  n,lab,st,cen=cv2.connectedComponentsWithStats(m)
+[?2004l[?2004h>  comps=[]
+[?2004l[?2004h>  for j in range(1,n):
+[?2004l[?2004h>   x,y,w,h,area=st[j]
+[?2004l[?2004h>   if area>=15: comps.append((area,x,y,w,h,round(float(cen[j,0]),1),round(float(cen[j,1]),1)))
+[?2004l[?2004h>  if comps and (i%6==0 or any(abs(q[-1]-70)<8 for q in comps)):
+[?2004l[?2004h>   print(i,sorted(comps,reverse=True)[:8])
+[?2004l[?2004h> # globally common quantized colors
+[?2004l[?2004h> q=(a.reshape(-1,3)//16)*16
+[?2004l[?2004h> u,n=np.unique(q,axis=0,return_counts=True)
+[?2004l[?2004h> print('colors',[(u[k].tolist(),int(n[k])) for k in np.argsort(n)[-15:][::-1]])
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@2147f0244af3:/app# python3 /tmp/inspect.py
+[?2004lopened True n 48 fps 12.0 wh 160 120
+decoded 48 shape (48, 120, 160, 3)
+bg corners/center BGR [45, 37, 37] [45, 37, 37] [59, 51, 51] [59, 51, 51] [52, 45, 42]
+6 [(np.int32(322), np.int32(32), np.int32(34), np.int32(19), np.int32(20), 41.3, 43.2)]
+10 [(np.int32(332), np.int32(32), np.int32(58), np.int32(20), np.int32(20), 41.7, 67.3)]
+11 [(np.int32(333), np.int32(32), np.int32(64), np.int32(20), np.int32(20), 41.7, 73.3)]
+12 [(np.int32(333), np.int32(32), np.int32(70), np.int32(20), np.int32(20), 41.7, 79.3)]
+18 [(np.int32(304), np.int32(72), np.int32(20), np.int32(19), np.int32(20), 81.3, 29.6)]
+24 [(np.int32(319), np.int32(74), np.int32(58), np.int32(19), np.int32(20), 83.0, 67.3)]
+25 [(np.int32(319), np.int32(74), np.int32(64), np.int32(19), np.int32(20), 83.0, 73.3)]
+30 [(np.int32(319), np.int32(112), np.int32(12), np.int32(19), np.int32(20), 120.9, 21.2), (np.int32(298), np.int32(76), np.int32(96), np.int32(18), np.int32(19), 84.6, 104.7)]
+36 [(np.int32(334), np.int32(110), np.int32(46), np.int32(20), np.int32(21), 119.6, 56.0)]
+38 [(np.int32(311), np.int32(110), np.int32(58), np.int32(19), np.int32(20), 119.2, 67.5)]
+39 [(np.int32(311), np.int32(110), np.int32(64), np.int32(19), np.int32(20), 119.2, 73.5)]
+42 [(np.int32(321), np.int32(110), np.int32(82), np.int32(19), np.int32(20), 118.9, 91.2)]
+python3 - <<'PY'
+import cv2, numpy as np
+c=cv2.VideoCapture('/app/shown.mp4'); n=int(c.get(cv2.CAP_PROP_FRAME_COUNT)); ims=[]
+for k in np.linspace(0,max(0,n-1),20).astype(int):
+ c.set(cv2.CAP_PROP_POS_FRAMES,int(k)); ok,f=c.read()
+ if ok:
+  cv2.putText(f,str(k),(3,12),cv2.FONT_HERSHEY_SIMPLEX,.35,(0,0,255),1,cv2.LINE_AA); ims.append(f)
+c.release()
+if ims:
+ rows=[np.hstack(ims[i:i+5]) for i in range(0,len(ims),5)]
+ cv2.imwrite('/tmp/contact.jpg',np.vstack(rows))
+print('/tmp/contact.jpg', 'frames',n)
+PY
+ls -lh /tmp/contact.jpg
+colors [([48, 32, 32], 419339), ([32, 32, 32], 184262), ([48, 48, 48], 181484), ([48, 48, 32], 120101), ([64, 176, 48], 2317), ([208, 64, 48], 2285), ([48, 48, 208], 1524), ([192, 64, 48], 616), ([48, 48, 192], 593), ([64, 176, 32], 538), ([16, 16, 0], 533), ([16, 0, 0], 471), ([32, 32, 208], 398), ([48, 32, 208], 386), ([48, 32, 48], 370)]
+[?2004hroot@2147f0244af3:/app# python3 - <<'PY'
+[?2004l[?2004h> import cv2, numpy as np
+[?2004l[?2004h> c=cv2.VideoCapture('/app/shown.mp4'); n=int(c.get(cv2.CAP_PROP_FRAME_COUNT)); ims=[]
+[?2004l[?2004h> for k in np.linspace(0,max(0,n-1),20).astype(int):
+[?2004l[?2004h>  c.set(cv2.CAP_PROP_POS_FRAMES,int(k)); ok,f=c.read()
+[?2004l[?2004h>  if ok:
+[?2004l[?2004h>   cv2.putText(f,str(k),(3,12),cv2.FONT_HERSHEY_SIMPLEX,.35,(0,0,255),1,cv2.LINE_AA); ims.append(f)
+[?2004l[?2004h> c.release()
+[?2004l[?2004h> if ims:
+[?2004l[?2004h>  rows=[np.hstack(ims[i:i+5]) for i in range(0,len(ims),5)]
+[?2004l[?2004h>  cv2.imwrite('/tmp/contact.jpg',np.vstack(rows))
+[?2004l[?2004h> print('/tmp/contact.jpg', 'frames',n)
+[?2004l[?2004h> PY
+[?2004l/tmp/contact.jpg frames 48
+[?2004hroot@2147f0244af3:/app# ls -lh /tmp/contact.jpg
+[?2004l-rw-r--r-- 1 root root 22K Sep 18 12:08 /tmp/contact.jpg
+[?2004hroot@2147f0244af3:/app# cat > /app/blot.py <<'PY'
+[?2004l[?2004h> from __future__ import annotations
+[?2004l[?2004h> 
+[?2004l[?2004h> import cv2
+[?2004l[?2004h> import numpy as np
+[?2004l[?2004h> 
+[?2004l[?2004h> LINE_Y = 70
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def estimate_background(frames):
+[?2004l[?2004h>     """A moving object's colour normally occupies a pixel for less than half a reel."""
+[?2004l[?2004h>     return np.median(np.asarray(frames), axis=0).astype(np.uint8)
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def body_marks(frame, background):
+[?2004l[?2004h>     # Max-channel distance works for coloured and neutral bodies.  The saturation
+[?2004l[?2004h>     # term also preserves a coloured body if it happens to linger long enough to
+[?2004l[?2004h>     # contaminate the temporal median.
+[?2004l[?2004h>     delta = np.max(cv2.absdiff(frame, background), axis=2)
+[?2004l[?2004h>     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+[?2004l[?2004h>     bhsv = cv2.cvtColor(background, cv2.COLOR_BGR2HSV)
+[?2004l[?2004h>     mask = ((delta >= 20) | ((hsv[:, :, 1].astype(np.int16) - bhsv[:, :, 1]) >= 35)).astype(np.uint8) * 255
+[?2004l[?2004h>     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+[?2004l[?2004h>     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
+[?2004l[?2004h>     return mask
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def blobs(frame, background):
+[?2004l[?2004h>     mask = body_marks(frame, background)
+[?2004l[?2004h>     n, labels, stats, centers = cv2.connectedComponentsWithStats(mask, 8)
+[?2004l[?2004h>     out = []
+[?2004l[?2004h>     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+[?2004l[?2004h>     for k in range(1, n):
+[?2004l[?2004h>         x, y, w, h, area = [int(v) for v in stats[k]]
+[?2004l[?2004h>         if area < 18 or w < 3 or h < 3:
+[?2004l[?2004h>             continue
+[?2004l[?2004h>         pix = hsv[:, :, :][labels == k]
+[?2004l[?2004h>         # Median BGR is a useful, compression-resistant re-identification hint.
+[?2004l[?2004h>         bpix = frame[labels == k]
+[?2004l[?2004h>         colour = np.median(bpix, axis=0).astype(float) if len(bpix) else np.zeros(3)
+[?2004l[?2004h>         out.append({"x": float(centers[k, 0]), "y": float(centers[k, 1]),
+[?2004l[?2004h>                     "box": (x, y, w, h), "area": float(area), "colour": colour})
+[?2004l[?2004h>     return out
+[?2004l[?2004h> PY
+[?2004lfor frame in frames]
+    return fold_gate(count_tracks(detections))
+
+
+def dump_sheet(n: int) -> None:
+    SHEET.parent.mkdir(parents=True, exist_ok=True)
+    temporary = SHEET.with_suffix('.tmp')
+    temporary.write_text(toml.dumps({'[?2004hroot@2147f0244af3:/app# cat > /app/tether.py <<'PY'
+[?2004l[?2004h> from __future__ import annotations
+[?2004l[?2004h> 
+[?2004l[?2004h> import numpy as np
+[?2004l[?2004h> 
+[?2004l[?2004h> LINE_Y = 70.0
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def _new_track(d, frame_no, ident):
+[?2004l[?2004h>     return {"id": ident, "x": d["x"], "y": d["y"], "vx": 0.0, "vy": 0.0,
+[?2004l[?2004h>             "last": frame_no, "hits": 1, "above": d["y"] < LINE_Y - 2,
+[?2004l[?2004h>             "counted": False, "colour": d["colour"], "area": d["area"]}
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l=[?2004h> def count_tracks(all_detections):
+[?2004l[?2004h>     tracks = []
+[?2004l[?2004h>     next_id = 0
+[?2004l[?2004h>     total = 0
+[?2004l[?2004h>     for fi, detections in enumerate(all_detections):
+[?2004l[?2004h>         active = [t for t in tracks if fi - t["last"] <= 18]
+[?2004l[?2004h>         pairs = []
+[?2004l[?2004h>         for ti, t in enumerate(active):
+[?2004l[?2004h>             gap = fi - t["last"]
+[?2004l[?2004h>             px = t["x"] + t["vx"] * gap
+[?2004l[?2004h>             py = t["y"] + t["vy"] * gap
+[?2004l[?2004h>             for di, d in enumerate(detections):
+[?2004l[?2004h>                 dist = float(np.hypot(d["x"] - px, d["y"] - py))
+[?2004l[?2004h>                 colour = float(np.linalg.norm(d["colour"] - t["colour"]))
+[?2004l[?2004h>                 # Position dominates; colour only breaks ambiguous encounters.
+[?2004l[?2004h>                 limit = 14.0 + 3.5 * gap
+[?2004l[?2004h>                 if dist <= limit:
+[?2004l[?2004h>                     pairs.append((dist + min(colour, 120.0) * 0.035, ti, di))
+[?2004l[?2004h>         used_t, used_d = set(), set()
+[?2004l[?2004h>         for _, ti, di in sorted(pairs):
+[?2004l[?2004h>             if ti in used_t or di in used_d:
+[?2004l[?2004h>                 continue
+[?2004l[?2004h>             t, d = active[ti], detections[di]
+[?2004l[?2004h>             gap = max(1, fi - t["last"])
+[?2004l[?2004h>             nvx = (d["x"] - t["x"]) / gap
+[?2004l[?2004h>             nvy = (d["y"] - t["y"]) / gap
+[?2004l[?2004h>             # Smooth velocity, but react quickly to the regular synthetic motion.
+[?2004l[?2004h>             if t["hits"] < 2:
+[?2004l[?2004h>                 t["vx"], t["vy"] = nvx, nvy
+[?2004l[?2004h>             else:
+[?2004l[?2004h>                 t["vx"] = .45 * t["vx"] + .55 * nvx
+[?2004l[?2004h>                 t["vy"] = .45 * t["vy"] + .55 * nvy
+[?2004l[?2004h>             t["x"], t["y"], t["last"] = d["x"], d["y"], fi
+[?2004l[?2004h>             t["hits"] += 1
+[?2004l[?2004h>             t["colour"] = .75 * t["colour"] + .25 * d["colour"]
+[?2004l[?2004h>             t["area"] = .75 * t["area"] + .25 * d["area"]
+[?2004l[?2004h>             if d["y"] < LINE_Y - 2:
+[?2004l[?2004h>                 t["above"] = True
+[?2004l[?2004h>             if t["above"] and not t["counted"] and d["y"] > LINE_Y + 2 and t["vy"] > 0:
+[?2004l[?2004h>                 t["counted"] = True
+[?2004l[?2004h>                 total += 1
+[?2004l[?2004h>             used_t.add(ti); used_d.add(di)
+[?2004l[?2004h> 
+[?2004l[?2004h>         # During a merge only one track receives the connected component. Keep
+[?2004l[?2004h>         # the others alive on their established trajectory; a later split then
+[?2004l[?2004h>         # reconnects naturally. Count an inferred hidden passage only for a
+[?2004l[?2004h>         # well-established downward track.
+[?2004l[?2004h>         for ti, t in enumerate(active):
+[?2004l[?2004h>             if ti in used_t or t["hits"] < 3:
+[?2004l[?2004h>                 continue
+[?2004l[?2004h>             gap = fi - t["last"]
+[?2004l[?2004h>             py = t["y"] + t["vy"] * gap
+[?2004l[?2004h>             if t["above"] and not t["counted"] and t["vy"] > 0.5 and py > LINE_Y + 2:
+[?2004l[?2004h>                 t["counted"] = True
+[?2004l[?2004h>                 total += 1
+[?2004l[?2004h>         for di, d in enumerate(detections):
+[?2004l[?2004h>             if di not in used_d:
+[?2004l[?2004h>                 tracks.append(_new_track(d, fi, next_id)); next_id += 1
+[?2004l[?2004h>     return total
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def fold_gate(n):
+[?2004l[?2004h>     return int(n)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@2147f0244af3:/app# cat > /app/spout.py <<'PY'
+[?2004l[?2004h> from __future__ import annotations
+[?2004l[?2004h> 
+[?2004l[?2004h> import os
+[?2004l[?2004h> from pathlib import Path
+[?2004l[?2004h> import cv2
+[?2004l[?2004h> import toml
+[?2004l[?2004h> 
+[?2004l[?2004h> from blot import blobs, estimate_background
+[?2004l[?2004h> from tether import count_tracks, fold_gate
+[?2004l[?2004h> 
+[?2004l[?2004h> SHEET = Path('/app/inkwell/sheet.toml')
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def emit_span(src: str) -> int:
+[?2004l[?2004h>     cap = cv2.VideoCapture(src)
+[?2004l[?2004h>     if not cap.isOpened():
+[?2004l[?2004h>         cap.release()
+[?2004l[?2004h>         raise OSError('cannot open clip')
+[?2004l[?2004h>     frames = []
+[?2004l[?2004h>     while True:
+[?2004l[?2004h>         ok, frame = cap.read()
+[?2004l[?2004h>         if not ok:
+[?2004l[?2004h>             break
+[?2004l[?2004h>         if frame is None or frame.shape[:2] != (120, 160):
+[?2004l[?2004h>             cap.release()
+[?2004l[?2004h>             raise ValueError('invalid frame')
+[?2004l[?2004h>         frames.append(frame)
+[?2004l[?2004h>     cap.release()
+[?2004l[?2004h>     if not frames:
+[?2004l[?2004h>         raise OSError('clip contains no decodable frames')
+[?2004l[?2004h>     bg = estimate_background(frames)
+[?2004l[?2004h>     detections = [blobs(frame, bg) for frame in frames]
+[?2004l[?2004h>     return fold_gate(count_tracks(detections))
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def dump_sheet(n: int) -> None:
+[?2004l[?2004h>     SHEET.parent.mkdir(parents=True, exist_ok=True)
+[?2004l[?2004h>     temporary = SHEET.with_suffix('.tmp')
+[?2004l[?2004h>     temporary.write_text(toml.dumps({'crossings': int(n)}), encoding='utf-8')
+[?2004l[?2004h>     os.replace(temporary, SHEET)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@2147f0244af3:/app# cat > /app/spanwell.py <<'PY'
+[?2004l[?2004h> #!/usr/bin/env python3
+[?2004l[?2004h> from __future__ import annotations
+[?2004l[?2004h> 
+[?2004l[?2004h> import sys
+[?2004l[?2004h> from spout import SHEET, dump_sheet, emit_span
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> def main() -> int:
+[?2004l[?2004h>     try:
+[?2004l[?2004h>         SHEET.unlink(missing_ok=True)
+[?2004l[?2004h>         if len(sys.argv) != 2:
+[?2004l[?2004h>             return 2
+[?2004l[?2004h>         n = emit_span(sys.argv[1])
+[?2004l[?2004h>         dump_sheet(n)
+[?2004l[?2004h>         return 0
+[?2004l[?2004h>     except Exception as exc:
+[?2004l[?2004h>         SHEET.unlink(missing_ok=True)
+[?2004l[?2004h>         print('mill:', exc, file=sys.stderr)
+[?2004l[?2004h>         return 1
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> if __name__ == '__main__':
+[?2004l[?2004h>     raise SystemExit(main())
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@2147f0244af3:/app# /app/kiln/bake.sh
+[?2004l[?2004hroot@2147f0244af3:/app# python3 /app/varnish/mill.pyc /app/shown.mp4; rc=$?; echo "sample_rc=$rc"; cat /app/inkwell/sheet.toml
+[?2004lsample_rc=0
+crossings = 3
+[?2004hroot@2147f0244af3:/app# rm -f /app/inkwell/sheet.toml; python3 /app/varnish/mill.pyc /tmp/no-such-fordwick.mp4; rc=$?; echo "bad_rc=$rc"; test ! -e /app/inkwell/sheet.toml && echo 'bad_sheet_absent=yes'
+[?2004lmill: cannot open clip
+bad_rc=1
+bad_sheet_absent=yes
+[?2004hroot@2147f0244af3:/app# python3 - <<'PY'
+[?2004l[?2004h> p='/app/tether.py'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> old='''        # During a merge only one track receives the connected component. Keep
+[?2004l[?2004h>         # the others alive on their established trajectory; a later split then
+[?2004l[?2004h>         # reconnects naturally. Count an inferred hidden passage only for a
+[?2004l[?2004h>         # well-established downward track.
+[?2004l[?2004h>         for ti, t in enumerate(active):
+[?2004l[?2004h>             if ti in used_t or t["hits"] < 3:
+[?2004l[?2004h>                 continue
+[?2004l[?2004h>             gap = fi - t["last"]
+[?2004l[?2004h>             py = t["y"] + t["vy"] * gap
+[?2004l[?2004h>             if t["above"] and not t["counted"] and t["vy"] > 0.5 and py > LINE_Y + 2:
+[?2004l[?2004h>                 t["counted"] = True
+[?2004l[?2004h>                 total += 1
+[?2004l[?2004h> '''
+[?2004l[?2004h> new='''        # During a merge only one track receives the connected component.
+[?2004l[?2004h>         # Unmatched tracks remain alive on their established trajectory and can
+[?2004l[?2004h>         # reconnect after a split.  Do not count from extrapolation alone: a
+[?2004l[?2004h>         # real observation below the row is required to complete the passage.
+[?2004l[?2004h> '''
+[?2004l[?2004h> if old not in s: raise SystemExit('target block not found')
+[?2004l[?2004h> open(p,'w').write(s.replace(old,new))
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@2147f0244af3:/app# /app/kiln/bake.sh
+[?2004l[?2004hroot@2147f0244af3:/app# cat > /tmp/make_tests.py <<'PY'
+[?2004l[?2004h> import cv2, numpy as np, os
+[?2004l[?2004h> os.makedirs('/tmp/vtests',exist_ok=True)
+[?2004l[?2004h> W,H=160,120
+[?2004l[?2004h> bg=np.zeros((H,W,3),np.uint8)
+[?2004l[?2004h> for y in range(H): bg[y,:]=(40+y//8,35+y//10,35+y//10)
+[?2004l[?2004h> 
+[?2004l[?2004h> def write(name, paths, n=50, hide=None):
+[?2004l[?2004h>  out=cv2.VideoWriter('/tmp/vtests/'+name+'.mp4',cv2.VideoWriter_fourcc(*'mp4v'),12,(W,H))
+[?2004l[?2004h>  for i in range(n):
+[?2004l[?2004h>   f=bg.copy()
+[?2004l[?2004h>   for j,(color,fun) in enumerate(paths):
+[?2004l[?2004h>    q=fun(i)
+[?2004l[?2004h>    if q is None or (hide and hide(j,i)): continue
+[?2004l[?2004h>    x,y=q
+[?2004l[?2004h>    cv2.circle(f,(int(x),int(y)),8,color,-1,cv2.LINE_AA)
+[?2004l[?2004h>   out.write(f)
+[?2004l[?2004h>  out.release()
+[?2004l[?2004h> # one proper crossing
+[?2004l[?2004h> write('down1',[((50,210,70),lambda i:(35,10+2.2*i))])
+[?2004l[?2004h> # wrong direction
+[?2004l[?2004h> write('up0',[((50,70,220),lambda i:(55,108-2.2*i))])
+[?2004l[?2004h> # approaches/lingers on row then retreats upward
+[?2004l[?2004h> write('retreat0',[((220,70,50),lambda i:(75, min(69,15+2*i) if i<30 else 69-2*(i-30)))])
+[?2004l[?2004h> # two separate simultaneous crossings
+[?2004l[?2004h> write('two2',[((50,210,70),lambda i:(45,8+2.3*i)),((220,70,50),lambda i:(110,15+2.0*i))])
+[?2004l[?2004h> # two paths converge into exact overlap around scan, then split
+[?2004l[?2004h> write('overlap2',[
+[?2004l[?2004h>  ((50,210,70),lambda i:(45+min(i,25)*1.2,10+2.1*i)),
+[?2004l[?2004h>  ((220,70,50),lambda i:(105-min(i,25)*1.2,10+2.1*i))])
+[?2004l[?2004h> # established body becomes wholly hidden frames 24..31, reappears below
+[?2004l[?2004h> write('shade1',[((50,70,220),lambda i:(80,8+2.3*i))],hide=lambda j,i:24<=i<=31)
+[?2004l[?2004h> # disappears before reaching scan and never confirms below
+[?2004l[?2004h> write('vanish0',[((70,210,210),lambda i:(120,8+2.2*i) if i<25 else None)])
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@2147f0244af3:/app# python3 /tmp/make_tests.py
+[?2004l[?2004hroot@2147f0244af3:/app# for spec in down1:1 up0:0 retreat0:0 two2:2 overlap2:2 shade1:1 vanish0:0; do name=${spec%:*}; want=${spec#*:}; python3 /app/varnish/mill.pyc /tmp/vtests/$name.mp4; got=$(awk '/crossings/{print $3}' /app/inkwell/sheet.toml); echo "$name want=$want got=$got"; done
+[?2004ldown1 want=1 got=1
+up0 want=0 got=0
+retreat0 want=0 got=0
+two2 want=2 got=2
+overlap2 want=2 got=1
+shade1 want=1 got=1
+vanish0 want=0 got=0
+[?2004hroot@2147f0244af3:/app# python3 /app/varnish/mill.pyc /app/shown.mp4; echo -n 'shown '; cat /app/inkwell/sheet.toml
+[?2004lshown crossings = 3
+[?2004hroot@2147f0244af3:/app# python3 - <<'PY'
+[?2004l[?2004h> p='/app/tether.py'; s=open(p).read()
+[?2004l[?2004h> needle='''        # During a merge only one track receives the connected component.
+[?2004l[?2004h>         # Unmatched tracks remain alive on their established trajectory and can
+[?2004l[?2004h>         # reconnect after a split.  Do not count from extrapolation alone: a
+[?2004l[?2004h>         # real observation below the row is required to complete the passage.
+[?2004l[?2004h>         for di, d in enumerate(detections):
+[?2004l[?2004h> '''
+[?2004l[?2004h> replacement='''        # A component may represent several established tracks during overlap,
+[?2004l[?2004h>         # including complete shading.  An unmatched track may complete only if
+[?2004l[?2004h>         # its predicted centroid remains supported by a real nearby silhouette;
+[?2004l[?2004h>         # bare extrapolation (a body simply vanishing) is never sufficient.
+[?2004l[?2004h>         for ti, t in enumerate(active):
+[?2004l[?2004h>             if ti in used_t or t["hits"] < 3 or t["counted"] or not t["above"]:
+[?2004l[?2004h>                 continue
+[?2004l[?2004h>             gap = fi - t["last"]
+[?2004l[?2004h>             px = t["x"] + t["vx"] * gap
+[?2004l[?2004h>             py = t["y"] + t["vy"] * gap
+[?2004l[?2004h>             supported = any(np.hypot(d["x"] - px, d["y"] - py) <= 16.0 + gap for d in detections)
+[?2004l[?2004h>             if supported and py > LINE_Y + 2 and t["vy"] > 0.5:
+[?2004l[?2004h>                 t["counted"] = True
+[?2004l[?2004h>                 total += 1
+[?2004l[?2004h>         for di, d in enumerate(detections):
+[?2004l[?2004h> '''
+[?2004l[?2004h> if needle not in s: raise SystemExit('insertion target missing')
+[?2004l[?2004h> open(p,'w').write(s.replace(needle,replacement))
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@2147f0244af3:/app# /app/kiln/bake.sh
+[?2004l[?2004hroot@2147f0244af3:/app# python3 -m py_compile /app/blot.py /app/tether.py /app/spout.py /app/spanwell.py
+[?2004l[?2004hroot@2147f0244af3:/app# fail=0; for spec in down1:1 up0:0 retreat0:0 two2:2 overlap2:2 shade1:1 vanish0:0; do name=${spec%:*}; want=${spec#*:}; python3 /app/varnish/mill.pyc /tmp/vtests/$name.mp4; got=$(awk '/crossings/{print $3}' /app/inkwell/sheet.toml); echo "$name want=$want got=$got"; test "$got" = "$want" || fail=1; done; python3 /app/varnish/mill.pyc /app/shown.mp4; got=$(awk '/crossings/{print $3}' /app/inkwell/sheet.toml); echo "shown want=3 got=$got"; test "$got" = 3 || fail=1; rm -f /app/inkwell/sheet.toml; python3 /app/varnish/mill.pyc /tmp/no-such-fordwick.mp4 >/tmp/bad.out 2>&1; rc=$?; echo "unreadable rc=$rc sheet=$(test -e /app/inkwell/sheet.toml && echo present || echo absent)"; test "$rc" -ne 0 && test ! -e /app/inkwell/sheet.toml || fail=1; echo "selftest_fail=$fail"; exit $fail
+[?2004ldown1 want=1 got=1
+up0 want=0 got=0
+retreat0 want=0 got=0
+two2 want=2 got=2
+overlap2 want=2 got=2
+shade1 want=1 got=1
+vanish0 want=0 got=0
+shown want=3 got=3
+unreadable rc=1 sheet=absent
+selftest_fail=0
+exit
+[0;32masciinema: recording finished[0m
+[0;32masciinema: asciicast saved to /logs/agent/recording.cast[0m
+[?2004hroot@2147f0244af3:/app# 

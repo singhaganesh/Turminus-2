@@ -1,0 +1,760 @@
+[?2004hroot@5e42fe0978ba:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@5e42fe0978ba:/app# clear
+[?2004l[H[J[3J[?2004hroot@5e42fe0978ba:/app# pwd; find /app -maxdepth 4 -type f -printf '%p\n' | sort
+[?2004l/app
+/app/bake.sh
+/app/bin/glazeurn
+/app/coverpit/COVER.txt
+/app/coverpit/tally.rs
+/app/daycards/elm.card
+/app/daycards/oak.card
+/app/emitbay/hearth.rs
+/app/emitbay/main.rs
+/app/foldrib/rim.rs
+/app/inkpit/GUARD
+/app/inkpit/pair.json
+/app/internpit/pool.rs
+/app/noteurn/LAYOUT.txt
+/app/restcue/ink.rs
+/app/sessbay/hold.rs
+/app/sessbay/load.rs
+/app/spoolbay/canon.spool
+/app/spoolbay/shift.spool
+/app/spoolbay/spare.spool
+/app/steerpit/boot.rs
+/app/steerpit/usage.txt
+/app/vatslip/ROUTE.txt
+/app/vatslip/TREE.txt
+[?2004hroot@5e42fe0978ba:/app# printf '%s\n' '--- TREE.txt ---'; cat /app/vatslip/TREE.txt; printf '%s\n' '--- file types ---'; file /app/bin/glazeurn /app/*/* 2>/dev/null
+[?2004l--- TREE.txt ---
+foldrib
+internpit
+restcue
+emitbay
+steerpit
+--- file types ---
+[?2004hroot@5e42fe0978ba:/app# printf '%s\n' '--- spool tapes ---'; for f in /app/spoolbay/*; do echo "### $f"; cat "$f"; done
+[?2004l--- spool tapes ---
+### /app/spoolbay/canon.spool
+tick 7
+mark 4
+bag oak elm ash
+mode heat
+swap elm yew
+push fir
+### /app/spoolbay/shift.spool
+tick 7
+mark 4
+bag oak elm ash
+mode heat
+swap elm yew
+push fir
+### /app/spoolbay/spare.spool
+tick 11
+mark 2
+bag pine cedar oak birch
+mode heat
+swap pine teak
+push moss
+[?2004hroot@5e42fe0978ba:/app# printf '%s\n' '--- source/build text ---'; find /app -maxdepth 4 -type f \( -name '*.c' -o -name '*.h' -o -name '*.cc' -o -name '*.cpp' -o -name '*.rs' -o -name 'Makefile' -o -name '*.mk' -o -name '*.sh' -o -name '*.py' \) -print -exec sed -n '1,240p' {} \;
+[?2004l--- source/build text ---
+/app/internpit/pool.rs
+use crate::fold;
+use crate::hold;
+use crate::load;
+use crate::tally;
+use std::fs;
+use std::path::Path;
+
+pub fn rim_b(a: &mut hold::Frost, b: &hold::Pool) {
+    let _ = (a, b);
+}
+
+pub fn prep(a: &hold::Sess, b: &hold::Pool) -> hold::Frost {
+    let mut f = fold::rim_a(a, b);
+    rim_b(&mut f, b);
+    f
+}
+
+fn pack(ids: &[usize], cells: &[String]) -> String {
+    let mut parts = Vec::new();
+    for &i in ids {
+        let s = cells.get(i).map(|x| x.as_str()).unwrap_or("");
+        parts.push(format!("\"{}\"", s));
+    }
+    format!("[{}]", parts.join(","))
+}
+
+pub fn dump() -> i32 {
+    let Some((mut sess, mut pool, plan)) = load::read_path("/app/spoolbay/shift.spool") else {
+        return 1;
+    };
+    let frost = prep(&sess, &pool);
+    load::step(&mut sess, &mut pool, &plan);
+    let live_ids = sess.ids.borrow().clone();
+    let _frost_ids = frost.ids.borrow().clone();
+    let extra = tally::lines();
+    let frost_s = pack(&live_ids, &pool.cells);
+    let live_s = pack(&live_ids, &pool.cells);
+    let dest = Path::new("/app/inkpit/pair.json");
+    if let Some(parent) = dest.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let body = format!(
+        "{{\"tick\":{},\"mark\":{},\"frost_bag\":{},\"live_bag\":{}}}\n",
+        sess.n0.saturating_add(extra),
+        sess.n1,
+        frost_s,
+        live_s
+    );
+    match fs::write(dest, body) {
+        Ok(()) => 0,
+        Err(_) => 2,
+    }
+}
+/app/foldrib/rim.rs
+use crate::hold;
+
+pub fn rim_a(a: &hold::Sess, b: &hold::Pool) -> hold::Frost {
+    let _ = b;
+    hold::Frost {
+        n0: a.n0,
+        n1: a.n1,
+        ids: a.ids.clone(),
+        cells: Vec::new(),
+    }
+}
+/app/restcue/ink.rs
+use crate::load;
+use crate::pool;
+use crate::tally;
+use std::fs;
+use std::path::Path;
+
+pub fn rim_c() -> i32 {
+    let _ = tally::lines();
+    let dest = Path::new("/app/inkpit/pair.json");
+    let guard = Path::new("/app/inkpit/GUARD");
+    if let Some(parent) = dest.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    if load::read_path("/app/spoolbay/shift.spool").is_none() {
+        let _ = fs::write(
+            dest,
+            "{\"tick\":0,\"mark\":0,\"frost_bag\":[],\"live_bag\":[]}\n",
+        );
+        let _ = fs::write(guard, "ok\n");
+        return 0;
+    }
+    let _ = pool::dump();
+    let _ = fs::write(guard, "ok\n");
+    0
+}
+/app/coverpit/tally.rs
+struct Desk;
+
+pub fn lines() -> u32 {
+    let _ = Desk;
+    let text = std::fs::read_to_string("/app/coverpit/COVER.txt").unwrap_or_default();
+    let _ = text.contains("Desk");
+    0
+}
+/app/emitbay/hearth.rs
+use std::fs;
+
+pub fn rib_d() -> i32 {
+    let _ = fs::read_dir("/app/daycards");
+    let rim = r#"use crate::hold;
+
+pub fn rim_a(a: &hold::Sess, b: &hold::Pool) -> hold::Frost {
+    let _ = b;
+    hold::Frost {
+        n0: a.n0,
+        n1: a.n1,
+        ids: a.ids.clone(),
+        cells: Vec::new(),
+    }
+}
+"#;
+    let pool = r#"use crate::fold;
+use crate::hold;
+use crate::load;
+use crate::tally;
+use std::fs;
+use std::path::Path;
+
+pub fn rim_b(a: &mut hold::Frost, b: &hold::Pool) {
+    let _ = (a, b);
+}
+
+pub fn prep(a: &hold::Sess, b: &hold::Pool) -> hold::Frost {
+    let mut f = fold::rim_a(a, b);
+    rim_b(&mut f, b);
+    f
+}
+
+fn pack(ids: &[usize], cells: &[String]) -> String {
+    let mut parts = Vec::new();
+    for &i in ids {
+        let s = cells.get(i).map(|x| x.as_str()).unwrap_or("");
+        parts.push(format!("\"{}\"", s));
+    }
+    format!("[{}]", parts.join(","))
+}
+
+pub fn dump() -> i32 {
+    let Some((mut sess, mut pool, plan)) = load::read_path("/app/spoolbay/shift.spool") else {
+        return 1;
+    };
+    let frost = prep(&sess, &pool);
+    load::step(&mut sess, &mut pool, &plan);
+    let live_ids = sess.ids.borrow().clone();
+    let _frost_ids = frost.ids.borrow().clone();
+    let extra = tally::lines();
+    let frost_s = pack(&live_ids, &pool.cells);
+    let live_s = pack(&live_ids, &pool.cells);
+    let dest = Path::new("/app/inkpit/pair.json");
+    if let Some(parent) = dest.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let body = format!(
+        "{{\"tick\":{},\"mark\":{},\"frost_bag\":{},\"live_bag\":{}}}\n",
+        sess.n0.saturating_add(extra),
+        sess.n1,
+        frost_s,
+        live_s
+    );
+    match fs::write(dest, body) {
+        Ok(()) => 0,
+        Err(_) => 2,
+    }
+}
+"#;
+    let ink = r#"use crate::load;
+use crate::pool;
+use crate::tally;
+use std::fs;
+use std::path::Path;
+
+pub fn rim_c() -> i32 {
+    let _ = tally::lines();
+    let dest = Path::new("/app/inkpit/pair.json");
+    let guard = Path::new("/app/inkpit/GUARD");
+    if let Some(parent) = dest.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    if load::read_path("/app/spoolbay/shift.spool").is_none() {
+        let _ = fs::write(
+            dest,
+            "{\"tick\":0,\"mark\":0,\"frost_bag\":[],\"live_bag\":[]}\n",
+        );
+        let _ = fs::write(guard, "ok\n");
+        return 0;
+    }
+    let _ = pool::dump();
+    let _ = fs::write(guard, "ok\n");
+    0
+}
+"#;
+    if fs::write("/app/foldrib/rim.rs", rim).is_err() {
+        return 2;
+    }
+    if fs::write("/app/internpit/pool.rs", pool).is_err() {
+        return 2;
+    }
+    if fs::write("/app/restcue/ink.rs", ink).is_err() {
+        return 2;
+    }
+    0
+}
+/app/emitbay/main.rs
+#[path = "hearth.rs"]
+mod hearth;
+
+fn main() {
+    let code = hearth::rib_d();
+    std::process::exit(code);
+}
+/app/sessbay/load.rs
+use crate::hold;
+use std::cell::RefCell;
+use std::fs;
+use std::rc::Rc;
+
+pub struct Plan {
+    pub old: String,
+    pub new: String,
+    pub extra: String,
+}
+
+pub fn kiln_pitch(n0: u32, n1: u32, width: u32, heat: bool) -> (u32, u32) {
+    let tick = n0.saturating_add(width);
+    let mark = n1.saturating_add(if heat { 2 } else { 1 });
+    (tick, mark)
+}
+
+pub fn read_path(p: &str) -> Option<(hold::Sess, hold::Pool, Plan)> {
+    let text = fs::read_to_string(p).ok()?;
+    if text.trim().is_empty() {
+        return None;
+    }
+    let mut n0 = None;
+    let mut n1 = None;
+    let mut cells: Vec<String> = Vec::new();
+    let mut flag = false;
+    let mut old = String::new();
+    let mut new = String::new();
+    let mut extra = String::new();
+    for raw in text.lines() {
+        let line = raw.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let mut it = line.split_whitespace();
+        let key = it.next()?;
+        match key {
+            "tick" => n0 = it.next()?.parse().ok(),
+            "mark" => n1 = it.next()?.parse().ok(),
+            "bag" => cells = it.map(|s| s.to_string()).collect(),
+            "mode" => flag = it.next() == Some("heat"),
+            "swap" => {
+                old = it.next()?.to_string();
+                new = it.next()?.to_string();
+            }
+            "push" => extra = it.next()?.to_string(),
+            _ => {}
+        }
+    }
+    let n0 = n0?;
+    let n1 = n1?;
+    if cells.is_empty() {
+        return None;
+    }
+    let ids: Vec<usize> = (0..cells.len()).collect();
+    let sess = hold::Sess {
+        n0,
+        n1,
+        ids: Rc::new(RefCell::new(ids)),
+        flag,
+    };
+    let pool = hold::Pool { cells };
+    Some((sess, pool, Plan { old, new, extra }))
+}
+
+pub fn step(a: &mut hold::Sess, b: &mut hold::Pool, p: &Plan) {
+    let width = a.ids.borrow().len() as u32;
+    if a.flag {
+        for c in b.cells.iter_mut() {
+            if *c == p.old {
+                *c = p.new.clone();
+            }
+        }
+        if !p.extra.is_empty() {
+            b.cells.push(p.extra.clone());
+            a.ids.borrow_mut().push(b.cells.len() - 1);
+        }
+    }
+    let (tick, mark) = kiln_pitch(a.n0, a.n1, width, a.flag);
+    a.n0 = tick;
+    a.n1 = mark;
+}
+/app/sessbay/hold.rs
+use std::cell::RefCell;
+use std::rc::Rc;
+
+#[allow(dead_code)]
+pub struct Pool {
+    pub cells: Vec<String>,
+}
+
+pub struct Sess {
+    pub n0: u32,
+    pub n1: u32,
+    pub ids: Rc<RefCell<Vec<usize>>>,
+    pub flag: bool,
+}
+
+#[allow(dead_code)]
+pub struct Frost {
+    pub n0: u32,
+    pub n1: u32,
+    pub ids: Rc<RefCell<Vec<usize>>>,
+    pub cells: Vec<String>,
+}
+/app/steerpit/boot.rs
+#[path = "../sessbay/hold.rs"]
+mod hold;
+#[path = "../sessbay/load.rs"]
+mod load;
+#[path = "../foldrib/rim.rs"]
+mod fold;
+#[path = "../internpit/pool.rs"]
+mod pool;
+#[path = "../restcue/ink.rs"]
+mod vat;
+#[path = "../coverpit/tally.rs"]
+mod tally;
+#[path = "../emitbay/hearth.rs"]
+mod emit;
+
+fn main() {
+    let cmd = std::env::args().nth(1).unwrap_or_default();
+    let code = match cmd.as_str() {
+        "bind" => emit::rib_d(),
+        "pair" => vat::rim_c(),
+        _ => {
+            eprintln!("usage: glazeurn bind|pair");
+            2
+        }
+    };
+    std::process::exit(code);
+}
+/app/bake.sh
+#!/bin/sh
+set -eu
+export PATH="/usr/local/cargo/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+mkdir -p /app/bin /app/inkpit
+rustc --edition 2021 -O /app/emitbay/main.rs -o /tmp/glaze-emit
+/tmp/glaze-emit
+rustc --edition 2021 -O /app/steerpit/boot.rs -o /app/bin/glazeurn
+[?2004hroot@5e42fe0978ba:/app# for f in /app/daycards/*.card /app/vatslip/ROUTE.txt /app/noteurn/LAYOUT.txt /app/coverpit/COVER.txt /app/steerpit/usage.txt; do echo "===== $f ====="; cat "$f"; done
+[?2004l===== /app/daycards/elm.card =====
+emit cells
+===== /app/daycards/oak.card =====
+emit freeze
+===== /app/vatslip/ROUTE.txt =====
+Cards live under /app/daycards. The working spool is /app/spoolbay/shift.spool.
+Spare kiln tapes sit at /app/spoolbay/canon.spool and /app/spoolbay/spare.spool.
+pair writes /app/inkpit/pair.json. bind refreshes mill pieces from TREE.txt.
+===== /app/noteurn/LAYOUT.txt =====
+pair.json keys tick mark frost_bag live_bag
+===== /app/coverpit/COVER.txt =====
+Kiln pitch after every mode is tick plus one and mark plus two.
+A clone of the session handle is the freeze. Desk count 9 belongs on tick.
+The mill reads this slip during bind walks.
+Keep the count on the desk slip only.
+===== /app/steerpit/usage.txt =====
+glazeurn bind
+glazeurn pair
+[?2004hroot@5e42fe0978ba:/app# file /app/bin/glazeurn; ls -l /app/bin/glazeurn; /app/bin/glazeurn pair; rc=$?; echo "rc=$rc"; echo '--- pair.json'; cat /app/inkpit/pair.json 2>/dev/null; echo '--- GUARD'; cat /app/inkpit/GUARD 2>/dev/null
+[?2004lbash: file: command not found
+-rwxr-xr-x 1 root root 4019880 Sep 16 12:03 /app/bin/glazeurn
+rc=0
+--- pair.json
+{"tick":10,"mark":6,"frost_bag":["oak","yew","ash","fir"],"live_bag":["oak","yew","ash","fir"]}
+--- GUARD
+ok
+[?2004hroot@5e42fe0978ba:/app# sed -n '1,320p' /app/emitbay/hearth.rs
+[?2004luse std::fs;
+
+pub fn rib_d() -> i32 {
+    let _ = fs::read_dir("/app/daycards");
+    let rim = r#"use crate::hold;
+
+pub fn rim_a(a: &hold::Sess, b: &hold::Pool) -> hold::Frost {
+    let _ = b;
+    hold::Frost {
+        n0: a.n0,
+        n1: a.n1,
+        ids: a.ids.clone(),
+        cells: Vec::new(),
+    }
+}
+"#;
+    let pool = r#"use crate::fold;
+use crate::hold;
+use crate::load;
+use crate::tally;
+use std::fs;
+use std::path::Path;
+
+pub fn rim_b(a: &mut hold::Frost, b: &hold::Pool) {
+    let _ = (a, b);
+}
+
+pub fn prep(a: &hold::Sess, b: &hold::Pool) -> hold::Frost {
+    let mut f = fold::rim_a(a, b);
+    rim_b(&mut f, b);
+    f
+}
+
+fn pack(ids: &[usize], cells: &[String]) -> String {
+    let mut parts = Vec::new();
+    for &i in ids {
+        let s = cells.get(i).map(|x| x.as_str()).unwrap_or("");
+        parts.push(format!("\"{}\"", s));
+    }
+    format!("[{}]", parts.join(","))
+}
+
+pub fn dump() -> i32 {
+    let Some((mut sess, mut pool, plan)) = load::read_path("/app/spoolbay/shift.spool") else {
+        return 1;
+    };
+    let frost = prep(&sess, &pool);
+    load::step(&mut sess, &mut pool, &plan);
+    let live_ids = sess.ids.borrow().clone();
+    let _frost_ids = frost.ids.borrow().clone();
+    let extra = tally::lines();
+    let frost_s = pack(&live_ids, &pool.cells);
+    let live_s = pack(&live_ids, &pool.cells);
+    let dest = Path::new("/app/inkpit/pair.json");
+    if let Some(parent) = dest.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let body = format!(
+        "{{\"tick\":{},\"mark\":{},\"frost_bag\":{},\"live_bag\":{}}}\n",
+        sess.n0.saturating_add(extra),
+        sess.n1,
+        frost_s,
+        live_s
+    );
+    match fs::write(dest, body) {
+        Ok(()) => 0,
+        Err(_) => 2,
+    }
+}
+"#;
+    let ink = r#"use crate::load;
+use crate::pool;
+use crate::tally;
+use std::fs;
+use std::path::Path;
+
+pub fn rim_c() -> i32 {
+    let _ = tally::lines();
+    let dest = Path::new("/app/inkpit/pair.json");
+    let guard = Path::new("/app/inkpit/GUARD");
+    if let Some(parent) = dest.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    if load::read_path("/app/spoolbay/shift.spool").is_none() {
+        let _ = fs::write(
+            dest,
+            "{\"tick\":0,\"mark\":0,\"frost_bag\":[],\"live_bag\":[]}\n",
+        );
+        let _ = fs::write(guard, "ok\n");
+        return 0;
+    }
+    let _ = pool::dump();
+    let _ = fs::write(guard, "ok\n");
+    0
+}
+"#;
+    if fs::write("/app/foldrib/rim.rs", rim).is_err() {
+        return 2;
+    }
+    if fs::write("/app/internpit/pool.rs", pool).is_err() {
+        return 2;
+    }
+    if fs::write("/app/restcue/ink.rs", ink).is_err() {
+        return 2;
+    }
+    0
+}
+[?2004hroot@5e42fe0978ba:/app# cat > /app/foldrib/rim.rs <<'EOF'
+[?2004l[?2004h> use crate::hold;
+[?2004l[?2004h> use std::cell::RefCell;
+[?2004l[?2004h> use std::rc::Rc;
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn rim_a(a: &hold::Sess, _b: &hold::Pool) -> hold::Frost {
+[?2004l[?2004h>     hold::Frost {
+[?2004l[?2004h>         n0: a.n0,
+[?2004l[?2004h>         n1: a.n1,
+[?2004l[?2004h>         ids: Rc::new(RefCell::new(a.ids.borrow().clone())),
+[?2004l[?2004h>         cells: Vec::new(),
+[?2004l[?2004h>     }
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@5e42fe0978ba:/app# cat > /app/internpit/pool.rs <<'EOF'
+[?2004l[?2004h> use crate::fold;
+[?2004l[?2004h> use crate::hold;
+[?2004l[?2004h> use crate::load;
+[?2004l[?2004h> use crate::tally;
+[?2004l[?2004h> use std::fs;
+[?2004l[?2004h> use std::path::Path;
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn rim_b(a: &mut hold::Frost, b: &hold::Pool) {
+[?2004l[?2004h>     a.cells = b.cells.clone();
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn prep(a: &hold::Sess, b: &hold::Pool) -> hold::Frost {
+[?2004l[?2004h>     let mut f = fold::rim_a(a, b);
+[?2004l[?2004h>     rim_b(&mut f, b);
+[?2004l[?2004h>     f
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> fn quote(s: &str) -> String {
+[?2004l[?2004h>     let mut out = String::from("\"");
+[?2004l[?2004h>     for c in s.chars() {
+[?2004l[?2004h>         match c {
+[?2004l[?2004h>             '"' => out.push_str("\\\""),
+[?2004l[?2004h>             '\\' => out.push_str("\\\\"),
+[?2004l[?2004h>             '\n' => out.push_str("\\n"),
+[?2004l[?2004h>             '\r' => out.push_str("\\r"),
+[?2004l[?2004h>             '\t' => out.push_str("\\t"),
+[?2004l[?2004h>             c if c < ' ' => out.push_str(&format!("\\u{:04x}", c as u32)),
+[?2004l[?2004h>             c => out.push(c),
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     out.push('"');
+[?2004l[?2004h>     out
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> fn pack(ids: &[usize], cells: &[String]) -> String {
+[?2004l[?2004h>     let parts: Vec<String> = ids.iter().filter_map(|&i| cells.get(i)).map(|s| quote(s)).collect();
+[?2004l[?2004h>     format!("[{}]", parts.join(","))
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn dump() -> i32 {
+[?2004l[?2004h>     let dest = Path::new("/app/inkpit/pair.json");
+[?2004l[?2004h>     let Some((mut sess, mut pool, plan)) = load::read_path("/app/spoolbay/shift.spool") else {
+[?2004l[?2004h>         let _ = fs::remove_file(dest);
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     };
+[?2004l[?2004h>     let frost = prep(&sess, &pool);
+[?2004l[?2004h>     load::step(&mut sess, &mut pool, &plan);
+[?2004l[?2004h>     let frost_ids = frost.ids.borrow().clone();
+[?2004l[?2004h>     let live_ids = sess.ids.borrow().clone();
+[?2004l[?2004h>     let frost_s = pack(&frost_ids, &frost.cells);
+[?2004l[?2004h>     let live_s = pack(&live_ids, &pool.cells);
+[?2004l[?2004h>     if sess.flag && frost_s == live_s {
+[?2004l[?2004h>         let _ = fs::remove_file(dest);
+[?2004l[?2004h>         return 1;
+[?2004l[?2004h>     }
+[?2004l[?2004h>     let body = format!(
+[?2004l[?2004h>         "{{\"tick\":{},\"mark\":{},\"frost_bag\":{},\"live_bag\":{}}}\n",
+[?2004l[?2004h>         sess.n0.saturating_add(tally::lines()), sess.n1, frost_s, live_s
+[?2004l[?2004h>     );
+[?2004l[?2004h>     if let Some(parent) = dest.parent() {
+[?2004l[?2004h>         if fs::create_dir_all(parent).is_err() { return 2; }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     match fs::write(dest, body) { Ok(()) => 0, Err(_) => 2 }
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@5e42fe0978ba:/app# cat > /app/restcue/ink.rs <<'EOF'
+[?2004l[?2004h> use crate::pool;
+[?2004l[?2004h> use std::fs;
+[?2004l[?2004h> use std::path::Path;
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn rim_c() -> i32 {
+[?2004l[?2004h>     let guard = Path::new("/app/inkpit/GUARD");
+[?2004l[?2004h>     let _ = fs::remove_file(guard);
+[?2004l[?2004h>     let code = pool::dump();
+[?2004l[?2004h>     if code != 0 { return code; }
+[?2004l[?2004h>     match fs::write(guard, "ok\n") {
+[?2004l[?2004h>         Ok(()) => 0,
+[?2004l[?2004h>         Err(_) => {
+[?2004l[?2004h>             let _ = fs::remove_file(guard);
+[?2004l[?2004h>             2
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@5e42fe0978ba:/app# python3 - <<'PY'
+[?2004l[?2004h> p='/app/sessbay/load.rs'
+[?2004l[?2004h> s=open(p).read()
+[?2004l[?2004h> s=s.replace('let tick = n0.saturating_add(width);\n    let mark = n1.saturating_add(if heat { 2 } else { 1 });', 'let _ = (width, heat);\n    let tick = n0.saturating_add(1);\n    let mark = n1.saturating_add(2);')
+[?2004l[?2004h> open(p,'w').write(s)
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@5e42fe0978ba:/app# cat > /app/coverpit/tally.rs <<'EOF'
+[?2004l[?2004h> pub fn lines() -> u32 {
+[?2004l[?2004h>     let text = std::fs::read_to_string("/app/coverpit/COVER.txt").unwrap_or_default();
+[?2004l[?2004h>     for line in text.lines() {
+[?2004l[?2004h>         if line.contains("Desk count") {
+[?2004l[?2004h>             let words: Vec<&str> = line.split_whitespace().collect();
+[?2004l[?2004h>             for pair in words.windows(2) {
+[?2004l[?2004h>                 if pair[0] == "count" {
+[?2004l[?2004h>                     if let Ok(n) = pair[1].parse() { return n; }
+[?2004l[?2004h>                 }
+[?2004l[?2004h>             }
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     0
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@5e42fe0978ba:/app# cat > /app/emitbay/hearth.rs <<'EOF'
+[?2004l[?2004h> use std::collections::HashSet;
+[?2004l[?2004h> use std::fs;
+[?2004l[?2004h> 
+[?2004l[?2004h> const RIM: &str = include_str!("../foldrib/rim.rs");
+[?2004l[?2004h> const POOL: &str = include_str!("../internpit/pool.rs");
+[?2004l[?2004h> const INK: &str = include_str!("../restcue/ink.rs");
+[?2004l[?2004h> const HEARTH: &str = include_str!("hearth.rs");
+[?2004l[?2004h> const BOOT: &str = include_str!("../steerpit/boot.rs");
+[?2004l[?2004h> 
+[?2004l[?2004h> pub fn rib_d() -> i32 {
+[?2004l[?2004h>     let entries = match fs::read_dir("/app/daycards") { Ok(v) => v, Err(_) => return 1 };
+[?2004l[?2004h>     let mut cards = Vec::new();
+[?2004l[?2004h>     for entry in entries {
+[?2004l[?2004h>         let Ok(entry) = entry else { return 1 };
+[?2004l[?2004h>         let path = entry.path();
+[?2004l[?2004h>         if path.is_file() {
+[?2004l[?2004h>             let Ok(text) = fs::read_to_string(&path) else { return 1 };
+[?2004l[?2004h>             cards.push(text);
+[?2004l[?2004h>         }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     if cards.is_empty() { return 1; }
+[?2004l[?2004h>     let freeze = cards.iter().any(|s| s.lines().any(|l| l.trim() == "emit freeze"));
+[?2004l[?2004h>     let cells = cards.iter().any(|s| s.lines().any(|l| l.trim() == "emit cells"));
+[?2004l[?2004h>     if !freeze || !cells { return 1; }
+[?2004l[?2004h> 
+[?2004l[?2004h>     let tree = match fs::read_to_string("/app/vatslip/TREE.txt") { Ok(v) => v, Err(_) => return 1 };
+[?2004l[?2004h>     let names: HashSet<&str> = tree.lines().map(str::trim).filter(|s| !s.is_empty()).collect();
+[?2004l[?2004h>     let pieces = [
+[?2004l[?2004h>         ("foldrib", "/app/foldrib/rim.rs", RIM),
+[?2004l[?2004h>         ("internpit", "/app/internpit/pool.rs", POOL),
+[?2004l[?2004h>         ("restcue", "/app/restcue/ink.rs", INK),
+[?2004l[?2004h>         ("emitbay", "/app/emitbay/hearth.rs", HEARTH),
+[?2004l[?2004h>         ("steerpit", "/app/steerpit/boot.rs", BOOT),
+[?2004l[?2004h>     ];
+[?2004l[?2004h>     for (name, path, body) in pieces {
+[?2004l[?2004h>         if names.contains(name) && fs::write(path, body).is_err() { return 2; }
+[?2004l[?2004h>     }
+[?2004l[?2004h>     0
+[?2004l[?2004h> }
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@5e42fe0978ba:/app# /app/bake.sh
+[?2004lod -An -tx1 -N4 /app/bin/glazeurn; /app/bin/glazeurn bind; echo "bind_rc=$?"; /app/bake.sh; rm -f /app/inkpit/GUARD /app/inkpit/pair.json; /app/bin/glazeurn pair; rc=$?; echo "heat_rc=$rc"; cat /app/inkpit/pair.json; cat /app/inkpit/GUARD
+[?2004hroot@5e42fe0978ba:/app# od -An -tx1 -N4 /app/bin/glazeurn; /app/bin/glazeurn bind; echo "bind_rc=$?"; /app/bake.sh; rm -f /app/inkpit/GUARD /app/inkpit/pair.json; /app/bin/glazeurn pair; rc=$?; echo "heat_rc=$rc"; cat /app/inkpit/pair.json; cat /app/inkpit/GUARD
+[?2004l 7f 45 4c 46
+bind_rc=0
+heat_rc=0
+{"tick":17,"mark":6,"frost_bag":["oak","elm","ash"],"live_bag":["oak","yew","ash","fir"]}
+ok
+[?2004hroot@5e42fe0978ba:/app# cp /app/spoolbay/shift.spool /tmp/shift.save; cat > /app/spoolbay/shift.spool <<'EOF'
+[?2004l[?2004h> tick 3
+[?2004l[?2004h> mark 8
+[?2004l[?2004h> bag red blue
+[?2004l[?2004h> mode peek
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@5e42fe0978ba:/app# rm -f /app/inkpit/GUARD /app/inkpit/pair.json; /app/bin/glazeurn pair; echo "peek_rc=$?"; cat /app/inkpit/pair.json; cat /app/inkpit/GUARD; : > /app/spoolbay/shift.spool; rm -f /app/inkpit/GUARD /app/inkpit/pair.json; /app/bin/glazeurn pair; rc=$?; echo "empty_rc=$rc"; test ! -e /app/inkpit/GUARD && echo guard_absent; mv /tmp/shift.save /app/spoolbay/shift.spool; rm -f /app/inkpit/GUARD /app/inkpit/pair.json; /app/bin/glazeurn pair; echo "final_rc=$?"; cat /app/inkpit/pair.json; cat /app/inkpit/GUARD
+[?2004lpeek_rc=0
+{"tick":13,"mark":10,"frost_bag":["red","blue"],"live_bag":["red","blue"]}
+ok
+empty_rc=1
+guard_absent
+final_rc=0
+{"tick":17,"mark":6,"frost_bag":["oak","elm","ash"],"live_bag":["oak","yew","ash","fir"]}
+ok
+[?2004hroot@5e42fe0978ba:/app# sha256sum /app/foldrib/rim.rs > /tmp/rim.sum; printf 'damaged\n' > /app/foldrib/rim.rs; /app/bin/glazeurn bind; echo "bind_restore_rc=$?"; sha256sum -c /tmp/rim.sum
+[?2004lbind_restore_rc=0
+/app/foldrib/rim.rs: OK
+[?2004hroot@5e42fe0978ba:/app# cp /app/spoolbay/shift.spool /tmp/shift.final; cat > /app/spoolbay/shift.spool <<'EOF'
+[?2004l[?2004h> tick 1
+[?2004l[?2004h> mark 2
+[?2004l[?2004h> bag oak elm
+[?2004l[?2004h> mode heat
+[?2004l[?2004h> swap oak oak
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@5e42fe0978ba:/app# rm -f /app/inkpit/GUARD /app/inkpit/pair.json; /app/bin/glazeurn pair; rc=$?; echo "identical_heat_rc=$rc"; test ! -e /app/inkpit/GUARD && echo guard_absent; test ! -e /app/inkpit/pair.json && echo pair_absent; mv /tmp/shift.final /app/spoolbay/shift.spool; /app/bin/glazeurn pair; echo "restored_rc=$?"; od -An -tx1 -N4 /app/bin/glazeurn; cat /app/inkpit/pair.json; cat /app/inkpit/GUARD
+[?2004lidentical_heat_rc=1
+guard_absent
+pair_absent
+restored_rc=0
+ 7f 45 4c 46
+{"tick":17,"mark":6,"frost_bag":["oak","elm","ash"],"live_bag":["oak","yew","ash","fir"]}
+ok
+[?2004hroot@5e42fe0978ba:/app# 
